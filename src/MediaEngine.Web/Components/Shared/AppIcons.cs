@@ -32,6 +32,12 @@ public static class AppIcons
     public const string Security = "security";
     public const string Users = "users";
     public const string Activity = "activity";
+    public const string Database = "database";
+    public const string Ingestion = "ingestion";
+    public const string Metadata = "metadata";
+    public const string Cleanup = "cleanup";
+    public const string Backup = "backup";
+    public const string System = "system";
     public const string Maintenance = "maintenance";
     public const string Warning = "warning";
     public const string Info = "info";

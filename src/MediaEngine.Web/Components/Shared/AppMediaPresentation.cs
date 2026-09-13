@@ -88,13 +88,13 @@ public static class AppMediaPresentation
         var label = LabelFor(mediaType);
         return label switch
         {
-            "Book" => "var(--tl-status-success)",
-            "Audiobook" or "Audio" => "#84CC16",
-            "Movie" or "Video" => "var(--tl-status-info)",
-            "TV" => "var(--tl-media-video)",
-            "Music" => "#1ED760",
-            "Comic" => "#7C4DFF",
-            _ => "transparent",
+            "Book" => "var(--tl-media-books)",
+            "Audiobook" or "Audio" => "var(--tl-media-audiobooks)",
+            "Movie" or "Video" => "var(--tl-media-movies)",
+            "TV" => "var(--tl-media-tv)",
+            "Music" => "var(--tl-media-music)",
+            "Comic" => "var(--tl-media-comics)",
+            _ => "var(--tl-media-unknown)",
         };
     }
 

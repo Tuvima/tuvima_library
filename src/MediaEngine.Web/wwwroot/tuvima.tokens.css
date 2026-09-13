@@ -172,6 +172,13 @@
     --tl-media-audio: #38BDF8;
     --tl-media-video: #F472B6;
     --tl-media-comic: #F59E0B;
+    /* Canonical media-type accents. Use these when the exact type is known. */
+    --tl-media-books: #60A5FA;
+    --tl-media-audiobooks: #34D399;
+    --tl-media-movies: #FB7185;
+    --tl-media-tv: #A78BFA;
+    --tl-media-music: #FBBF24;
+    --tl-media-comics: #22D3EE;
     --tl-media-game: #22C55E;
     --tl-media-document: #B6C2D6;
     --tl-media-unknown: #7F8DA5;

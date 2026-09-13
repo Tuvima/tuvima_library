@@ -13,17 +13,15 @@
     @if (_reminderLoaded && !_optionalSetupReminderDismissed)
     {
         <section class="admin-optional-setup" aria-label="Optional setup reminder">
-            <MudIcon Icon="@Icons.Material.Outlined.TipsAndUpdates" aria-hidden="true" />
+            <AppIconTile Name="@AppIcons.Intelligence" AccentColor="var(--tl-accent-primary)" Size="AppControlSize.Large" />
             <div><strong>Continue optional setup when you are ready</strong><p>Local AI starts disabled, and remote access stays home-only. Neither is required to use your library.</p><div class="admin-card-actions"><AppButton Href="/settings/ai" Label="Set up Local AI" Size="AppControlSize.Compact" /><AppButton Href="/settings/network/remote" Label="Set up remote access" Size="AppControlSize.Compact" /></div></div>
             <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Dismiss reminder" AriaLabel="Dismiss optional setup reminder" OnClick="DismissOptionalSetupReminderAsync" />
         </section>
     }
-    <MediaEngine.Web.Components.Navigation.PwaInstallAction />
-    <div class="admin-overview-toolbar">
-        <div>
-            <MudText Typo="Typo.caption" Class="admin-overview-muted">Last updated @FormatClock(_lastUpdated)</MudText>
-        </div>
+    <div class="admin-overview-commandbar">
+        <MediaEngine.Web.Components.Navigation.PwaInstallAction />
         <div class="admin-overview-actions">
+            <span class="admin-overview-updated">Last updated @FormatClock(_lastUpdated)</span>
             <AppButton ButtonStyle="AppButtonStyle.Outlined"
                        Size="AppControlSize.Compact"
                        Tone="AppUiTone.Neutral"
@@ -60,9 +58,12 @@
     {
     <AppPanel Elevation="0" Class="tl-card admin-library-summary">
         <div class="admin-overview-card__header">
-            <div>
-                <MudText Typo="Typo.h6">Library summary</MudText>
-                <MudText Typo="Typo.body2" Class="admin-overview-muted">@DisplayFormat.FormatCount(_libraryTotal) items across your catalogued media.</MudText>
+            <div class="admin-overview-heading">
+                <AppIconTile Name="@AppIcons.Database" AccentColor="var(--tl-media-books)" Size="AppControlSize.Large" />
+                <div>
+                    <MudText Typo="Typo.h6">Library summary</MudText>
+                    <MudText Typo="Typo.body2" Class="admin-overview-muted">@DisplayFormat.FormatCount(_libraryTotal) items across your catalogued media.</MudText>
+                </div>
             </div>
             <AppButton Href="/settings/libraries" Label="Manage libraries" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
         </div>
@@ -70,22 +71,27 @@
             <div class="admin-library-breakdown" aria-label="Library media type breakdown">
                 @foreach (var media in MediaBreakdown)
                 {
-                    <div class="admin-library-media">
-                        <span class="admin-library-media__label"><MudIcon Icon="@media.Icon" aria-hidden="true" />@media.Label</span>
-                        <span class="admin-library-media__count">@DisplayFormat.FormatCount(media.Count)</span>
-                        <span class="admin-library-media__percent">@FormatPercent(media.Percent)</span>
-                    </div>
+                    <AppCssElement Tag="div" Class="admin-library-media" Css="@MediaCardStyle(media)">
+                        <AppIconTile Name="@media.IconKey" AccentColor="@media.Color" />
+                        <span class="admin-library-media__copy">
+                            <span class="admin-library-media__label">@media.Label</span>
+                            <strong class="admin-library-media__count">@DisplayFormat.FormatCount(media.Count)</strong>
+                            <span class="admin-library-media__percent">@FormatPercent(media.Percent) of library</span>
+                        </span>
+                    </AppCssElement>
                 }
             </div>
 
-            <div class="admin-composition-bar" aria-label="Library composition by media type">
+            <div class="admin-composition-bar"
+                 role="img"
+                 aria-label="@CompositionAccessibleLabel">
                 @if (MediaBreakdown.Any(item => item.Count > 0))
                 {
                     @foreach (var media in MediaBreakdown.Where(item => item.Count > 0))
                     {
                         <AppCssElement Tag="span" Class="admin-composition-bar__segment"
-                              title="@($"{media.Label}: {media.Percent:0.#}%")"
-                              Css="@SegmentStyle(media)"></AppCssElement>
+                                       title="@($"{media.Label}: {DisplayFormat.FormatCount(media.Count)} items, {media.Percent:0.#}%")"
+                                       Css="@SegmentStyle(media)"></AppCssElement>
                     }
                 }
                 else
@@ -101,17 +107,17 @@
         <div class="admin-overview-primary-grid">
             @if (_pendingReviewCount > 0)
             {
-                <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-overview-card--attention">
-                    <div class="admin-overview-card__header"><MudText Typo="Typo.h6">Needs attention</MudText></div>
-                <div class="admin-attention-copy">
-                    <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
-                    <div><strong>@AttentionTitle</strong><p>These items could not be identified confidently.</p></div>
-                </div>
-                    <div class="admin-card-actions">
+                <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-overview-card--attention admin-attention-strip">
+                    <div class="admin-attention-copy">
+                        <AppIconTile Name="@AppIcons.Warning" AccentColor="var(--tl-status-warning)" />
+                        <div><strong>@AttentionTitle</strong><p>These items could not be identified confidently.</p></div>
+                    </div>
+                    <div class="admin-attention-action">
                         <AppButton Href="/settings/recently-added?review=expanded"
                                    Label="Review items"
-                                   ButtonStyle="AppButtonStyle.Filled"
-                                   Tone="AppUiTone.Primary" />
+                                   EndIcon="@Icons.Material.Outlined.ChevronRight"
+                                   ButtonStyle="AppButtonStyle.Outlined"
+                                   Tone="AppUiTone.Warning" />
                     </div>
                 </AppPanel>
             }
@@ -127,7 +133,7 @@
                     @foreach (var check in ReadinessIssues)
                     {
                         <a class="admin-system-status__row" role="listitem" href="@ReadinessRoute(check.Category)">
-                            <span class="admin-system-status__icon"><MudIcon Icon="@ReadinessIcon(check.Category)" /></span>
+                            <AppIconTile Name="@ReadinessIconKey(check.Category)" AccentColor="@ReadinessAccent(check.Status)" />
                             <span><strong>@ReadinessLabel(check.Name)</strong><small>@check.Description</small></span>
                             <AppStatusBadge Text="@ReadinessStatus(check.Status)" Tone="@ReadinessTone(check.Status)" />
                         </a>
@@ -135,7 +141,7 @@
                     @if (_currentRun.Failed > 0)
                     {
                         <a class="admin-system-status__row" role="listitem" href="/settings/ingestion">
-                            <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.SyncProblem" /></span>
+                            <AppIconTile Name="@AppIcons.Ingestion" AccentColor="var(--tl-status-warning)" />
                             <span><strong>Media processing</strong><small>@IngestionStatusDetail</small></span>
                             <AppStatusBadge Text="Needs attention" Tone="AppUiTone.Warning" />
                         </a>
@@ -143,7 +149,7 @@
                     @if (_backups.Count == 0)
                     {
                         <a class="admin-system-status__row" role="listitem" href="/settings/backup-recovery">
-                            <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.Backup" /></span>
+                            <AppIconTile Name="@AppIcons.Backup" AccentColor="var(--tl-status-warning)" />
                             <span><strong>No recovery point</strong><small>Create a backup before significant configuration changes.</small></span>
                             <AppStatusBadge Text="Action needed" Tone="AppUiTone.Warning" />
                         </a>
@@ -156,7 +162,13 @@
 
     <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-recent-activity">
         <div class="admin-overview-card__header">
-            <MudText Typo="Typo.h6">Recent Activity</MudText>
+            <div class="admin-overview-heading">
+                <AppIconTile Name="@AppIcons.Activity" AccentColor="var(--tl-media-books)" Size="AppControlSize.Large" />
+                <div>
+                    <MudText Typo="Typo.h6">Recent Activity</MudText>
+                    <MudText Typo="Typo.body2" Class="admin-overview-muted">Latest system activity and library changes.</MudText>
+                </div>
+            </div>
             <AppButton Href="/settings/ingestion" Label="View operations" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
         </div>
         @if (_recentActivity.Count == 0)
@@ -172,11 +184,16 @@
         else
         {
             <div class="admin-activity-table" role="table" aria-label="Recent activity">
-                <div class="admin-activity-table__head" role="row"><span>Activity</span><span>When</span></div>
+                <div class="admin-activity-table__head" role="row"><span>Activity</span><span>Type</span><span>When</span></div>
                 @foreach (var activity in _recentActivity.Take(5))
                 {
+                    var presentation = AppActivityPresentation.For(activity.ActionType, activity.EntityType);
                     <div class="admin-activity-table__row" role="row">
-                        <span>@ActivityText(activity)</span>
+                        <span class="admin-activity-table__activity">
+                            <AppIconTile Name="@presentation.IconKey" AccentColor="@presentation.AccentColor" Size="AppControlSize.Compact" />
+                            <span>@ActivityText(activity)</span>
+                        </span>
+                        <span><AppCssElement Tag="span" Class="admin-activity-type" Css="@ActivityTypeStyle(presentation)">@presentation.Label</AppCssElement></span>
                         <time datetime="@activity.OccurredAt">@FormatRelative(activity.OccurredAt)</time>
                     </div>
                 }
@@ -240,12 +257,12 @@
             var counts = _overview?.MediaTypeCounts ?? [];
             var items = new[]
             {
-                MediaItem("Books", counts, Icons.Material.Outlined.MenuBook),
-                MediaItem("Audiobooks", counts, Icons.Material.Outlined.Headphones),
-                MediaItem("Movies", counts, Icons.Material.Outlined.Movie),
-                MediaItem("TV Episodes", counts, Icons.Material.Outlined.Tv),
-                MediaItem("Music", counts, Icons.Material.Outlined.MusicNote),
-                MediaItem("Comics", counts, Icons.Material.Outlined.AutoStories),
+                MediaItem("Books", counts, "Books"),
+                MediaItem("Audiobooks", counts, "Audiobooks"),
+                MediaItem("Movies", counts, "Movies"),
+                MediaItem("TV Episodes", counts, "TV"),
+                MediaItem("Music", counts, "Music"),
+                MediaItem("Comics", counts, "Comics"),
             };
 
             var total = items.Sum(item => item.Count);
@@ -337,15 +354,22 @@
         _ => AppUiTone.Error,
     };
 
-    private static string ReadinessIcon(string category) => category switch
+    private static string ReadinessIconKey(string category) => category switch
     {
-        "database" => Icons.Material.Outlined.Storage,
-        "configuration" => Icons.Material.Outlined.Settings,
-        "storage" => Icons.Material.Outlined.Folder,
-        "models" => Icons.Material.Outlined.Memory,
-        "providers" => Icons.Material.Outlined.Hub,
-        "workers" => Icons.Material.Outlined.Engineering,
-        _ => Icons.Material.Outlined.MonitorHeart,
+        "database" => AppIcons.Database,
+        "configuration" => AppIcons.Settings,
+        "storage" => AppIcons.Library,
+        "models" => AppIcons.Intelligence,
+        "providers" => AppIcons.Providers,
+        "workers" => AppIcons.Ingestion,
+        _ => AppIcons.Activity,
+    };
+
+    private static string ReadinessAccent(string status) => status switch
+    {
+        "ready" => "var(--tl-status-success)",
+        "degraded" => "var(--tl-status-warning)",
+        _ => "var(--tl-status-danger)",
     };
 
     private static string ReadinessRoute(string category) => category.ToLowerInvariant() switch
@@ -472,8 +496,13 @@
         };
     }
 
-    private static MediaBreakdownItem MediaItem(string label, Dictionary<string, int> counts, string icon) =>
-        new(label, CountFor(counts, label), 0, icon);
+    private static MediaBreakdownItem MediaItem(string label, Dictionary<string, int> counts, string mediaType) =>
+        new(
+            label,
+            CountFor(counts, label),
+            0,
+            AppMediaPresentation.IconKeyFor(mediaType),
+            AppMediaPresentation.AccentFor(mediaType));
 
     private static int CountFor(Dictionary<string, int> counts, string label)
     {
@@ -501,7 +530,17 @@
             .ToArray());
 
     private static string SegmentStyle(MediaBreakdownItem item) =>
-        $"width: {Math.Max(item.Percent, 1).ToString("0.###", CultureInfo.InvariantCulture)}%; background: {item.Color};";
+        $"width:{item.Percent.ToString("0.######", CultureInfo.InvariantCulture)}%;--admin-segment-color:{item.Color};";
+
+    private static string MediaCardStyle(MediaBreakdownItem item) =>
+        $"--admin-media-accent:{item.Color};";
+
+    private static string ActivityTypeStyle(AppActivityDescriptor activity) =>
+        $"--admin-activity-accent:{activity.AccentColor};";
+
+    private string CompositionAccessibleLabel => _libraryTotal <= 0
+        ? "Library composition: no catalogued media"
+        : $"Library composition, {_libraryTotal} total: {string.Join(", ", MediaBreakdown.Select(item => $"{item.Label} {item.Count}, {FormatPercent(item.Percent)}"))}";
 
     private static string FormatPercent(double value) =>
         value <= 0 ? "0%" : $"{Math.Round(value):0}%";
@@ -598,20 +637,12 @@
         return index >= 0 ? trimmed[(index + 1)..] : trimmed;
     }
 
-    private sealed record MediaBreakdownItem(string Label, int Count, double Percent, string Icon)
-    {
-        public string Color => Label switch
-        {
-            "Books" => "#9a6dff",
-            "Audiobooks" => "#c065df",
-            "Movies" => "#72a5ff",
-            "TV Episodes" => "#5adcf5",
-            "Music" => "#50d6c4",
-            "Comics" => "#ff9a45",
-            _ => "#94a3b8",
-        };
-
-    }
+    private sealed record MediaBreakdownItem(
+        string Label,
+        int Count,
+        double Percent,
+        string IconKey,
+        string Color);
 
     private sealed record OverviewRun(
         bool IsActive,

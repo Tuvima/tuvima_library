@@ -2129,15 +2129,8 @@
             _ => $"/details/work/{workId:D}",
         };
 
-    private static string AccentForMedia(string? mediaType) => mediaType switch
-    {
-        "Music" => "var(--tl-media-audio)",
-        "Audiobooks" => "var(--tl-media-audio)",
-        "TV" => "var(--tl-media-video)",
-        "Movies" => "var(--tl-media-video)",
-        "Comics" => "var(--tl-media-comic)",
-        _ => "var(--tl-media-book)",
-    };
+    private static string AccentForMedia(string? mediaType) =>
+        AppMediaPresentation.AccentFor(mediaType);
 
     private static string FormatMediaLabel(string? mediaType) => mediaType switch
     {

@@ -168,14 +168,8 @@
         _ => string.IsNullOrWhiteSpace(mediaType) ? "Media" : mediaType,
     };
 
-    private static string AccentFor(string mediaType) => mediaType.ToLowerInvariant() switch
-    {
-        "book" => "var(--tl-media-book)",
-        "comic" => "var(--tl-media-comic)",
-        "audiobook" or "music" or "audio" => "var(--tl-media-audio)",
-        "movie" or "tv" or "video" => "var(--tl-media-video)",
-        _ => "var(--tl-accent-primary)",
-    };
+    private static string AccentFor(string mediaType) =>
+        AppMediaPresentation.AccentFor(mediaType);
 
     public void Dispose()
     {

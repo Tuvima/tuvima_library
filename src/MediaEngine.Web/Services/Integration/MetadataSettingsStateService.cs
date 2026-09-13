@@ -75,16 +75,8 @@ public sealed class MetadataSettingsStateService
 
     public static string MediaTypeLabel(string mediaType) => NormalizeMediaType(mediaType) == "TV" ? "TV Shows" : NormalizeMediaType(mediaType);
 
-    public static string MediaTypeIcon(string mediaType) => NormalizeMediaType(mediaType) switch
-    {
-        "Books" => Icons.Material.Outlined.MenuBook,
-        "Audiobooks" => Icons.Material.Outlined.Headphones,
-        "Comics" => Icons.Material.Outlined.AutoStories,
-        "Movies" => Icons.Material.Outlined.Movie,
-        "TV" => Icons.Material.Outlined.Tv,
-        "Music" => Icons.Material.Outlined.MusicNote,
-        _ => Icons.Material.Outlined.Category,
-    };
+    public static string MediaTypeIcon(string mediaType) =>
+        AppMediaPresentation.IconFor(NormalizeMediaType(mediaType));
 
     public static string LaneFor(string mediaType) => NormalizeMediaType(mediaType) switch
     {

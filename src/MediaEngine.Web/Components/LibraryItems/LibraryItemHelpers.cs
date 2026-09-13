@@ -1,6 +1,6 @@
 using MediaEngine.Domain;
-using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
+using MediaEngine.Web.Components.Shared;
 using MudBlazor;
 
 namespace MediaEngine.Web.Components.LibraryItems;
@@ -21,17 +21,7 @@ public static class LibraryItemHelpers
             return Icons.Material.Outlined.Person;
         }
 
-        var type = MediaTypeClassifier.Classify(mediaType);
-        return type switch
-        {
-            MediaType.Books => Icons.Material.Outlined.MenuBook,
-            MediaType.Audiobooks => Icons.Material.Outlined.Headphones,
-            MediaType.Movies => Icons.Material.Outlined.Movie,
-            MediaType.TV => Icons.Material.Outlined.Tv,
-            MediaType.Music => Icons.Material.Outlined.MusicNote,
-            MediaType.Comics => Icons.Material.Outlined.AutoStories,
-            _ => Icons.Material.Outlined.InsertDriveFile,
-        };
+        return AppMediaPresentation.IconFor(mediaType);
     }
 
     public static string FormatMediaType(string? mediaType)

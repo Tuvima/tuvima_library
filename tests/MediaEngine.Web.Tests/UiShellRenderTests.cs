@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using Bunit;
+using MediaEngine.Contracts.Library;
 using MediaEngine.Web.Components.Collections;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Listen;
@@ -349,6 +350,47 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "Settings.razor"));
         Assert.Contains("\"/settings/recently-added?review=expanded\"", source, StringComparison.Ordinal);
         Assert.Contains("Section.Equals(\"review\"", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SystemOverview_CompositionSegmentsReflectEachCategoryShareOfTheWhole()
+    {
+        var apiClient = EngineApiClientStub.Create(stub =>
+            stub.SetHandler(nameof(IEngineApiClient.GetLibraryOverviewAsync), _ =>
+                Task.FromResult<LibraryOverviewDto?>(new LibraryOverviewDto
+                {
+                    TotalItems = 4,
+                    MediaTypeCounts = new Dictionary<string, int>
+                    {
+                        ["Books"] = 2,
+                        ["Movies"] = 1,
+                        ["TV"] = 1,
+                    },
+                })));
+        Services.AddSingleton<IEngineApiClient>(apiClient);
+
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<MudDialogProvider>(1);
+            builder.CloseComponent();
+            builder.OpenComponent<MudSnackbarProvider>(2);
+            builder.CloseComponent();
+            builder.OpenComponent<OverviewTab>(3);
+            builder.CloseComponent();
+        });
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal(6, cut.FindAll(".admin-library-media").Count);
+            var segments = cut.FindAll(".admin-composition-bar__segment");
+            Assert.Equal(3, segments.Count);
+            Assert.Contains("width:50%", segments[0].GetAttribute("style"), StringComparison.Ordinal);
+            Assert.Contains("width:25%", segments[1].GetAttribute("style"), StringComparison.Ordinal);
+            Assert.Contains("width:25%", segments[2].GetAttribute("style"), StringComparison.Ordinal);
+            Assert.Contains("Books 2, 50%", cut.Find(".admin-composition-bar").GetAttribute("aria-label"), StringComparison.Ordinal);
+        });
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Domain.Services;
+using MediaEngine.Web.Components.Shared;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Navigation;
 using MudBlazor;
@@ -436,13 +437,8 @@ public static class CollectionSurfaceTileComposer
         _ => MediaTilePresentation.Default,
     };
 
-    private static string AccentForMedia(string mediaType) => mediaType switch
-    {
-        "Movies" => "var(--tl-media-video)",
-        "Comics" => "var(--tl-media-comic)",
-        "Music" or "Audiobooks" => "var(--tl-media-audio)",
-        _ => "var(--tl-media-book)",
-    };
+    private static string AccentForMedia(string mediaType) =>
+        AppMediaPresentation.AccentFor(mediaType);
 
     private static string SeriesCountLabel(string mediaType, int count)
     {

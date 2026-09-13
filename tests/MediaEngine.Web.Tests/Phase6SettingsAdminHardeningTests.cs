@@ -10,11 +10,34 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.Contains("System exceptions", source, StringComparison.Ordinal);
         Assert.DoesNotContain("System Status", source, StringComparison.Ordinal);
         Assert.Contains("Recent Activity", source, StringComparison.Ordinal);
+        Assert.Contains("CompositionAccessibleLabel", source, StringComparison.Ordinal);
+        Assert.Contains("item.Percent.ToString", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Math.Max(item.Percent", source, StringComparison.Ordinal);
+        Assert.Contains("<AppIconTile", source, StringComparison.Ordinal);
+        Assert.Contains("AppActivityPresentation.For", source, StringComparison.Ordinal);
+        Assert.Contains("<span>Type</span>", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<BackupRecoveryPanel", source, StringComparison.Ordinal);
         Assert.Contains("/settings/ingestion", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Operational Snapshot", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Recent Ingestion Runs", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Run ID", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedPresentation_DefinesReusableMediaAndActivityColors()
+    {
+        var media = ReadRepoFile(@"src\MediaEngine.Web\Components\Shared\AppMediaPresentation.cs");
+        var activity = ReadRepoFile(@"src\MediaEngine.Web\Components\Shared\AppActivityPresentation.cs");
+        var iconTile = ReadRepoFile(@"src\MediaEngine.Web\Components\Shared\AppIconTile.razor");
+
+        Assert.Contains("--tl-media-books", media, StringComparison.Ordinal);
+        Assert.Contains("--tl-media-audiobooks", media, StringComparison.Ordinal);
+        Assert.Contains("--tl-media-movies", media, StringComparison.Ordinal);
+        Assert.Contains("--tl-media-tv", media, StringComparison.Ordinal);
+        Assert.Contains("--tl-media-music", media, StringComparison.Ordinal);
+        Assert.Contains("--tl-media-comics", media, StringComparison.Ordinal);
+        Assert.Contains("public static AppActivityDescriptor For", activity, StringComparison.Ordinal);
+        Assert.Contains("AccentColor", iconTile, StringComparison.Ordinal);
     }
 
     [Fact]
