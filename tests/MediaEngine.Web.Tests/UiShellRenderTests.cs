@@ -199,7 +199,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
             Assert.Single(cut.FindAll(".media-section-shell__rail"));
             Assert.NotEmpty(cut.FindAll(".media-section-shell__rail-item"));
             Assert.Contains("System exceptions", cut.Markup);
-            Assert.NotEmpty(cut.FindAll(".admin-overview-card--attention"));
+            Assert.NotNull(cut.Find(".admin-library-summary").QuerySelector(".admin-overview-card--attention"));
             Assert.DoesNotContain("No active transcodes", cut.Markup);
             Assert.Contains("Recent Activity", cut.Markup);
         });

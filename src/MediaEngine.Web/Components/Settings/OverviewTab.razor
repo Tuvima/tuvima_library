@@ -14,14 +14,13 @@
     {
         <section class="admin-optional-setup" aria-label="Optional setup reminder">
             <AppIconTile Name="@AppIcons.Intelligence" AccentColor="var(--tl-accent-primary)" Size="AppControlSize.Large" />
-            <div><strong>Continue optional setup when you are ready</strong><p>Local AI starts disabled, and remote access stays home-only. Neither is required to use your library.</p><div class="admin-card-actions"><AppButton Href="/settings/ai" Label="Set up Local AI" Size="AppControlSize.Compact" /><AppButton Href="/settings/network/remote" Label="Set up remote access" Size="AppControlSize.Compact" /></div></div>
-            <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Dismiss reminder" AriaLabel="Dismiss optional setup reminder" OnClick="DismissOptionalSetupReminderAsync" />
+            <div><strong>Continue optional setup when you are ready</strong><p>Local AI starts disabled, and remote access stays home-only. Neither is required to use your library.</p><div class="admin-card-actions"><AppButton Href="/settings/ai" Label="Set up Local AI" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Size="AppControlSize.Compact" /><AppButton Href="/settings/network/remote" Label="Set up remote access" ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" Size="AppControlSize.Compact" /></div></div>
+            <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Dismiss reminder" AriaLabel="Dismiss optional setup reminder" Size="AppControlSize.Compact" OnClick="DismissOptionalSetupReminderAsync" />
         </section>
     }
     <div class="admin-overview-commandbar">
         <MediaEngine.Web.Components.Navigation.PwaInstallAction />
         <div class="admin-overview-actions">
-            <span class="admin-overview-updated">Last updated @FormatClock(_lastUpdated)</span>
             <AppButton ButtonStyle="AppButtonStyle.Outlined"
                        Size="AppControlSize.Compact"
                        Tone="AppUiTone.Neutral"
@@ -59,13 +58,13 @@
     <AppPanel Elevation="0" Class="tl-card admin-library-summary">
         <div class="admin-overview-card__header">
             <div class="admin-overview-heading">
-                <AppIconTile Name="@AppIcons.Database" AccentColor="var(--tl-media-books)" Size="AppControlSize.Large" />
+                <AppIconTile Name="@AppIcons.Database" AccentColor="var(--tl-media-books)" />
                 <div>
                     <MudText Typo="Typo.h6">Library summary</MudText>
                     <MudText Typo="Typo.body2" Class="admin-overview-muted">@DisplayFormat.FormatCount(_libraryTotal) items across your catalogued media.</MudText>
                 </div>
             </div>
-            <AppButton Href="/settings/libraries" Label="Manage libraries" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
+            <AppButton Href="/settings/libraries" Label="Manage libraries" ButtonStyle="AppButtonStyle.Text" Size="AppControlSize.Compact" EndIcon="@Icons.Material.Outlined.ChevronRight" />
         </div>
 
             <div class="admin-library-breakdown" aria-label="Library media type breakdown">
@@ -76,55 +75,57 @@
                         <span class="admin-library-media__copy">
                             <span class="admin-library-media__label">@media.Label</span>
                             <strong class="admin-library-media__count">@DisplayFormat.FormatCount(media.Count)</strong>
-                            <span class="admin-library-media__percent">@FormatPercent(media.Percent) of library</span>
+                            <span class="admin-library-media__percent">@FormatPercent(media.Percent)</span>
                         </span>
                     </AppCssElement>
                 }
             </div>
 
-            <div class="admin-composition-bar"
-                 role="img"
-                 aria-label="@CompositionAccessibleLabel">
-                @if (MediaBreakdown.Any(item => item.Count > 0))
-                {
-                    @foreach (var media in MediaBreakdown.Where(item => item.Count > 0))
+            <div class="admin-composition">
+                <div class="admin-composition-bar"
+                     role="list"
+                     aria-label="@CompositionAccessibleLabel">
+                    @if (MediaBreakdown.Any(item => item.Count > 0))
                     {
-                        <AppCssElement Tag="span" Class="admin-composition-bar__segment"
-                                       title="@($"{media.Label}: {DisplayFormat.FormatCount(media.Count)} items, {media.Percent:0.#}%")"
-                                       Css="@SegmentStyle(media)"></AppCssElement>
+                        @foreach (var media in MediaBreakdown.Where(item => item.Count > 0))
+                        {
+                            <AppCssElement Tag="span"
+                                           Class="admin-composition-bar__segment"
+                                           Css="@SegmentStyle(media)"
+                                           role="listitem"
+                                           aria-label="@CompositionItemLabel(media)"
+                                           title="@CompositionItemLabel(media)"></AppCssElement>
+                        }
                     }
-                }
-                else
-                {
-                    <span class="admin-composition-bar__empty"></span>
-                }
+                    else
+                    {
+                        <span class="admin-composition-bar__empty"></span>
+                    }
+                </div>
             </div>
 
-    </AppPanel>
-
-    @if (_pendingReviewCount > 0 || HasSystemExceptions)
-    {
-        <div class="admin-overview-primary-grid">
             @if (_pendingReviewCount > 0)
             {
-                <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-overview-card--attention admin-attention-strip">
+                <div class="admin-overview-card--attention admin-attention-strip">
                     <div class="admin-attention-copy">
-                        <AppIconTile Name="@AppIcons.Warning" AccentColor="var(--tl-status-warning)" />
-                        <div><strong>@AttentionTitle</strong><p>These items could not be identified confidently.</p></div>
+                        <AppIconTile Name="@AppIcons.Warning" AccentColor="var(--tl-status-warning)" Size="AppControlSize.Compact" />
+                        <div><strong>@AttentionTitle</strong><p>Could not be identified confidently.</p></div>
                     </div>
                     <div class="admin-attention-action">
                         <AppButton Href="/settings/recently-added?review=expanded"
                                    Label="Review items"
                                    EndIcon="@Icons.Material.Outlined.ChevronRight"
                                    ButtonStyle="AppButtonStyle.Outlined"
+                                   Size="AppControlSize.Compact"
                                    Tone="AppUiTone.Warning" />
                     </div>
-                </AppPanel>
+                </div>
             }
+    </AppPanel>
 
-            @if (HasSystemExceptions)
-            {
-                <AppPanel Elevation="0" Class="tl-card admin-overview-card">
+    @if (HasSystemExceptions)
+    {
+                <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-system-exceptions">
                     <div class="admin-overview-card__header">
                         <MudText Typo="Typo.h6">System exceptions</MudText>
                     </div>
@@ -156,20 +157,18 @@
                     }
                     </div>
                 </AppPanel>
-            }
-        </div>
     }
 
     <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-recent-activity">
         <div class="admin-overview-card__header">
             <div class="admin-overview-heading">
-                <AppIconTile Name="@AppIcons.Activity" AccentColor="var(--tl-media-books)" Size="AppControlSize.Large" />
+                <AppIconTile Name="@AppIcons.Activity" AccentColor="var(--tl-media-books)" />
                 <div>
                     <MudText Typo="Typo.h6">Recent Activity</MudText>
                     <MudText Typo="Typo.body2" Class="admin-overview-muted">Latest system activity and library changes.</MudText>
                 </div>
             </div>
-            <AppButton Href="/settings/ingestion" Label="View operations" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
+            <AppButton Href="/settings/ingestion" Label="View all activity" ButtonStyle="AppButtonStyle.Text" Size="AppControlSize.Compact" EndIcon="@Icons.Material.Outlined.ChevronRight" />
         </div>
         @if (_recentActivity.Count == 0)
         {
@@ -212,8 +211,6 @@
     private bool _reminderLoaded;
     private bool _optionalSetupReminderDismissed;
     private string? _error;
-    private DateTimeOffset? _lastUpdated;
-
     private LibraryOverviewDto? _overview;
     private IReadOnlyList<IngestionBatchResponse> _recentRuns = [];
     private List<ActivityEntryResponse> _recentActivity = [];
@@ -326,7 +323,6 @@
             _readiness = await readinessTask;
 
             Recompute();
-            _lastUpdated = DateTimeOffset.Now;
         }
         catch (Exception ex)
         {
@@ -535,6 +531,9 @@
     private static string MediaCardStyle(MediaBreakdownItem item) =>
         $"--admin-media-accent:{item.Color};";
 
+    private static string CompositionItemLabel(MediaBreakdownItem item) =>
+        $"{item.Label}: {DisplayFormat.FormatCount(item.Count)} items, {FormatPercent(item.Percent)} of library";
+
     private static string ActivityTypeStyle(AppActivityDescriptor activity) =>
         $"--admin-activity-accent:{activity.AccentColor};";
 
@@ -544,9 +543,6 @@
 
     private static string FormatPercent(double value) =>
         value <= 0 ? "0%" : $"{Math.Round(value):0}%";
-
-    private static string FormatClock(DateTimeOffset? value) =>
-        value.HasValue ? value.Value.ToLocalTime().ToString("h:mm tt", CultureInfo.CurrentCulture) : "not yet";
 
     private static string FormatRelative(string value) =>
         DateTimeOffset.TryParse(value, out var parsed) ? FormatRelative(parsed) : "recently";

@@ -4029,6 +4029,19 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     font-size: var(--tl-control-font-size-lg) !important;
 }
 
+.app-button.app-control--compact .mud-icon-root {
+    width: 1rem !important;
+    height: 1rem !important;
+    font-size: 1rem !important;
+}
+
+.app-button.app-control--normal .mud-icon-root,
+.app-button.app-control--large .mud-icon-root {
+    width: 1.125rem !important;
+    height: 1.125rem !important;
+    font-size: 1.125rem !important;
+}
+
 .app-button__spinner {
     flex: 0 0 auto;
     margin-right: var(--tl-space-2);

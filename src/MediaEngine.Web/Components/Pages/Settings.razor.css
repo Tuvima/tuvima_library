@@ -42,7 +42,7 @@
 
 .settings-shell-content ::deep .settings-breadcrumbs span[aria-current="page"] {
     color: var(--tl-text-primary);
-    font-weight: 700;
+    font-weight: 600;
     white-space: normal;
     overflow-wrap: anywhere;
 }
@@ -109,7 +109,7 @@
 .settings-shell-content ::deep .sidebar-page-header {
     flex-direction: row;
     align-items: flex-end;
-    margin-bottom: 16px;
+    margin-bottom: 0;
 }
 
 @media (max-width: 700px) {
@@ -126,17 +126,18 @@
 
 .settings-shell-content ::deep .sidebar-page-header h1 {
     font-family: var(--font-ui, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif);
-    font-size: clamp(1.9rem, 2.25vw, 2.2rem);
-    font-weight: 700;
-    line-height: 1.08;
-    letter-spacing: -.025em;
+    font-size: clamp(1.875rem, 2vw, 2rem);
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -.015em;
 }
 
 .settings-shell-content ::deep .sidebar-page-header p {
     max-width: 76ch;
-    margin-top: 7px;
-    font-size: .96rem;
-    line-height: 1.45;
+    margin-top: 5px;
+    color: var(--tl-text-muted);
+    font-size: var(--tl-font-size-sm);
+    line-height: var(--tl-line-height-body);
 }
 
 .settings-shell-content ::deep .sidebar-page-header .app-page-header__actions {

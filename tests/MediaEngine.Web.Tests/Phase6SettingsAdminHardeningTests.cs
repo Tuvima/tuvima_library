@@ -41,6 +41,30 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
+    public void SystemOverview_UsesTheCompactReferenceSizingRhythm()
+    {
+        var overview = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\OverviewTab.razor");
+        var styles = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\OverviewTab.razor.css");
+        var settingsStyles = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor.css");
+        var iconTile = ReadRepoFile(@"src\MediaEngine.Web\Components\Shared\AppIconTile.razor");
+
+        Assert.Contains("admin-overview-card--attention admin-attention-strip", overview, StringComparison.Ordinal);
+        Assert.Contains("padding: 18px", styles, StringComparison.Ordinal);
+        Assert.Contains("height: 6px", styles, StringComparison.Ordinal);
+        Assert.Contains("min-height: 46px", styles, StringComparison.Ordinal);
+        Assert.Contains(".admin-overview-page ::deep .admin-library-summary", styles, StringComparison.Ordinal);
+        Assert.Contains(".admin-library-breakdown ::deep .admin-library-media", styles, StringComparison.Ordinal);
+        Assert.Contains(".admin-library-media::after", styles, StringComparison.Ordinal);
+        Assert.Contains(".admin-composition-bar ::deep .admin-composition-bar__segment", styles, StringComparison.Ordinal);
+        Assert.DoesNotContain("admin-composition-legend", overview, StringComparison.Ordinal);
+        Assert.Contains("var(--tl-font-size-secondary)", styles, StringComparison.Ordinal);
+        Assert.Contains("font-size: clamp(1.875rem, 2vw, 2rem)", settingsStyles, StringComparison.Ordinal);
+        Assert.Contains("font-weight: 600", settingsStyles, StringComparison.Ordinal);
+        Assert.Contains("AppControlSize.Large => \"1.75rem\"", iconTile, StringComparison.Ordinal);
+        Assert.DoesNotContain("admin-overview-primary-grid", overview, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SettingsShell_OmitsRedundantEngineBadgeAndKeepsUnavailableState()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
