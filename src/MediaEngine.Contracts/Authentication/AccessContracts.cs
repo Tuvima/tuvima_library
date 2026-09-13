@@ -116,7 +116,22 @@ public sealed record AccountSelfServiceResponse(
     [property: JsonPropertyName("active_profile_id")] Guid ActiveProfileId,
     [property: JsonPropertyName("default_profile_id")] Guid DefaultProfileId,
     [property: JsonPropertyName("profiles")] IReadOnlyList<AccountProfileGrantDto> Profiles,
-    [property: JsonPropertyName("authentication_methods")] IReadOnlyList<string> AuthenticationMethods);
+    [property: JsonPropertyName("authentication_methods")] IReadOnlyList<string> AuthenticationMethods,
+    [property: JsonPropertyName("security_capabilities")] AccountSecurityCapabilitiesResponse SecurityCapabilities);
+
+public sealed record AccountSecurityCapabilitiesResponse(
+    [property: JsonPropertyName("has_password")] bool HasPassword,
+    [property: JsonPropertyName("has_passkeys")] bool HasPasskeys,
+    [property: JsonPropertyName("has_external_logins")] bool HasExternalLogins,
+    [property: JsonPropertyName("password_sign_in_available")] bool PasswordSignInAvailable,
+    [property: JsonPropertyName("can_register_passkey")] bool CanRegisterPasskey,
+    [property: JsonPropertyName("passkey_ready")] bool PasskeyReady,
+    [property: JsonPropertyName("external_sign_in_available")] bool ExternalSignInAvailable,
+    [property: JsonPropertyName("available_external_providers")] IReadOnlyList<AccountExternalProviderResponse> AvailableExternalProviders);
+
+public sealed record AccountExternalProviderResponse(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("display_name")] string DisplayName);
 
 public sealed record AuthorizationAuditEntryResponse(
     [property: JsonPropertyName("event_type")] string EventType,

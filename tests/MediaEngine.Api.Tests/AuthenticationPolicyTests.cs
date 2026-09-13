@@ -14,6 +14,42 @@ namespace MediaEngine.Api.Tests;
 public sealed class AuthenticationPolicyTests
 {
     [Fact]
+    public void SelfServiceSessions_ExcludeRevokedAndExpiredRows()
+    {
+        var now = DateTimeOffset.Parse("2026-09-13T12:00:00Z");
+        var active = Session(now.AddHours(1));
+        var expired = Session(now.AddSeconds(-1));
+        var revoked = Session(now.AddHours(1));
+        revoked.RevokedAt = now.AddMinutes(-1);
+
+        var result = AuthenticationEndpoints.ToActiveSessionResponses([active, expired, revoked], now);
+
+        Assert.Equal(active.Id, Assert.Single(result).Id);
+        Assert.All(result, session => Assert.Null(session.RevokedAt));
+    }
+
+    [Fact]
+    public void PasskeyAvailability_RequiresPolicyCanonicalOriginAndAllowedClient()
+    {
+        var policy = new AuthSettings
+        {
+            Mode = "Optional",
+            PasskeySignInEnabled = true,
+            AllowRemoteSignIn = false,
+            PasswordReset = new PasswordResetDeliverySettings { PublicBaseUrl = "https://library.example" },
+        };
+
+        Assert.True(AuthenticationEndpoints.IsPasskeyAvailable(policy, true, false));
+        Assert.False(AuthenticationEndpoints.IsPasskeyAvailable(policy, false, true));
+        policy.AllowRemoteSignIn = true;
+        policy.RequireHttpsRemote = true;
+        Assert.False(AuthenticationEndpoints.IsPasskeyAvailable(policy, false, false));
+        Assert.True(AuthenticationEndpoints.IsPasskeyAvailable(policy, false, true));
+        policy.PasswordReset.PublicBaseUrl = string.Empty;
+        Assert.False(AuthenticationEndpoints.IsPasskeyAvailable(policy, true, true));
+    }
+
+    [Fact]
     public void ClientPolicy_DeniesDisabledAndUntrustedLocalOnlyMethods()
     {
         var policy = new AuthSettings
@@ -450,6 +486,21 @@ public sealed class AuthenticationPolicyTests
                 UserInformationEndpoint = "https://api.github.com/user",
             },
         ],
+    };
+
+    private static AuthSession Session(DateTimeOffset expiresAt) => new()
+    {
+        Id = Guid.NewGuid(),
+        AccountId = Guid.NewGuid(),
+        ActiveProfileId = Guid.NewGuid(),
+        DeviceId = "browser",
+        DeviceName = "Browser",
+        Client = "Dashboard",
+        AuthenticationMethod = "Password",
+        SecurityStamp = "stamp",
+        CreatedAt = expiresAt.AddHours(-2),
+        LastSeenAt = expiresAt.AddHours(-1),
+        ExpiresAt = expiresAt,
     };
 
     private sealed class ManualTimeProvider(DateTimeOffset now) : TimeProvider

@@ -1,0 +1,38 @@
+.recovery-codes-display {
+    display: grid;
+    gap: var(--tl-space-4, 16px);
+    margin-top: var(--tl-space-4, 16px);
+}
+
+.recovery-codes-display__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+}
+
+.recovery-codes-display__grid code {
+    padding: 10px 12px;
+    color: var(--tl-text-primary);
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: var(--tl-radius-sm);
+    background: var(--tl-bg-surface-raised);
+    font-size: 14px;
+    text-align: center;
+}
+
+.recovery-codes-display__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--tl-space-3, 12px);
+}
+
+@media (max-width: 640px) {
+    .recovery-codes-display__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .recovery-codes-display__actions,
+    .recovery-codes-display__actions ::deep .app-button {
+        width: 100%;
+    }
+}

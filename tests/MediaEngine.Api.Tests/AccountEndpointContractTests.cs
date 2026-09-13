@@ -15,6 +15,19 @@ namespace MediaEngine.Api.Tests;
 public sealed class AccountEndpointContractTests
 {
     [Fact]
+    public void SelfServiceAuthenticationMethods_ReflectOnlyAttachedCredentials()
+    {
+        Assert.Equal(["password"], AccountEndpoints.AttachedAuthenticationMethods(
+            false, false, true, false, false));
+        Assert.Equal(["passkey", "external"], AccountEndpoints.AttachedAuthenticationMethods(
+            false, false, false, true, true));
+        Assert.Equal(["profile_entry"], AccountEndpoints.AttachedAuthenticationMethods(
+            true, false, true, true, true));
+        Assert.Equal(["profile_pin"], AccountEndpoints.AttachedAuthenticationMethods(
+            true, true, false, false, false));
+    }
+
+    [Fact]
     public async Task AccessManagementRoutes_UseTypedReadWriteApplicationAdmission()
     {
         var builder = WebApplication.CreateBuilder();

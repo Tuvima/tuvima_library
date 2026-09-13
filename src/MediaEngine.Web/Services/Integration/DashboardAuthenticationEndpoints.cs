@@ -298,11 +298,6 @@ public static class DashboardAuthenticationEndpoints
                 }, context.RequestAborted).ConfigureAwait(false),
                 _ => false,
             };
-            if (action == "password" && success)
-            {
-                await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
-                return Results.Redirect("/auth/login");
-            }
             return Results.Redirect("/settings/account");
         });
 

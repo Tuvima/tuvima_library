@@ -77,6 +77,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
         _connection = null;
         StorageEpochGuard.EnsureCurrentOrReset(_databasePath);
         var conn = Open();
+        _integrityChecker.EnsureWritable(conn, _databasePath);
         _schemaInitializer.Initialize(conn);
     }
 

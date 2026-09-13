@@ -4,11 +4,9 @@
     <div class="setup-stage__heading"><MudIcon Icon="@Icons.Material.Outlined.AdminPanelSettings" /><div><h2 id="setup-stage-title">Administrator</h2><p>Create the account that manages this Tuvima server.</p></div></div>
     @if (RecoveryCodes.Count > 0)
     {
-        <AppAlert Tone="AppUiTone.Warning"><strong>Save these recovery codes now.</strong> They will not be shown again.</AppAlert>
-        <div class="setup-recovery-codes">
-            <AppTextarea Label="Recovery codes" Value="@string.Join('\n', RecoveryCodes)" ReadOnly="true" Lines="@Math.Max(10, RecoveryCodes.Count)" Class="setup-recovery-text" />
-            <div class="setup-actions"><AppButton Label="Copy all" StartIcon="@Icons.Material.Outlined.ContentCopy" OnClick="CopyRecoveryCodes" /><a class="setup-download-button" href="@RecoveryCodesDownloadUri" download="tuvima-administrator-recovery-codes.txt">Download .txt</a></div>
-        </div>
+        <RecoveryCodesDisplay Codes="@RecoveryCodes"
+                              Heading="Tuvima Library administrator recovery codes"
+                              FileName="tuvima-administrator-recovery-codes.txt" />
         <div class="setup-actions setup-actions--end"><AppButton Label="I saved the codes — sign in" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="SignIn" /></div>
     }
     else if (AdministratorConfigured)
@@ -54,12 +52,9 @@
     [Parameter] public string PasswordConfirmation { get; set; } = string.Empty;
     [Parameter] public EventCallback<string?> PasswordConfirmationChanged { get; set; }
     [Parameter] public IReadOnlyList<string> RecoveryCodes { get; set; } = [];
-    [Parameter] public string RecoveryCodesText { get; set; } = string.Empty;
-    [Parameter] public string RecoveryCodesDownloadUri { get; set; } = string.Empty;
     [Parameter] public bool AdministratorConfigured { get; set; }
     [Parameter] public bool Busy { get; set; }
     [Parameter] public EventCallback CreateAdministrator { get; set; }
-    [Parameter] public EventCallback CopyRecoveryCodes { get; set; }
     [Parameter] public EventCallback SignIn { get; set; }
     private bool PasswordsMatch => string.Equals(Password, PasswordConfirmation, StringComparison.Ordinal);
 }

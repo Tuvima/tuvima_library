@@ -57,17 +57,22 @@ public sealed class AuthenticationSettingsUiTests
         var accountCss = Read("src/MediaEngine.Web/Components/Settings/AccountSettingsTab.razor.css");
         var endpoints = Read("src/MediaEngine.Web/Services/Integration/DashboardAuthenticationEndpoints.cs");
 
-        Assert.Contains("Sign-in identity", account, StringComparison.Ordinal);
-        Assert.Contains("Passkeys & Windows Hello", account, StringComparison.Ordinal);
-        Assert.Contains("Connected providers", account, StringComparison.Ordinal);
+        Assert.Contains("Account security overview", account, StringComparison.Ordinal);
+        Assert.Contains("Title=\"Passkeys\"", account, StringComparison.Ordinal);
+        Assert.Contains("Title=\"Linked accounts\"", account, StringComparison.Ordinal);
         Assert.Contains("Devices & sessions", account, StringComparison.Ordinal);
         Assert.Contains("Recovery codes", account, StringComparison.Ordinal);
+        Assert.Contains("Capabilities.HasPassword", account, StringComparison.Ordinal);
+        Assert.Contains("Capabilities.CanRegisterPasskey", account, StringComparison.Ordinal);
+        Assert.Contains("Sign out all other sessions", account, StringComparison.Ordinal);
+        Assert.Contains("ShowMessageBoxAsync", account, StringComparison.Ordinal);
         Assert.Contains("GetSessionsAsync", account, StringComparison.Ordinal);
         Assert.Contains("GetPasskeysAsync", account, StringComparison.Ordinal);
         Assert.DoesNotContain("UpdateAuthSettingsAsync", account, StringComparison.Ordinal);
         Assert.DoesNotContain("Administrator access", account, StringComparison.Ordinal);
-        Assert.Contains("width: min(100%, 1100px)", accountCss, StringComparison.Ordinal);
-        Assert.Contains("@media (max-width: 640px)", accountCss, StringComparison.Ordinal);
+        Assert.Contains("max-width: none", accountCss, StringComparison.Ordinal);
+        Assert.DoesNotContain("width: min(100%, 1100px)", accountCss, StringComparison.Ordinal);
+        Assert.Contains("@container account-security (max-width: 640px)", accountCss, StringComparison.Ordinal);
         Assert.Contains("/settings/account", endpoints, StringComparison.Ordinal);
         Assert.DoesNotContain("private static string SecurityPage", endpoints, StringComparison.Ordinal);
     }

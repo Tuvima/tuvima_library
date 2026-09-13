@@ -209,25 +209,25 @@ public static class AuthenticationEndpoints
             return session is null ? Results.Unauthorized() : Results.Ok(await ToValidationResponseAsync(session, projector, ct));
         }).Produces<SessionValidationResponse>().RequireAuthorization(AuthPolicies.DashboardService);
 
-        group.MapGet("/sessions", async (ClaimsPrincipal user, IFirstPartyIdentityService identity, CancellationToken ct) =>
+        group.MapGet("/sessions", async (ClaimsPrincipal user, IFirstPartyIdentityService identity,
+            TimeProvider clock, CancellationToken ct) =>
         {
             var accountId = RequiredGuidClaim(user, TuvimaClaimTypes.AccountId);
             var sessions = await identity.GetSessionsAsync(accountId, ct).ConfigureAwait(false);
-            return Results.Ok(sessions.Select(session => new DeviceSessionResponse
-            {
-                Id = session.Id,
-                AccountId = session.AccountId,
-                ActiveProfileId = session.ActiveProfileId,
-                DeviceId = session.DeviceId,
-                DeviceName = session.DeviceName,
-                Client = session.Client,
-                AuthenticationMethod = session.AuthenticationMethod,
-                CreatedAt = session.CreatedAt,
-                LastSeenAt = session.LastSeenAt,
-                ExpiresAt = session.ExpiresAt,
-                RevokedAt = session.RevokedAt,
-            }).ToList());
+            var now = clock.GetUtcNow();
+            return Results.Ok(ToActiveSessionResponses(sessions, now));
         }).Produces<IReadOnlyList<DeviceSessionResponse>>().RequireAuthorization(AuthPolicies.HumanSelfService);
+
+        group.MapDelete("/sessions/others", async (ClaimsPrincipal user, IFirstPartyIdentityService identity,
+            CancellationToken ct) =>
+        {
+            var accountId = RequiredGuidClaim(user, TuvimaClaimTypes.AccountId);
+            var currentSessionId = RequiredGuidClaim(user, TuvimaClaimTypes.SessionId);
+            var revoked = await identity.RevokeOtherSessionsAsync(
+                accountId, currentSessionId, "user_revoked_other_sessions", ct).ConfigureAwait(false);
+            return Results.Ok(new RevokeOtherSessionsResponse(revoked));
+        }).WithName("RevokeOtherAuthSessions").Produces<RevokeOtherSessionsResponse>()
+          .RequireAuthorization(AuthPolicies.HumanSelfService);
 
         group.MapDelete("/sessions/{sessionId:guid}", async (Guid sessionId, ClaimsPrincipal user, IFirstPartyIdentityService identity, CancellationToken ct) =>
         {
@@ -316,8 +316,7 @@ public static class AuthenticationEndpoints
             IConfigurationLoader configuration, IAccountRepository accounts, IPasskeyHandler<Account> passkeys, CancellationToken ct) =>
         {
             var policy = configuration.LoadCore().Auth;
-            if (!AllowsClient(policy, request.OriginalClientIsLocal, request.OriginalClientIsHttps,
-                policy.PasskeySignInEnabled && !IsLocalOnlyMode(policy)))
+            if (!IsPasskeyAvailable(policy, request.OriginalClientIsLocal, request.OriginalClientIsHttps))
             {
                 return Results.Unauthorized();
             }
@@ -335,8 +334,7 @@ public static class AuthenticationEndpoints
             IConfigurationLoader configuration, IPasskeyHandler<Account> passkeys, UserManager<Account> users, IFirstPartyIdentityService identity, DashboardAuthorityProjector projector, CancellationToken ct) =>
         {
             var policy = configuration.LoadCore().Auth;
-            if (!AllowsClient(policy, request.OriginalClientIsLocal, request.OriginalClientIsHttps,
-                policy.PasskeySignInEnabled && !IsLocalOnlyMode(policy)))
+            if (!IsPasskeyAvailable(policy, request.OriginalClientIsLocal, request.OriginalClientIsHttps))
             {
                 return Results.Unauthorized();
             }
@@ -351,17 +349,42 @@ public static class AuthenticationEndpoints
             return Results.Ok(await ToResponseAsync(await identity.CreatePasskeySessionAsync(result.User.Id, request.DeviceId, request.DeviceName, "Tuvima Dashboard", ct).ConfigureAwait(false), projector, ct));
         }).Produces<AuthSessionResponse>().RequireRateLimiting("authentication").RequireAuthorization(AuthPolicies.DashboardService);
 
-        group.MapPost("/passkeys/registration/options", async (ClaimsPrincipal user, HttpContext context, IAccountRepository accounts, IPasskeyHandler<Account> passkeys, CancellationToken ct) =>
+        group.MapPost("/passkeys/registration/options", async (BeginPasskeyRegistrationRequest request,
+            ClaimsPrincipal user, HttpContext context, IConfigurationLoader configuration,
+            IAccountRepository accounts, IPasskeyHandler<Account> passkeys, CancellationToken ct) =>
         {
+            var policy = configuration.LoadCore().Auth;
+            if (!IsPasskeyAvailable(policy, request.OriginalClientIsLocal, request.OriginalClientIsHttps))
+            {
+                return Results.Unauthorized();
+            }
+
             var account = await accounts.GetByIdAsync(RequiredGuidClaim(user, TuvimaClaimTypes.AccountId), ct).ConfigureAwait(false) ?? throw new UnauthorizedAccessException();
+            if (account.IsLocalOnly)
+            {
+                return Results.Unauthorized();
+            }
             var entity = new PasskeyUserEntity { Id = account.Id.ToString("D"), Name = account.Email ?? account.Id.ToString("D"), DisplayName = account.Email ?? "Tuvima account" };
             var result = await passkeys.MakeCreationOptionsAsync(entity, context).ConfigureAwait(false);
             return Results.Ok(new PasskeyOptionsResponse(result.CreationOptionsJson, result.AttestationState ?? string.Empty));
         }).Produces<PasskeyOptionsResponse>().RequireAuthorization(AuthPolicies.HumanSelfService);
 
-        group.MapPost("/passkeys/registration/complete", async (CompletePasskeyRegistrationRequest request, ClaimsPrincipal user, HttpContext context, IAccountRepository accounts, IPasskeyHandler<Account> passkeys, UserManager<Account> users, CancellationToken ct) =>
+        group.MapPost("/passkeys/registration/complete", async (CompletePasskeyRegistrationRequest request,
+            ClaimsPrincipal user, HttpContext context, IConfigurationLoader configuration,
+            IAccountRepository accounts, IPasskeyHandler<Account> passkeys, UserManager<Account> users,
+            CancellationToken ct) =>
         {
+            var policy = configuration.LoadCore().Auth;
+            if (!IsPasskeyAvailable(policy, request.OriginalClientIsLocal, request.OriginalClientIsHttps))
+            {
+                return Results.Unauthorized();
+            }
+
             var account = await accounts.GetByIdAsync(RequiredGuidClaim(user, TuvimaClaimTypes.AccountId), ct).ConfigureAwait(false) ?? throw new UnauthorizedAccessException();
+            if (account.IsLocalOnly)
+            {
+                return Results.Unauthorized();
+            }
             var result = await passkeys.PerformAttestationAsync(new PasskeyAttestationContext { HttpContext = context, CredentialJson = request.CredentialJson, AttestationState = request.State }).ConfigureAwait(false);
             if (!result.Succeeded || result.Passkey is null || result.UserEntity?.Id != account.Id.ToString("D"))
             {
@@ -483,6 +506,26 @@ public static class AuthenticationEndpoints
             ? value
             : throw new UnauthorizedAccessException($"Required claim '{type}' is missing.");
 
+    internal static IReadOnlyList<DeviceSessionResponse> ToActiveSessionResponses(
+        IEnumerable<AuthSession> sessions,
+        DateTimeOffset now) => sessions
+        .Where(session => session.IsActive(now))
+        .Select(session => new DeviceSessionResponse
+        {
+            Id = session.Id,
+            AccountId = session.AccountId,
+            ActiveProfileId = session.ActiveProfileId,
+            DeviceId = session.DeviceId,
+            DeviceName = session.DeviceName,
+            Client = session.Client,
+            AuthenticationMethod = session.AuthenticationMethod,
+            CreatedAt = session.CreatedAt,
+            LastSeenAt = session.LastSeenAt,
+            ExpiresAt = session.ExpiresAt,
+            RevokedAt = session.RevokedAt,
+        })
+        .ToList();
+
     internal static bool AllowsClient(
         AuthSettings policy,
         bool originalClientIsLocal,
@@ -491,6 +534,13 @@ public static class AuthenticationEndpoints
         methodEnabled &&
         (originalClientIsLocal ||
          (policy.AllowRemoteSignIn && (!policy.RequireHttpsRemote || originalClientIsHttps)));
+
+    internal static bool IsPasskeyAvailable(
+        AuthSettings policy,
+        bool originalClientIsLocal,
+        bool originalClientIsHttps) =>
+        AllowsClient(policy, originalClientIsLocal, originalClientIsHttps,
+            policy.PasskeySignInEnabled && !IsLocalOnlyMode(policy) && IsCanonicalOriginReady(policy));
 
     internal static bool IsConfiguredProvider(AuthSettings policy, string providerId, string issuer)
     {

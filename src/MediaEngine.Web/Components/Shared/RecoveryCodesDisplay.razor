@@ -1,0 +1,39 @@
+@namespace MediaEngine.Web.Components.Shared
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<div class="recovery-codes-display" aria-live="polite">
+    <AppAlert Tone="AppUiTone.Warning">
+        <strong>Save these recovery codes now.</strong> They cannot be viewed again after you leave this page.
+    </AppAlert>
+    <div class="recovery-codes-display__grid" aria-label="New recovery codes">
+        @foreach (var recoveryCode in Codes)
+        {
+            <code>@recoveryCode</code>
+        }
+    </div>
+    <div class="recovery-codes-display__actions">
+        <AppButton Label="Copy all"
+                   StartIcon="@Icons.Material.Outlined.ContentCopy"
+                   OnClick="CopyAsync" />
+        <AppButton Label="Download .txt"
+                   StartIcon="@Icons.Material.Outlined.Download"
+                   Href="@DownloadUri"
+                   download="@FileName" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<string> Codes { get; set; } = [];
+    [Parameter] public string Heading { get; set; } = "Tuvima Library recovery codes";
+    [Parameter] public string FileName { get; set; } = "tuvima-recovery-codes.txt";
+
+    private string CodesText => $"{Heading}{Environment.NewLine}Created: {DateTimeOffset.Now:g}{Environment.NewLine}{Environment.NewLine}{string.Join(Environment.NewLine, Codes)}{Environment.NewLine}";
+    private string DownloadUri => $"data:text/plain;charset=utf-8,{Uri.EscapeDataString(CodesText)}";
+
+    private async Task CopyAsync()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", CodesText);
+        Snackbar.Add("Recovery codes copied.", Severity.Success);
+    }
+}

@@ -172,6 +172,8 @@ public sealed class MappedEndpointInventoryTests
             .RequiresNamedPolicy(AuthPolicies.DashboardService);
         inventory.Require("/auth/session/validate", HttpMethods.Post)
             .RequiresNamedPolicy(AuthPolicies.DashboardService);
+        inventory.Require("/auth/sessions/others", HttpMethods.Delete)
+            .RequiresNamedPolicy(AuthPolicies.HumanSelfService);
 
         inventory.Require("/system/activity-status", HttpMethods.Get)
             .RequiresHumanOrApplicationPermission(ApplicationPermissionIds.SystemActivityRead);

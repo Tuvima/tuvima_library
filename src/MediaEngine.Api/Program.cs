@@ -362,9 +362,19 @@ builder.Services.AddHealthChecks()
     .AddCheck<WorkerReadinessHealthCheck>("background_workers", tags: ["readiness", "workers", "required"]);
 
 WebApplication app = builder.Build();
-await app.Services.GetRequiredService<DashboardServiceCredentialBootstrapper>()
-    .EnsureAsync()
-    .ConfigureAwait(false);
+try
+{
+    await app.Services.GetRequiredService<DashboardServiceCredentialBootstrapper>()
+        .EnsureAsync()
+        .ConfigureAwait(false);
+}
+catch (DatabaseWriteAccessException exception)
+{
+    Log.Error("{StartupFailure}", exception.Message);
+    Environment.ExitCode = 74;
+    await app.DisposeAsync().ConfigureAwait(false);
+    return;
+}
 
 // -- Middleware pipeline -------------------------------------------------------
 app.UseExceptionHandler(errorApp =>

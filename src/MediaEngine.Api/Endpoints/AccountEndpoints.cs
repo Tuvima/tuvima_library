@@ -25,9 +25,14 @@ public static class AccountEndpoints
     private static void MapSelfService(RouteGroupBuilder access)
     {
         var self = access.MapGroup("/self-service").RequireHumanSelfService();
-        self.MapGet("/", async (HttpContext http, IRequestAuthorityResolver resolver,
+        self.MapGet("/", async (bool originalClientIsLocal, bool originalClientIsHttps,
+            HttpContext http, IRequestAuthorityResolver resolver,
             ISelfServiceAuthorizationService decisions, IAccountRepository accounts,
-            IProfileRepository profiles, CancellationToken ct) =>
+            IProfileRepository profiles, IIdentityRepository identities,
+            IAccountExternalLoginService externalLogins,
+            Microsoft.AspNetCore.Identity.UserManager<Account> users,
+            AuthenticationProviderConfigurationService providerConfiguration,
+            CancellationToken ct) =>
         {
             var authority = await RequireSelfAsync(http, resolver, decisions, ct);
             var account = await accounts.GetByIdAsync(authority.AccountId!.Value, ct)
@@ -35,9 +40,54 @@ public static class AccountEndpoints
             var grants = await MapGrants(account.Id, accounts, profiles, ct);
             var defaultId = grants.FirstOrDefault(grant => grant.IsDefault && grant.IsEnabled)?.ProfileId
                 ?? authority.ActiveProfileId!.Value;
+
+            var policy = providerConfiguration.LoadWithSecrets();
+            var hasPassword = !account.IsLocalOnly && await identities.GetAccountCredentialAsync(
+                account.Id, AccountCredentialKind.Password, ct).ConfigureAwait(false) is not null;
+            var passkeys = account.IsLocalOnly
+                ? []
+                : await users.GetPasskeysAsync(account).ConfigureAwait(false);
+            var linkedLogins = account.IsLocalOnly
+                ? []
+                : await externalLogins.GetByAccountAsync(account.Id, ct).ConfigureAwait(false);
+            var hasProfilePin = account.IsLocalOnly && await identities.GetCredentialAsync(
+                authority.ActiveProfileId!.Value, ProfileCredentialKind.ProfilePin, ct).ConfigureAwait(false) is not null;
+
+            var passkeyReady = policy.PasskeySignInEnabled
+                && !AuthenticationEndpoints.IsLocalOnlyMode(policy)
+                && AuthenticationEndpoints.IsCanonicalOriginReady(policy);
+            var externalAvailable = !account.IsLocalOnly && AuthenticationEndpoints.AllowsClient(
+                policy, originalClientIsLocal, originalClientIsHttps,
+                AuthenticationEndpoints.IsExternalSignInEnabled(policy));
+            var availableProviders = externalAvailable
+                ? policy.ExternalProviders
+                    .Where(provider => provider.Enabled && AuthenticationEndpoints.IsConfiguredProvider(
+                        policy,
+                        provider.Id,
+                        provider.Kind.Equals(ExternalAuthProviderKinds.OpenIdConnect, StringComparison.OrdinalIgnoreCase)
+                            ? string.IsNullOrWhiteSpace(provider.Issuer) ? provider.Authority : provider.Issuer
+                            : provider.Issuer))
+                    .Select(provider => new AccountExternalProviderResponse(provider.Id, provider.DisplayName))
+                    .ToList()
+                : [];
+
+            var methods = AttachedAuthenticationMethods(
+                account.IsLocalOnly, hasProfilePin, hasPassword, passkeys.Count > 0, linkedLogins.Count > 0);
+
+            var capabilities = new AccountSecurityCapabilitiesResponse(
+                hasPassword,
+                passkeys.Count > 0,
+                linkedLogins.Count > 0,
+                hasPassword && AuthenticationEndpoints.AllowsClient(
+                    policy, originalClientIsLocal, originalClientIsHttps,
+                    policy.PasswordSignInEnabled && !AuthenticationEndpoints.IsLocalOnlyMode(policy)),
+                !account.IsLocalOnly && AuthenticationEndpoints.IsPasskeyAvailable(
+                    policy, originalClientIsLocal, originalClientIsHttps),
+                passkeyReady,
+                availableProviders.Count > 0,
+                availableProviders);
             return Results.Ok(new AccountSelfServiceResponse(account.Id, account.Email, account.IsLocalOnly,
-                authority.ActiveProfileId.GetValueOrDefault(), defaultId, grants,
-                account.IsLocalOnly ? ["profile_pin"] : ["password", "passkey", "external"]));
+                authority.ActiveProfileId.GetValueOrDefault(), defaultId, grants, methods, capabilities));
         }).Produces<AccountSelfServiceResponse>();
 
         self.MapGet("/external-logins", async (HttpContext http, IRequestAuthorityResolver resolver,
@@ -89,6 +139,25 @@ public static class AccountEndpoints
             await WriteAuditAsync(audit, clock, authority, "account.external_login_unlinked", loginId, ct);
             return Results.NoContent();
         }).Produces(StatusCodes.Status204NoContent);
+    }
+
+    internal static IReadOnlyList<string> AttachedAuthenticationMethods(
+        bool isLocalOnly,
+        bool hasProfilePin,
+        bool hasPassword,
+        bool hasPasskeys,
+        bool hasExternalLogins)
+    {
+        if (isLocalOnly)
+        {
+            return hasProfilePin ? ["profile_pin"] : ["profile_entry"];
+        }
+
+        var methods = new List<string>(3);
+        if (hasPassword) methods.Add("password");
+        if (hasPasskeys) methods.Add("passkey");
+        if (hasExternalLogins) methods.Add("external");
+        return methods;
     }
 
     private static void MapAdministratorUnlock(RouteGroupBuilder access)

@@ -3,13 +3,15 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using MediaEngine.Contracts.Authentication;
 using MediaEngine.Contracts.Profiles;
+using MediaEngine.Web.Services.Configuration;
 
 namespace MediaEngine.Web.Services.Integration;
 
 public sealed class DashboardIdentityClient(
     IHttpClientFactory clients,
     IHttpContextAccessor? contextAccessor = null,
-    ILogger<DashboardIdentityClient>? logger = null)
+    ILogger<DashboardIdentityClient>? logger = null,
+    DashboardConfigurationReader? configuration = null)
 {
     private readonly object _initialAuthorityGate = new();
     private Task<DashboardAuthorityResponse?>? _initialAuthorityTask;
@@ -211,10 +213,16 @@ public sealed class DashboardIdentityClient(
         (await Client.PostAsJsonAsync("/auth/password/reset/complete", request, ct).ConfigureAwait(false)).IsSuccessStatusCode;
 
     public async Task<AccountSelfServiceResponse?> GetAccountAsync(CancellationToken ct = default) =>
-        await GetAsync<AccountSelfServiceResponse>("/access/self-service", ct).ConfigureAwait(false);
+        await GetAsync<AccountSelfServiceResponse>(SelfServicePath(), ct).ConfigureAwait(false);
 
     public Task<AccountSelfServiceResponse?> GetSelfServiceAsync(CancellationToken ct = default) =>
-        GetAsync<AccountSelfServiceResponse>("/access/self-service", ct);
+        GetAsync<AccountSelfServiceResponse>(SelfServicePath(), ct);
+
+    private string SelfServicePath()
+    {
+        var original = GetOriginalClientContext();
+        return $"/access/self-service?originalClientIsLocal={original.IsLocal.ToString().ToLowerInvariant()}&originalClientIsHttps={original.IsHttps.ToString().ToLowerInvariant()}";
+    }
 
     public Task<List<AccountAccessResponse>> GetManagedAccountsAsync(CancellationToken ct = default) =>
         GetAsync<List<AccountAccessResponse>>("/access/accounts", ct).ContinueWith(task => task.Result ?? [], ct);
@@ -411,18 +419,34 @@ public sealed class DashboardIdentityClient(
         await GetAsync<List<AccountExternalLoginDto>>("/access/self-service/external-logins", ct).ConfigureAwait(false) ?? [];
 
     public async Task<bool> UnlinkExternalLoginAsync(Guid id, CancellationToken ct = default) =>
-        (await Client.DeleteAsync($"/access/self-service/external-logins/{id:D}", ct).ConfigureAwait(false)).IsSuccessStatusCode;
+        (await UnlinkExternalLoginResultAsync(id, ct).ConfigureAwait(false)).Succeeded;
+
+    public Task<DashboardAccessMutationResult> UnlinkExternalLoginResultAsync(Guid id, CancellationToken ct = default) =>
+        SendMutationAsync(HttpMethod.Delete, $"/access/self-service/external-logins/{id:D}", ct);
 
     public Task<PasskeyOptionsResponse?> GetPasskeyLoginOptionsAsync(string? email, bool isLocal, bool isHttps, CancellationToken ct = default) =>
         SendPasskeyAsync<BeginPasskeyLoginRequest, PasskeyOptionsResponse>("/auth/passkeys/login/options", new(email, isLocal, isHttps), ct);
     public Task<AuthSessionResponse?> CompletePasskeyLoginAsync(CompletePasskeyLoginRequest body, CancellationToken ct = default) =>
         SendPasskeyAsync<CompletePasskeyLoginRequest, AuthSessionResponse>("/auth/passkeys/login/complete", body, ct);
-    public Task<PasskeyOptionsResponse?> GetPasskeyRegistrationOptionsAsync(CancellationToken ct = default) =>
-        SendPasskeyAsync<object, PasskeyOptionsResponse>("/auth/passkeys/registration/options", new { }, ct);
+    public Task<PasskeyOptionsResponse?> GetPasskeyRegistrationOptionsAsync(CancellationToken ct = default)
+    {
+        var original = GetOriginalClientContext();
+        return SendPasskeyAsync<BeginPasskeyRegistrationRequest, PasskeyOptionsResponse>(
+            "/auth/passkeys/registration/options", new(original.IsLocal, original.IsHttps), ct);
+    }
     public async Task<bool> CompletePasskeyRegistrationAsync(CompletePasskeyRegistrationRequest body, CancellationToken ct = default)
-    { using var request = PasskeyRequest(HttpMethod.Post, "/auth/passkeys/registration/complete", body); using var response = await Client.SendAsync(request, ct).ConfigureAwait(false); return response.IsSuccessStatusCode; }
+    {
+        var original = GetOriginalClientContext();
+        body = body with { OriginalClientIsLocal = original.IsLocal, OriginalClientIsHttps = original.IsHttps };
+        using var request = PasskeyRequest(HttpMethod.Post, "/auth/passkeys/registration/complete", body);
+        using var response = await Client.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode;
+    }
     public async Task<List<PasskeyCredentialResponse>> GetPasskeysAsync(CancellationToken ct = default) => await GetAsync<List<PasskeyCredentialResponse>>("/auth/passkeys", ct).ConfigureAwait(false) ?? [];
-    public async Task<bool> RemovePasskeyAsync(string id, CancellationToken ct = default) => (await Client.DeleteAsync($"/auth/passkeys/{Uri.EscapeDataString(id)}", ct).ConfigureAwait(false)).IsSuccessStatusCode;
+    public async Task<bool> RemovePasskeyAsync(string id, CancellationToken ct = default) =>
+        (await RemovePasskeyResultAsync(id, ct).ConfigureAwait(false)).Succeeded;
+    public Task<DashboardAccessMutationResult> RemovePasskeyResultAsync(string id, CancellationToken ct = default) =>
+        SendMutationAsync(HttpMethod.Delete, $"/auth/passkeys/{Uri.EscapeDataString(id)}", ct);
 
     private async Task<TResponse?> SendPasskeyAsync<TRequest, TResponse>(string path, TRequest body, CancellationToken ct)
     { using var request = PasskeyRequest(HttpMethod.Post, path, body); using var response = await Client.SendAsync(request, ct).ConfigureAwait(false); return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct).ConfigureAwait(false) : default; }
@@ -431,6 +455,18 @@ public sealed class DashboardIdentityClient(
         var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) }; var inbound = contextAccessor?.HttpContext?.Request;
         if (inbound is not null) { request.Headers.Host = inbound.Host.Value; request.Headers.TryAddWithoutValidation("Origin", $"{inbound.Scheme}://{inbound.Host.Value}"); }
         return request;
+    }
+
+    private (bool IsLocal, bool IsHttps) GetOriginalClientContext()
+    {
+        var context = contextAccessor?.HttpContext;
+        if (context is null)
+        {
+            return (false, false);
+        }
+
+        var policy = configuration?.LoadCore().Auth ?? new MediaEngine.Domain.Configuration.AuthSettings();
+        return (DashboardAuthenticationEndpoints.IsLocalClient(context, policy), context.Request.IsHttps);
     }
 
     private async Task<DashboardAccessMutationResult<TResponse>> SendMutationAsync<TRequest, TResponse>(
@@ -467,6 +503,42 @@ public sealed class DashboardIdentityClient(
             {
                 return DashboardAccessMutationResult<TResponse>.FailureResult(DashboardAccessMutationFailure.Transient, response.StatusCode);
             }
+        }
+        catch (HttpRequestException)
+        {
+            return DashboardAccessMutationResult<TResponse>.FailureResult(DashboardAccessMutationFailure.Transient);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return DashboardAccessMutationResult<TResponse>.FailureResult(DashboardAccessMutationFailure.Transient);
+        }
+    }
+
+    private async Task<DashboardAccessMutationResult<TResponse>> SendDeleteResponseAsync<TResponse>(
+        string path,
+        CancellationToken ct)
+    {
+        try
+        {
+            using var response = await Client.DeleteAsync(path, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return await ReadMutationFailureAsync<TResponse>(response, ct).ConfigureAwait(false);
+            }
+
+            var value = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct).ConfigureAwait(false);
+            return value is null
+                ? DashboardAccessMutationResult<TResponse>.FailureResult(
+                    DashboardAccessMutationFailure.InvalidResponse, response.StatusCode)
+                : DashboardAccessMutationResult<TResponse>.Success(value);
+        }
+        catch (JsonException)
+        {
+            return DashboardAccessMutationResult<TResponse>.FailureResult(DashboardAccessMutationFailure.InvalidResponse);
+        }
+        catch (NotSupportedException)
+        {
+            return DashboardAccessMutationResult<TResponse>.FailureResult(DashboardAccessMutationFailure.InvalidResponse);
         }
         catch (HttpRequestException)
         {
@@ -601,10 +673,19 @@ public sealed class DashboardIdentityClient(
         await GetAsync<List<DeviceSessionResponse>>("/auth/sessions", ct).ConfigureAwait(false) ?? [];
 
     public async Task<bool> RevokeSessionAsync(Guid sessionId, CancellationToken ct = default) =>
-        (await Client.DeleteAsync($"/auth/sessions/{sessionId:D}", ct).ConfigureAwait(false)).IsSuccessStatusCode;
+        (await RevokeSessionResultAsync(sessionId, ct).ConfigureAwait(false)).Succeeded;
+
+    public Task<DashboardAccessMutationResult> RevokeSessionResultAsync(Guid sessionId, CancellationToken ct = default) =>
+        SendMutationAsync(HttpMethod.Delete, $"/auth/sessions/{sessionId:D}", ct);
+
+    public Task<DashboardAccessMutationResult<RevokeOtherSessionsResponse>> RevokeOtherSessionsAsync(CancellationToken ct = default) =>
+        SendDeleteResponseAsync<RevokeOtherSessionsResponse>("/auth/sessions/others", ct);
 
     public async Task<bool> ChangePasswordAsync(ChangePasswordRequest request, CancellationToken ct = default) =>
-        (await Client.PostAsJsonAsync("/auth/password/change", request, ct).ConfigureAwait(false)).IsSuccessStatusCode;
+        (await ChangePasswordResultAsync(request, ct).ConfigureAwait(false)).Succeeded;
+
+    public Task<DashboardAccessMutationResult> ChangePasswordResultAsync(ChangePasswordRequest request, CancellationToken ct = default) =>
+        SendMutationAsync(HttpMethod.Post, "/auth/password/change", request, ct);
 
     public async Task<IReadOnlyList<string>?> RegenerateRecoveryCodesAsync(string currentPassword, CancellationToken ct = default)
     {

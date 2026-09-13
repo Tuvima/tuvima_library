@@ -120,6 +120,9 @@ public sealed class SetProfilePinRequest
 public sealed record RegenerateRecoveryCodesRequest(
     [property: JsonPropertyName("current_password")] string CurrentPassword);
 
+public sealed record RevokeOtherSessionsResponse(
+    [property: JsonPropertyName("revoked_count")] int RevokedCount);
+
 public sealed record BeginPasswordResetRequest(
     [property: JsonPropertyName("email")] string Email,
     [property: JsonPropertyName("original_client_is_local")] bool OriginalClientIsLocal = false,
@@ -138,6 +141,9 @@ public sealed record BeginPasskeyLoginRequest(
     [property: JsonPropertyName("email")] string? Email,
     [property: JsonPropertyName("original_client_is_local")] bool OriginalClientIsLocal = false,
     [property: JsonPropertyName("original_client_is_https")] bool OriginalClientIsHttps = false);
+public sealed record BeginPasskeyRegistrationRequest(
+    [property: JsonPropertyName("original_client_is_local")] bool OriginalClientIsLocal = false,
+    [property: JsonPropertyName("original_client_is_https")] bool OriginalClientIsHttps = false);
 public sealed record CompletePasskeyLoginRequest(
     [property: JsonPropertyName("credential_json")] string CredentialJson,
     [property: JsonPropertyName("state")] string State,
@@ -148,7 +154,9 @@ public sealed record CompletePasskeyLoginRequest(
 public sealed record CompletePasskeyRegistrationRequest(
     [property: JsonPropertyName("credential_json")] string CredentialJson,
     [property: JsonPropertyName("state")] string State,
-    [property: JsonPropertyName("name")] string Name);
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("original_client_is_local")] bool OriginalClientIsLocal = false,
+    [property: JsonPropertyName("original_client_is_https")] bool OriginalClientIsHttps = false);
 public sealed record CompletePasskeyElevationRequest(
     [property: JsonPropertyName("credential_json")] string CredentialJson,
     [property: JsonPropertyName("state")] string State);

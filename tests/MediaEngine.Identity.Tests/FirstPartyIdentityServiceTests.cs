@@ -249,6 +249,59 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ChangePassword_PreservesCurrentSessionAndRevokesEveryOtherSession()
+    {
+        var first = await _service.BootstrapAdministratorAsync(
+            "owner@example.com", "correct horse battery staple", "Owner",
+            "browser-1", "Living room", "Dashboard");
+        var current = (await _service.AuthenticatePasswordAsync(
+            "owner@example.com", "correct horse battery staple", "browser-2", "Office", "Dashboard")).IssuedSession!;
+
+        await _service.ChangePasswordAsync(
+            first.Account.Id, "correct horse battery staple", "replacement password",
+            current.Session.Id);
+
+        Assert.Null(await _service.ValidateSessionAsync(first.PlaintextToken));
+        Assert.NotNull(await _service.ValidateSessionAsync(current.PlaintextToken));
+        Assert.False((await _service.AuthenticatePasswordAsync(
+            "owner@example.com", "correct horse battery staple", "browser-3", "Other", "Dashboard")).Succeeded);
+        Assert.True((await _service.AuthenticatePasswordAsync(
+            "owner@example.com", "replacement password", "browser-4", "Other", "Dashboard")).Succeeded);
+    }
+
+    [Fact]
+    public async Task RevokeOtherSessions_PreservesCurrentSessionAndClearsOtherAdminUnlocks()
+    {
+        var first = await _service.BootstrapAdministratorAsync(
+            "owner@example.com", "correct horse battery staple", "Owner",
+            "browser-1", "Living room", "Dashboard");
+        var current = (await _service.AuthenticatePasswordAsync(
+            "owner@example.com", "correct horse battery staple", "browser-2", "Office", "Dashboard")).IssuedSession!;
+        await _accounts.SetAdminUnlockAsync(new GrantAdminUnlock
+        {
+            SessionId = first.Session.Id,
+            AccountId = first.Account.Id,
+            ProfileId = first.ActiveProfile.Id,
+            ProtectionVersion = 1,
+            Method = "GrantPin",
+            GrantedAt = _clock.GetUtcNow(),
+            ExpiresAt = _clock.GetUtcNow().AddMinutes(30),
+        });
+
+        var revoked = await _service.RevokeOtherSessionsAsync(
+            first.Account.Id, current.Session.Id, "user_revoked_other_sessions");
+
+        Assert.Equal(1, revoked);
+        Assert.Null(await _service.ValidateSessionAsync(first.PlaintextToken));
+        Assert.NotNull(await _service.ValidateSessionAsync(current.PlaintextToken));
+        Assert.Null(await _accounts.GetAdminUnlockAsync(
+            first.Session.Id, first.Account.Id, first.ActiveProfile.Id, _clock.GetUtcNow()));
+        using var connection = _database.CreateConnection();
+        Assert.Equal(1, connection.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM identity_audit_events WHERE event_type='other_sessions_revoked' AND succeeded=1;"));
+    }
+
+    [Fact]
     public async Task PasswordFailures_LockCredentialAfterFiveAttempts()
     {
         await _service.BootstrapAdministratorAsync(

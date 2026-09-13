@@ -11,6 +11,31 @@ namespace MediaEngine.Storage.Tests;
 public sealed class DatabaseStartupSafetyTests
 {
     [Fact]
+    public void StartupWriteCheck_ReadOnlyDatabase_ReturnsActionableFailure()
+    {
+        using var fixture = TempDatabase.Create();
+        fixture.Database.InitializeSchema();
+        fixture.Database.Dispose();
+
+        var connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = fixture.Path,
+            Mode = SqliteOpenMode.ReadOnly,
+        }.ToString();
+        using var connection = new SqliteConnection(connectionString);
+        connection.Open();
+
+        var exception = Assert.Throws<DatabaseWriteAccessException>(() =>
+            new DatabaseIntegrityChecker().EnsureWritable(connection, fixture.Path));
+
+        Assert.Contains("cannot start", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("read-only", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(Path.GetFullPath(fixture.Path), exception.Message, StringComparison.Ordinal);
+        Assert.Contains("parent directory", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.IsType<SqliteException>(exception.InnerException);
+    }
+
+    [Fact]
     public void FreshDatabase_AllowsManagedNetworkAndStudioLogos()
     {
         using var fixture = TempDatabase.Create();

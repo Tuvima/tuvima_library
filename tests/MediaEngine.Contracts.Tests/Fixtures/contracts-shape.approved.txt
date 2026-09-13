@@ -332,6 +332,10 @@ MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.Accoun
   LinkedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
   LastLoginAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
 
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.AccountExternalProviderResponse
+  Id: System.String | nullability=not-null | accessors=get,init
+  DisplayName: System.String | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.AccountFeatureGrantDto
   Feature: System.String | nullability=not-null | accessors=get,init
   Allowed: System.Boolean | nullability=not-null | accessors=get,init
@@ -366,6 +370,16 @@ MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.Accoun
   ProfileIds: System.Collections.Generic.IReadOnlyList<System.Guid> | nullability=not-null | accessors=get,init
   DefaultProfileId: System.Guid? | nullability=nullable | accessors=get,init
 
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.AccountSecurityCapabilitiesResponse
+  HasPassword: System.Boolean | nullability=not-null | accessors=get,init
+  HasPasskeys: System.Boolean | nullability=not-null | accessors=get,init
+  HasExternalLogins: System.Boolean | nullability=not-null | accessors=get,init
+  PasswordSignInAvailable: System.Boolean | nullability=not-null | accessors=get,init
+  CanRegisterPasskey: System.Boolean | nullability=not-null | accessors=get,init
+  PasskeyReady: System.Boolean | nullability=not-null | accessors=get,init
+  ExternalSignInAvailable: System.Boolean | nullability=not-null | accessors=get,init
+  AvailableExternalProviders: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Authentication.AccountExternalProviderResponse> | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.AccountSelfServiceResponse
   AccountId: System.Guid | nullability=not-null | accessors=get,init
   Email: System.String | nullability=nullable | accessors=get,init
@@ -374,6 +388,7 @@ MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.Accoun
   DefaultProfileId: System.Guid | nullability=not-null | accessors=get,init
   Profiles: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Authentication.AccountProfileGrantDto> | nullability=not-null | accessors=get,init
   AuthenticationMethods: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  SecurityCapabilities: MediaEngine.Contracts.Authentication.AccountSecurityCapabilitiesResponse | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.AdministratorElevationResponse
   Elevated: System.Boolean | nullability=not-null | accessors=get,init
@@ -517,6 +532,10 @@ MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.BeginP
   OriginalClientIsLocal: System.Boolean | nullability=not-null | accessors=get,init
   OriginalClientIsHttps: System.Boolean | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.BeginPasskeyRegistrationRequest
+  OriginalClientIsLocal: System.Boolean | nullability=not-null | accessors=get,init
+  OriginalClientIsHttps: System.Boolean | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.BeginPasswordResetRequest
   Email: System.String | nullability=not-null | accessors=get,init
   OriginalClientIsLocal: System.Boolean | nullability=not-null | accessors=get,init
@@ -583,6 +602,8 @@ MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.Comple
   CredentialJson: System.String | nullability=not-null | accessors=get,init
   State: System.String | nullability=not-null | accessors=get,init
   Name: System.String | nullability=not-null | accessors=get,init
+  OriginalClientIsLocal: System.Boolean | nullability=not-null | accessors=get,init
+  OriginalClientIsHttps: System.Boolean | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.CreateAccountInvitationRequest
   Email: System.String | nullability=not-null | accessors=get,init
@@ -799,6 +820,9 @@ MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.ResetP
   NewPassword: System.String | nullability=not-null | accessors=get,init
   OriginalClientIsLocal: System.Boolean | nullability=not-null | accessors=get,init
   OriginalClientIsHttps: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.RevokeOtherSessionsResponse
+  RevokedCount: System.Int32 | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.RotateApplicationCredentialRequest
   Name: System.String | nullability=nullable | accessors=get,init

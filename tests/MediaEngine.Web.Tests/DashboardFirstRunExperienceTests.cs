@@ -76,6 +76,7 @@ public sealed class DashboardFirstRunExperienceTests
     {
         var setup = Read("src/MediaEngine.Web/Components/Pages/SetupPage.razor");
         var administrator = Read("src/MediaEngine.Web/Components/Setup/SetupAdministratorStage.razor");
+        var recoveryCodes = Read("src/MediaEngine.Web/Components/Shared/RecoveryCodesDisplay.razor");
         var preflight = Read("src/MediaEngine.Web/Components/Setup/SetupPreflightStage.razor");
         var providers = Read("src/MediaEngine.Web/Components/Setup/SetupProvidersStage.razor");
         var providerDialog = Read("src/MediaEngine.Web/Components/Shared/Providers/ProviderOnboardingDialog.razor");
@@ -85,8 +86,9 @@ public sealed class DashboardFirstRunExperienceTests
         var overview = Read("src/MediaEngine.Web/Components/Settings/OverviewTab.razor");
 
         Assert.Contains("Confirm password", administrator, StringComparison.Ordinal);
-        Assert.Contains("Download .txt", administrator, StringComparison.Ordinal);
-        Assert.Contains("CopyRecoveryCodesAsync", setup, StringComparison.Ordinal);
+        Assert.Contains("RecoveryCodesDisplay", administrator, StringComparison.Ordinal);
+        Assert.Contains("Download .txt", recoveryCodes, StringComparison.Ordinal);
+        Assert.Contains("Copy all", recoveryCodes, StringComparison.Ordinal);
         Assert.Contains("Save and check again", preflight, StringComparison.Ordinal);
         Assert.Contains("CanNavigateTo(key)", setup, StringComparison.Ordinal);
         Assert.Contains("Label=\"Back\"", setup, StringComparison.Ordinal);

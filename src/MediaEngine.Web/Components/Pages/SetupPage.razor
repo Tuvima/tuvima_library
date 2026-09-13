@@ -11,7 +11,6 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
-@inject IJSRuntime JS
 
 <PageTitle>Set up Tuvima Library</PageTitle>
 
@@ -45,9 +44,9 @@
                                              PasswordConfirmation="@_passwordConfirmation" PasswordConfirmationChanged="@((string? value) => _passwordConfirmation = value ?? string.Empty)"
                                              Pin="@_pin" PinChanged="@((string? value) => _pin = value ?? string.Empty)"
                                              PinConfirmation="@_pinConfirmation" PinConfirmationChanged="@((string? value) => _pinConfirmation = value ?? string.Empty)"
-                                             RecoveryCodes="@_recoveryCodes" RecoveryCodesText="@RecoveryCodesText" RecoveryCodesDownloadUri="@RecoveryCodesDownloadUri"
+                                             RecoveryCodes="@_recoveryCodes"
                                              AdministratorConfigured="@(_status.AdministratorConfigured)" Busy="@_busy" CreateAdministrator="CreateAdministratorAsync"
-                                             CopyRecoveryCodes="CopyRecoveryCodesAsync" SignIn="SignIn" />
+                                             SignIn="SignIn" />
                     break;
                 case "media-locations":
                     <SetupMediaStage Media="@_media" SetupSession="@_setupSession" Busy="@_busy" ShowLibraryWizard="@_showLibraryWizard"
@@ -109,8 +108,6 @@
     private string CurrentStep => _selectedStep ?? WorkflowStep;
     private int CurrentIndex => Math.Max(0, Array.IndexOf(SetupWorkflow.StepKeys, CurrentStep));
     private bool PasswordsMatch => string.Equals(_password, _passwordConfirmation, StringComparison.Ordinal);
-    private string RecoveryCodesText => $"Tuvima Library administrator recovery codes{Environment.NewLine}Created: {DateTimeOffset.Now:g}{Environment.NewLine}{Environment.NewLine}{string.Join(Environment.NewLine, _recoveryCodes)}{Environment.NewLine}";
-    private string RecoveryCodesDownloadUri => $"data:text/plain;charset=utf-8,{Uri.EscapeDataString(RecoveryCodesText)}";
     private string PageTitleText => CurrentStep == "preflight" ? "Welcome to your library" : Friendly(CurrentStep);
     private string PageSubtitle => CurrentStep switch
     {
@@ -237,7 +234,6 @@
     private async Task ConfirmRestoreAsync() { if (_backup is null || _setupSession is null) return; _busy = true; var result = await ApiClient.ConfirmSetupRestoreAsync(_backup.OperationId, _setupSession); _busy = false; if (result is null) Snackbar.Add("The restore could not be scheduled.", Severity.Error); else Snackbar.Add("Restore scheduled. Tuvima is restarting.", Severity.Info); }
     private async Task CreateAdministratorAsync() { if (_setupSession is null || !PasswordsMatch) { Snackbar.Add("Enter the same password twice.", Severity.Error); return; } _busy = true; var result = await ApiClient.CreateSetupAdministratorAsync(new SetupAdministratorRequest { Email = _email, Password = _password, Pin = string.IsNullOrEmpty(_pin) ? null : _pin, DisplayName = _displayName, DeviceId = Guid.NewGuid().ToString("D"), DeviceName = "Setup browser" }, _setupSession); _busy = false; if (result is null) Snackbar.Add("The administrator could not be created.", Severity.Error); else { await ClearSetupSessionAsync(); if (result.RecoveryCodes.Count > 0) _recoveryCodes = result.RecoveryCodes; else SignIn(); } }
     private async Task ClearSetupSessionAsync() { _setupSession = null; try { await Storage.DeleteAsync(SetupSessionKey); } catch { _setupSession = null; } }
-    private async Task CopyRecoveryCodesAsync() { await JS.InvokeVoidAsync("navigator.clipboard.writeText", RecoveryCodesText); Snackbar.Add("Recovery codes copied.", Severity.Success); }
     private void SignIn() => Navigation.NavigateTo("/auth/login?returnUrl=%2Fsetup", forceLoad: true);
     private async Task ValidateMediaAsync() { _busy = true; _media = await ApiClient.ValidateSetupMediaLocationsAsync(_setupSession); _busy = false; if (_media?.Passed == true) { _readiness = null; await ReloadAsync(); } }
     private async Task LibraryCreatedAsync() { _showLibraryWizard = false; _setupLibraries = await ApiClient.GetSetupLibrariesAsync(_setupSession); await ValidateMediaAsync(); }

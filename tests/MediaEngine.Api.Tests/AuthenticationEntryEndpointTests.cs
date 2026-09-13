@@ -209,6 +209,7 @@ public sealed class AuthenticationEntryEndpointTests
         builder.Services.AddSingleton<UserManager<Account>>(_ => null!);
         builder.Services.AddSingleton(new DashboardAuthorityProjector(null!, null!, null!, TimeProvider.System));
         builder.Services.AddSingleton(new ExternalIdentityTransactionService(TimeProvider.System));
+        builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<AuthenticationPolicyMutationGate>();
         builder.Services.AddSingleton<AuthenticationProviderConfigurationService>();
         var app = builder.Build();

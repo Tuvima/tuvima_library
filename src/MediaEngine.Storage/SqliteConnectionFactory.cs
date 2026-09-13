@@ -15,17 +15,33 @@ internal sealed class SqliteConnectionFactory
     public SqliteConnection OpenSharedConnection()
     {
         var conn = new SqliteConnection($"Data Source={_databasePath}");
-        conn.Open();
-        ApplySharedPragmas(conn);
-        return conn;
+        try
+        {
+            conn.Open();
+            ApplySharedPragmas(conn);
+            return conn;
+        }
+        catch (SqliteException exception) when (DatabaseIntegrityChecker.IsReadOnly(exception))
+        {
+            conn.Dispose();
+            throw DatabaseIntegrityChecker.ReadOnlyDatabase(_databasePath, exception);
+        }
     }
 
     public SqliteConnection CreateOperationConnection()
     {
         var conn = new SqliteConnection($"Data Source={_databasePath}");
-        conn.Open();
-        ApplyOperationPragmas(conn);
-        return conn;
+        try
+        {
+            conn.Open();
+            ApplyOperationPragmas(conn);
+            return conn;
+        }
+        catch (SqliteException exception) when (DatabaseIntegrityChecker.IsReadOnly(exception))
+        {
+            conn.Dispose();
+            throw DatabaseIntegrityChecker.ReadOnlyDatabase(_databasePath, exception);
+        }
     }
 
     private static void ApplySharedPragmas(SqliteConnection conn)

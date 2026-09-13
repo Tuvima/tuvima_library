@@ -103,7 +103,7 @@
                             <UserOverviewTab />
                             break;
                         case SettingsSection.Account:
-                            <AccountSettingsTab EmailTest="@AccountEmailTest" />
+                            <AccountSettingsTab />
                             break;
                         case SettingsSection.AdminOverview:
                             <OverviewTab ReviewCount="_reviewCount" Subsection="@_activeSubsection" />
@@ -188,7 +188,6 @@
     [SupplyParameterFromQuery(Name = "runId")] public Guid? IngestionRunId { get; set; }
     [SupplyParameterFromQuery(Name = "review")] public string? ReviewState { get; set; }
     [SupplyParameterFromQuery(Name = "q")] public string? RecentSearch { get; set; }
-    [SupplyParameterFromQuery(Name = "emailTest")] public string? AccountEmailTest { get; set; }
 
     private SettingsSection _activeSection = SettingsSection.Overview;
     private string _activeSubsection = string.Empty;
@@ -738,7 +737,7 @@
     private string GetSectionDescription(SettingsSection section) => section switch
     {
         SettingsSection.Overview => "Manage your profile and see your personal library activity.",
-        SettingsSection.Account => "Manage your sign-in methods, recovery options, and active sessions.",
+        SettingsSection.Account => "Manage your account, security, and sign-in methods.",
         SettingsSection.Playback => "Set the defaults that shape how you watch, listen, and read.",
         SettingsSection.Privacy => "Personal history and export controls are not yet available.",
         SettingsSection.AdminOverview => "A quick look at your library, system health, and anything that needs attention.",

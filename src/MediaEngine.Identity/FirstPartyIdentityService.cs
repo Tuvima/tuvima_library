@@ -222,8 +222,23 @@ public sealed class FirstPartyIdentityService(
         return revoked;
     }
 
-    public Task<int> RevokeOtherSessionsAsync(Guid accountId, Guid currentSessionId, string reason, CancellationToken ct = default) =>
-        identities.RevokeAccountSessionsAsync(accountId, UtcNow, SanitizeReason(reason), currentSessionId, ct);
+    public async Task<int> RevokeOtherSessionsAsync(Guid accountId, Guid currentSessionId, string reason, CancellationToken ct = default)
+    {
+        var now = UtcNow;
+        var otherSessions = (await identities.GetSessionsAsync(accountId, ct).ConfigureAwait(false))
+            .Where(session => session.Id != currentSessionId && session.RevokedAt is null)
+            .ToArray();
+        var activeRevoked = otherSessions.Count(session => session.IsActive(now));
+        await identities.RevokeAccountSessionsAsync(
+            accountId, now, SanitizeReason(reason), currentSessionId, ct).ConfigureAwait(false);
+        foreach (var sessionId in otherSessions.Select(session => session.Id))
+        {
+            await accounts.ClearAdminUnlockAsync(sessionId, ct).ConfigureAwait(false);
+        }
+        await AuditAsync(accountId, null, currentSessionId, "other_sessions_revoked", true,
+            activeRevoked.ToString(System.Globalization.CultureInfo.InvariantCulture), ct).ConfigureAwait(false);
+        return activeRevoked;
+    }
 
     public async Task ChangePasswordAsync(Guid accountId, string currentPassword, string newPassword, Guid? currentSessionId = null, CancellationToken ct = default)
     {
@@ -235,7 +250,9 @@ public sealed class FirstPartyIdentityService(
             throw new UnauthorizedAccessException("The current password is incorrect.");
         }
 
-        credential.SecretHash = Hash(credential, newPassword); credential.SecurityStamp = NewSecurityStamp(); credential.UpdatedAt = UtcNow; credential.FailedAttemptCount = 0; credential.LockedUntil = null;
+        // Other sessions are explicitly revoked below. Retaining this stamp keeps the deliberately
+        // preserved current password session valid on its next validation.
+        credential.SecretHash = Hash(credential, newPassword); credential.UpdatedAt = UtcNow; credential.FailedAttemptCount = 0; credential.LockedUntil = null;
         await identities.UpsertAccountCredentialAsync(credential, ct).ConfigureAwait(false);
         await identities.RevokeAccountSessionsAsync(accountId, UtcNow, "password_changed", currentSessionId, ct).ConfigureAwait(false);
         await AuditAsync(accountId, null, currentSessionId, "password_changed", true, null, ct).ConfigureAwait(false);
