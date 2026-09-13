@@ -130,7 +130,7 @@
                     </div>
                     @if (!Capabilities.CanRegisterPasskey)
                     {
-                        <p id="passkey-unavailable" class="account-security-settings__availability">Passkeys are not available on this server.</p>
+                        <p id="passkey-unavailable" class="account-security-settings__availability">@PasskeyUnavailableMessage</p>
                     }
                 </SettingsSectionPanel>
             }
@@ -297,7 +297,10 @@
     private bool PasswordsMatch => string.Equals(_newPassword, _confirmPassword, StringComparison.Ordinal);
     private bool CanChangePassword => !_busy && !_changingPassword && !string.IsNullOrWhiteSpace(_currentPassword)
         && NewPasswordValid && PasswordsMatch;
-    private bool ShowPasskeys => Capabilities.HasPasskeys || Capabilities.CanRegisterPasskey;
+    private bool ShowPasskeys => !_account!.IsLocalOnly;
+    private string PasskeyUnavailableMessage => Capabilities.PasskeyReady
+        ? "Passkeys are unavailable from this connection. Use a secure connection or local access."
+        : "Passkeys are not available on this server.";
     private bool ShowLinkedAccounts => Capabilities.HasExternalLogins || AvailableProviders.Any();
     private IEnumerable<RegisteredExternalAuthProvider> AvailableProviders => ExternalProviders.Where(provider =>
         Capabilities.AvailableExternalProviders.Any(available => available.Id.Equals(provider.Id, StringComparison.OrdinalIgnoreCase)));
