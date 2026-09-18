@@ -10,11 +10,10 @@
            EndIcon="@EndIcon"
            ButtonType="@ButtonType"
            FullWidth="@FullWidth"
-           aria-busy="@(Loading ? "true" : null)"
            OnClick="HandleClick"
            Style="@ResolvedStyle"
            Class="@RootClass"
-           @attributes="AdditionalAttributes">
+           UserAttributes="@ResolvedUserAttributes">
     @if (Loading)
     {
         <MudProgressCircular Indeterminate="true"
@@ -50,6 +49,7 @@
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? InlineStyle { get; set; }
     [Parameter] public string? Css { get; set; }
+    [Parameter] public Dictionary<string, object>? UserAttributes { get; set; }
     [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private AppControlSize AppSize => AppUiMaps.ToAppControlSize(Size);
@@ -59,6 +59,30 @@
     private Variant MudVariant => AppUiMaps.ToMudVariant(ButtonStyle);
     private bool EffectiveDisabled => Disabled || Loading;
     private string? EffectiveStartIcon => Loading ? null : StartIcon;
+
+    private Dictionary<string, object> ResolvedUserAttributes
+    {
+        get
+        {
+            var attributes = UserAttributes is null
+                ? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, object>(UserAttributes, StringComparer.OrdinalIgnoreCase);
+            if (AdditionalAttributes is not null)
+            {
+                foreach (var attribute in AdditionalAttributes)
+                {
+                    attributes[attribute.Key] = attribute.Value;
+                }
+            }
+
+            if (Loading)
+            {
+                attributes["aria-busy"] = "true";
+            }
+
+            return attributes;
+        }
+    }
 
     private string RootClass =>
         string.Join(" ", new[]

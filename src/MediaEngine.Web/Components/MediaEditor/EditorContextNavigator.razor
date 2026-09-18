@@ -1,0 +1,122 @@
+@namespace MediaEngine.Web.Components.MediaEditor
+@using MediaEngine.Web.Components.Shared
+
+<nav class="editor-context" aria-label="Edit context">
+    <span class="editor-context__heading">Edit context</span>
+    <div class="editor-context__track">
+        @foreach (var entry in Levels.Select((level, index) => (level, index)))
+        {
+            var level = entry.level;
+            @if (entry.index > 0)
+            {
+                <MudIcon Icon="@Icons.Material.Outlined.ChevronRight"
+                         Class="editor-context__separator"
+                         aria-hidden="true" />
+            }
+
+            <div class="@GetLevelClass(level)">
+                <AppButton ButtonStyle="AppButtonStyle.Text"
+                           Tone="AppUiTone.Neutral"
+                           FullWidth="true"
+                           Disabled="@(!level.CanOpen)"
+                           Class="editor-context-level__body"
+                           aria-current="@(level.IsActive ? "page" : null)"
+                           OnClick="@(() => OpenLevelAsync(level))">
+                    <span class="editor-context-level__icon" aria-hidden="true">
+                        <MudIcon Icon="@GetLevelIcon(level.NodeKind)" Size="Size.Small" />
+                    </span>
+                    <span class="editor-context-level__copy">
+                        <span class="editor-context-level__label">@level.Label</span>
+                        <span class="editor-context-level__identity">
+                            <strong>@level.Title</strong>
+                            @if (!string.IsNullOrWhiteSpace(level.Subtitle))
+                            {
+                                <span>@level.Subtitle</span>
+                            }
+                        </span>
+                    </span>
+                </AppButton>
+
+                @if (level.ShowSelector)
+                {
+                    @if (level.Options.Count > 0)
+                    {
+                        <AppOverflowMenu Icon="@Icons.Material.Outlined.KeyboardArrowDown"
+                                         AriaLabel="@($"Select {level.Label.ToLowerInvariant()}")"
+                                         Class="editor-context-level__selector"
+                                         TriggerClass="editor-context-level__selector-trigger"
+                                         PopoverClass="editor-context-level__popover"
+                                         AnchorOrigin="Origin.BottomRight"
+                                         TransformOrigin="Origin.TopRight">
+                            @foreach (var option in level.Options)
+                            {
+                                <AppMenuItem Disabled="@(!option.IsEnabled)"
+                                             Class="@(option.IsActive ? "editor-context-option is-active" : "editor-context-option")"
+                                             OnClick="@(() => SelectOptionAsync(option))">
+                                    <span class="editor-context-option__copy">
+                                        <span class="editor-context-option__label">@option.Label</span>
+                                        <strong>@option.Title</strong>
+                                        @if (!string.IsNullOrWhiteSpace(option.Subtitle))
+                                        {
+                                            <span class="editor-context-option__subtitle">@option.Subtitle</span>
+                                        }
+                                    </span>
+                                    @if (option.IsActive)
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Outlined.Check" Size="Size.Small" />
+                                    }
+                                </AppMenuItem>
+                            }
+                        </AppOverflowMenu>
+                    }
+                    else
+                    {
+                        <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowDown"
+                                       AriaLabel="@($"No {level.Label.ToLowerInvariant()} options available")"
+                                       Disabled="true"
+                                       Class="editor-context-level__selector editor-context-level__selector--disabled" />
+                    }
+                }
+            </div>
+        }
+    </div>
+</nav>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<EditorContextLevel> Levels { get; set; } = [];
+    [Parameter] public EventCallback<Guid> OnTargetSelected { get; set; }
+
+    private Task OpenLevelAsync(EditorContextLevel level) =>
+        level.CanOpen && level.EntityId.HasValue
+            ? OnTargetSelected.InvokeAsync(level.EntityId.Value)
+            : Task.CompletedTask;
+
+    private Task SelectOptionAsync(EditorContextOption option) =>
+        option.IsEnabled
+            ? OnTargetSelected.InvokeAsync(option.EntityId)
+            : Task.CompletedTask;
+
+    private static string GetLevelClass(EditorContextLevel level) =>
+        string.Join(" ", new[]
+        {
+            "editor-context-level",
+            level.IsActive ? "is-active" : null,
+            level.CanOpen ? "is-clickable" : "is-placeholder",
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private static string GetLevelIcon(string nodeKind) =>
+        (nodeKind ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "series" => Icons.Material.Outlined.VideoLibrary,
+            "season" => Icons.Material.Outlined.CalendarMonth,
+            "episode" => Icons.Material.Outlined.Movie,
+            "volume" => Icons.Material.Outlined.CollectionsBookmark,
+            "issue" => Icons.Material.Outlined.Article,
+            "book" => Icons.Material.Outlined.MenuBook,
+            "artist" or "release_group" => Icons.Material.Outlined.Person,
+            "album" => Icons.Material.Outlined.Album,
+            "track" => Icons.Material.Outlined.MusicNote,
+            "audiobook" => Icons.Material.Outlined.Headphones,
+            _ => Icons.Material.Outlined.FolderOpen,
+        };
+}

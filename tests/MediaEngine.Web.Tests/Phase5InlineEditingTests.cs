@@ -356,8 +356,8 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("Exact match needed", code, StringComparison.Ordinal);
         Assert.Contains("The Series match supplies search context", code, StringComparison.Ordinal);
         Assert.Contains("CanonicalIdentityTargetSummary", code, StringComparison.Ordinal);
-        Assert.Contains("BuildContextPlaceholder", shell, StringComparison.Ordinal);
-        Assert.Contains("Select {article} {normalized}", code, StringComparison.Ordinal);
+        Assert.Contains("<EditorContextNavigator", shell, StringComparison.Ordinal);
+        Assert.Contains("Select {label.ToLowerInvariant()}", code, StringComparison.Ordinal);
         Assert.Contains("IdentityLinkDisplay", code, StringComparison.Ordinal);
         Assert.Contains(".GetExternalUrls(identifiers, _selectedMediaType", code, StringComparison.Ordinal);
         Assert.Contains("BuildCurrentIdentityIdentifiers", code, StringComparison.Ordinal);
@@ -634,9 +634,8 @@ public sealed class Phase5InlineEditingTests
         var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
         var context = ReadSource("src/MediaEngine.Contracts/Metadata/MediaEditorContracts.cs");
 
-        Assert.Contains("aria-label=\"Edit context\"", shell, StringComparison.Ordinal);
-        Assert.Contains("SelectContextLevelOneAsync", shell, StringComparison.Ordinal);
-        Assert.Contains("SelectContextLevelTwoAsync", shell, StringComparison.Ordinal);
+        Assert.Contains("<EditorContextNavigator", shell, StringComparison.Ordinal);
+        Assert.Contains("OnTargetSelected=\"SelectEditorContextTargetAsync\"", shell, StringComparison.Ordinal);
         Assert.Contains("Save and switch", shell, StringComparison.Ordinal);
         Assert.Contains("Discard and switch", shell, StringComparison.Ordinal);
         Assert.Contains("Stay here", shell, StringComparison.Ordinal);
@@ -653,6 +652,33 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("JsonPropertyName(\"available_tabs\")", context, StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"canonical_identity_mode\")", context, StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"can_select_as_editor_target\")", context, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedEditor_UsesPersistentGenericHierarchicalContextNavigation()
+    {
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+        var navigator = ReadSource("src/MediaEngine.Web/Components/MediaEditor/EditorContextNavigator.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/MediaEditor/EditorContextNavigator.razor.css");
+        var models = ReadSource("src/MediaEngine.Web/Components/MediaEditor/EditorContextModels.cs");
+
+        Assert.Contains("Levels=\"@EditorContextLevels\"", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Edit season", shell, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("sme-context-level-action", shell, StringComparison.Ordinal);
+        Assert.Contains("BuildEditorContextLevels", code, StringComparison.Ordinal);
+        Assert.Contains("Math.Max(2, discoveredMaxDepth)", code, StringComparison.Ordinal);
+        Assert.Contains("(\"TV\", 0) => \"series\"", code, StringComparison.Ordinal);
+        Assert.Contains("(\"TV\", 1) => \"season\"", code, StringComparison.Ordinal);
+        Assert.Contains("(\"TV\", 2) => \"episode\"", code, StringComparison.Ordinal);
+        Assert.Contains("public sealed record EditorContextLevel", models, StringComparison.Ordinal);
+        Assert.Contains("AppOverflowMenu", navigator, StringComparison.Ordinal);
+        Assert.Contains("editor-context-level__body", navigator, StringComparison.Ordinal);
+        Assert.Contains("editor-context__separator", navigator, StringComparison.Ordinal);
+        Assert.Contains("level.Label", navigator, StringComparison.Ordinal);
+        Assert.Contains("level.Title", navigator, StringComparison.Ordinal);
+        Assert.Contains("cursor: pointer", styles, StringComparison.Ordinal);
+        Assert.Contains("border-left:", styles, StringComparison.Ordinal);
     }
 
     private static string ReadSource(

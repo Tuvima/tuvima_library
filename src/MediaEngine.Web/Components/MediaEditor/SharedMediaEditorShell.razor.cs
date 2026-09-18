@@ -304,20 +304,7 @@ public partial class SharedMediaEditorShell
             : GetNavigatorChildren(NavigatorRootNode.NodeId)
                 .Where(node => node.CanSelectAsEditorTarget)
                 .ToList();
-    protected MediaEditorNavigatorNodeDto? SelectedContextLevelOneNode => GetSelectedContextNodeAtDepth(1);
-    protected IReadOnlyList<MediaEditorNavigatorNodeDto> ContextLevelTwoNodes =>
-        SelectedContextLevelOneNode is null
-            ? []
-            : GetNavigatorChildren(SelectedContextLevelOneNode.NodeId)
-                .Where(node => node.CanSelectAsEditorTarget)
-                .ToList();
-    protected MediaEditorNavigatorNodeDto? SelectedContextLevelTwoNode => GetSelectedContextNodeAtDepth(2);
-    protected IReadOnlyList<AppSelectOption> ContextLevelOneOptions => BuildContextOptions(ContextLevelOneNodes);
-    protected IReadOnlyList<AppSelectOption> ContextLevelTwoOptions => BuildContextOptions(ContextLevelTwoNodes);
-    protected string? SelectedContextLevelOneValue => SelectedContextLevelOneNode?.EntityId.ToString("D");
-    protected string? SelectedContextLevelTwoValue => SelectedContextLevelTwoNode?.EntityId.ToString("D");
-    protected string ContextLevelOneLabel => GetContextLevelLabel(ContextLevelOneNodes.FirstOrDefault());
-    protected string ContextLevelTwoLabel => GetContextLevelLabel(ContextLevelTwoNodes.FirstOrDefault());
+    protected IReadOnlyList<EditorContextLevel> EditorContextLevels => BuildEditorContextLevels();
     protected bool HasPendingTargetSwitch => _pendingTargetSwitch is not null;
     protected string PendingTargetSwitchTitle => _pendingTargetSwitch?.Title ?? "selection";
     protected bool IsContainerEditor => string.Equals(_editorContext?.EditorMode, "container", StringComparison.OrdinalIgnoreCase);
@@ -460,14 +447,6 @@ public partial class SharedMediaEditorShell
         }
     }
 
-    protected static string BuildContextPlaceholder(string label)
-    {
-        var normalized = label.Trim().ToLowerInvariant();
-        var article = normalized.Length > 0 && "aeiou".IndexOf(normalized[0]) >= 0
-            ? "an"
-            : "a";
-        return $"Select {article} {normalized}";
-    }
     protected MediaEditorScopeDto? ArtworkScope => ActiveScope;
     protected bool IsFileScope => string.Equals(ActiveScope?.ScopeId, "file", StringComparison.OrdinalIgnoreCase);
     protected string BreadcrumbText => BuildBreadcrumbText();
@@ -543,7 +522,8 @@ public partial class SharedMediaEditorShell
         string GroupId,
         string Title,
         string? Subtitle,
-        IReadOnlyList<MediaEditorNavigatorNodeDto> Items)
+        IReadOnlyList<MediaEditorNavigatorNodeDto> Items,
+        MediaEditorNavigatorNodeDto? TargetNode = null)
     {
         public int TotalCount => Items.Count;
         public int OwnedCount => Items.Count(item => item.IsOwned);
@@ -1006,21 +986,9 @@ public partial class SharedMediaEditorShell
         await RequestEditorTargetSwitchAsync(node);
     }
 
-    protected Task SelectContextRootAsync() =>
-        NavigatorRootNode is null ? Task.CompletedTask : RequestEditorTargetSwitchAsync(NavigatorRootNode);
-
-    protected Task SelectContextLevelOneAsync(string? entityId) => SelectContextNodeValueAsync(entityId);
-
-    protected Task SelectContextLevelTwoAsync(string? entityId) => SelectContextNodeValueAsync(entityId);
-
-    private Task SelectContextNodeValueAsync(string? entityId)
+    protected Task SelectEditorContextTargetAsync(Guid entityId)
     {
-        if (!Guid.TryParse(entityId, out var parsed))
-        {
-            return Task.CompletedTask;
-        }
-
-        var node = _navigator?.Nodes.FirstOrDefault(candidate => candidate.EntityId == parsed);
+        var node = _navigator?.Nodes.FirstOrDefault(candidate => candidate.EntityId == entityId);
         return node is null ? Task.CompletedTask : RequestEditorTargetSwitchAsync(node);
     }
 
@@ -1106,25 +1074,86 @@ public partial class SharedMediaEditorShell
         return current?.Depth == depth ? current : null;
     }
 
-    private static IReadOnlyList<AppSelectOption> BuildContextOptions(IEnumerable<MediaEditorNavigatorNodeDto> nodes) =>
-        nodes.Select(node => new AppSelectOption(node.EntityId.ToString("D"), BuildContextOptionLabel(node))).ToList();
+    private IReadOnlyList<EditorContextLevel> BuildEditorContextLevels()
+    {
+        if (_navigator is not { Enabled: true } navigator || NavigatorRootNode is null)
+        {
+            return [];
+        }
 
-    private static string GetContextLevelLabel(MediaEditorNavigatorNodeDto? node) =>
-        (node?.NodeKind ?? string.Empty).Trim().ToLowerInvariant() switch
+        var discoveredMaxDepth = navigator.Nodes.Count == 0
+            ? 0
+            : navigator.Nodes.Max(node => node.Depth);
+        var maximumDepth = string.Equals(_selectedMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+            ? Math.Max(2, discoveredMaxDepth)
+            : discoveredMaxDepth;
+        var levels = new List<EditorContextLevel>(maximumDepth + 1);
+
+        for (var depth = 0; depth <= maximumDepth; depth++)
+        {
+            var selectedNode = GetSelectedContextNodeAtDepth(depth);
+            var parentNode = depth == 0 ? null : GetSelectedContextNodeAtDepth(depth - 1);
+            var optionNodes = depth == 0 || parentNode is null
+                ? []
+                : GetNavigatorChildren(parentNode.NodeId)
+                    .Where(node => node.CanSelectAsEditorTarget)
+                    .ToList();
+            var representativeNode = selectedNode
+                ?? optionNodes.FirstOrDefault()
+                ?? navigator.Nodes.FirstOrDefault(node => node.Depth == depth);
+            var nodeKind = representativeNode?.NodeKind
+                ?? GetExpectedEditorContextNodeKind(_selectedMediaType, depth);
+            var label = GetContextLevelLabel(nodeKind);
+            var options = optionNodes
+                .Select(node => new EditorContextOption(
+                    node.EntityId,
+                    GetContextLevelLabel(node.NodeKind),
+                    node.Title,
+                    node.Subtitle,
+                    node.EntityId == selectedNode?.EntityId,
+                    node.CanSelectAsEditorTarget))
+                .ToList();
+
+            levels.Add(new EditorContextLevel(
+                label,
+                nodeKind,
+                selectedNode?.Title ?? $"Select {label.ToLowerInvariant()}",
+                selectedNode?.Subtitle,
+                selectedNode?.EntityId,
+                selectedNode?.EntityId == navigator.SelectedEntityId,
+                selectedNode is { CanSelectAsEditorTarget: true },
+                depth > 0,
+                options));
+        }
+
+        return levels;
+    }
+
+    private static string GetExpectedEditorContextNodeKind(string mediaType, int depth) =>
+        (mediaType, depth) switch
+        {
+            ("TV", 0) => "series",
+            ("TV", 1) => "season",
+            ("TV", 2) => "episode",
+            _ => "item",
+        };
+
+    private static string GetContextLevelLabel(string? nodeKind) =>
+        (nodeKind ?? string.Empty).Trim().ToLowerInvariant() switch
         {
             "season" => "Season",
             "episode" => "Episode",
+            "volume" => "Volume",
             "album" => "Album",
             "track" => "Track",
             "series" => "Series",
             "book" => "Book",
             "audiobook" => "Audiobook",
             "issue" => "Issue",
+            "artist" => "Artist",
+            "release_group" => "Release group",
             _ => "Item",
         };
-
-    private static string BuildContextOptionLabel(MediaEditorNavigatorNodeDto node) =>
-        string.IsNullOrWhiteSpace(node.Subtitle) ? node.Title : $"{node.Title} · {node.Subtitle}";
 
     protected async Task SelectContentItemAsync(EditorContentGroup group, MediaEditorNavigatorNodeDto item)
     {
@@ -1135,6 +1164,18 @@ public partial class SharedMediaEditorShell
 
         await RequestEditorTargetSwitchAsync(item);
     }
+
+    protected bool CanSelectContentGroup(EditorContentGroup group) =>
+        group.TargetNode is { CanSelectAsEditorTarget: true, IsOwned: true };
+
+    protected bool IsContentGroupSelected(EditorContentGroup group) =>
+        group.TargetNode is { } target
+        && SelectedNavigatorNode?.EntityId == target.EntityId;
+
+    protected Task SelectContentGroupAsync(EditorContentGroup group) =>
+        CanSelectContentGroup(group)
+            ? RequestEditorTargetSwitchAsync(group.TargetNode!)
+            : Task.CompletedTask;
 
     protected async Task SelectArtworkScopeAsync(string scopeId)
     {
@@ -5685,7 +5726,7 @@ public partial class SharedMediaEditorShell
                 .ToList();
             return seasonEpisodes.Count == 0
                 ? []
-                : [new EditorContentGroup(selectedNode.NodeId.ToString("D"), selectedNode.Title, selectedNode.Subtitle, DeduplicateEditorContentItems(seasonEpisodes))];
+                : [new EditorContentGroup(selectedNode.NodeId.ToString("D"), selectedNode.Title, selectedNode.Subtitle, DeduplicateEditorContentItems(seasonEpisodes), selectedNode)];
         }
 
         if (ActiveScope?.ScopeId == "series" && _selectedMediaType is "Books" or "Audiobooks" or "Comics")
@@ -5734,7 +5775,7 @@ public partial class SharedMediaEditorShell
 
             if (episodes.Count > 0)
             {
-                groups.Add(new EditorContentGroup(child.NodeId.ToString("D"), child.Title, child.Subtitle, DeduplicateEditorContentItems(episodes)));
+                groups.Add(new EditorContentGroup(child.NodeId.ToString("D"), child.Title, child.Subtitle, DeduplicateEditorContentItems(episodes), child));
             }
         }
 
@@ -5912,11 +5953,21 @@ public partial class SharedMediaEditorShell
             .ToList();
 
         return matchingGroups
-            .Select((group, groupIndex) => new EditorContentGroup(
-                $"initial-{NormalizeTextKey(group.Key)}-{groupIndex}",
-                string.IsNullOrWhiteSpace(group.Title) ? (nodeKind == "track" ? "Tracks" : "Episodes") : group.Title,
-                null,
-                group.Items.Select((item, index) => MapInitialMediaContentItem(item, nodeKind, index)).ToList()))
+            .Select((group, groupIndex) =>
+            {
+                var title = string.IsNullOrWhiteSpace(group.Title)
+                    ? (nodeKind == "track" ? "Tracks" : "Episodes")
+                    : group.Title;
+                var items = group.Items
+                    .Select((item, index) => MapInitialMediaContentItem(item, nodeKind, index))
+                    .ToList();
+                return new EditorContentGroup(
+                    $"initial-{NormalizeTextKey(group.Key)}-{groupIndex}",
+                    title,
+                    null,
+                    items,
+                    ResolveContentGroupTarget(title, items));
+            })
             .ToList();
     }
 
@@ -5930,12 +5981,55 @@ public partial class SharedMediaEditorShell
 
         return placement.Groups
             .Where(group => group.Items.Count > 0)
-            .Select(group => new EditorContentGroup(
-                string.IsNullOrWhiteSpace(group.Key) ? $"sequence-{NormalizeTextKey(group.Title)}" : group.Key,
-                group.Title,
-                null,
-                group.Items.Select((item, index) => MapSequenceEpisode(item, index)).ToList()))
+            .Select(group =>
+            {
+                var items = group.Items
+                    .Select((item, index) => MapSequenceEpisode(item, index))
+                    .ToList();
+                return new EditorContentGroup(
+                    string.IsNullOrWhiteSpace(group.Key) ? $"sequence-{NormalizeTextKey(group.Title)}" : group.Key,
+                    group.Title,
+                    null,
+                    items,
+                    ResolveContentGroupTarget(group.Title, items));
+            })
             .ToList();
+    }
+
+    private MediaEditorNavigatorNodeDto? ResolveContentGroupTarget(
+        string? title,
+        IReadOnlyList<MediaEditorNavigatorNodeDto> items)
+    {
+        if (!string.Equals(_selectedMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+            || _navigator is null)
+        {
+            return null;
+        }
+
+        foreach (var item in items)
+        {
+            var navigatorItem = _navigator.Nodes.FirstOrDefault(node => node.EntityId == item.EntityId);
+            if (navigatorItem?.ParentNodeId is not Guid parentNodeId)
+            {
+                continue;
+            }
+
+            var parent = _navigator.Nodes.FirstOrDefault(node => node.NodeId == parentNodeId);
+            if (parent is not null
+                && string.Equals(parent.NodeKind, "season", StringComparison.OrdinalIgnoreCase)
+                && parent.CanSelectAsEditorTarget
+                && parent.IsOwned)
+            {
+                return parent;
+            }
+        }
+
+        var seasonNumber = ParseSeasonNumberFromTitle(title);
+        return ContextLevelOneNodes.FirstOrDefault(node =>
+            string.Equals(node.NodeKind, "season", StringComparison.OrdinalIgnoreCase)
+            && node.IsOwned
+            && (string.Equals(node.Title, title, StringComparison.OrdinalIgnoreCase)
+                || (seasonNumber.HasValue && ParseSeasonNumberFromTitle(node.Title) == seasonNumber)));
     }
 
     private static MediaEditorNavigatorNodeDto MapSequenceEpisode(SequenceItemViewModel item, int index)
@@ -6051,12 +6145,6 @@ public partial class SharedMediaEditorShell
         var collapsed = IsContentGroupCollapsed(group);
         _contentGroupExpandedOverrides[group.GroupId] = collapsed;
     }
-
-    protected Dictionary<string, object> GetContentGroupHeaderAttributes(bool collapsed) =>
-        new()
-        {
-            ["aria-expanded"] = collapsed ? "false" : "true",
-        };
 
     protected string GetContentOrdinalLabel(MediaEditorNavigatorNodeDto node, int index)
     {

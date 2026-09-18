@@ -10,11 +10,13 @@ using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
+using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Api.Tests;
 
@@ -558,6 +560,81 @@ public sealed class AuthorizedDisplayProjectionReadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task QueryCollectionDetailRetainsAuthorizedCollapsedTvShow()
+    {
+        var collectionId = Guid.NewGuid();
+        var showId = Guid.NewGuid();
+        var seasonId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var episodeAssetId = Guid.NewGuid();
+        var libraryId = Guid.NewGuid();
+        var ruleJson = System.Text.Json.JsonSerializer.Serialize(CollectionRuleDefinition.SingleGroup(
+            [new CollectionRulePredicate { Field = "media_type", Op = "eq", Value = "TV" }]));
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO collections
+                    (id, display_name, collection_type, scope, resolution, is_enabled, rule_json, created_at)
+                VALUES
+                    (@collectionId, 'Smart TV', 'Custom', 'library', 'query', 1, @ruleJson, CURRENT_TIMESTAMP);
+                INSERT INTO works (id, media_type, work_kind, curator_state)
+                VALUES (@showId, 'TV', 'parent', 'accepted');
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, curator_state)
+                VALUES (@seasonId, 'TV', 'parent', @showId, 'accepted'),
+                       (@episodeId, 'TV', 'child', @seasonId, 'accepted');
+                INSERT INTO editions (id, work_id) VALUES (@editionId, @episodeId);
+                INSERT INTO media_assets
+                    (id, edition_id, content_hash, file_path_root, presented_at, library_id)
+                VALUES
+                    (@episodeAssetId, @editionId, @hash, @path, CURRENT_TIMESTAMP, @libraryId);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES (@showId, 'title', 'Authorized Smart Show', CURRENT_TIMESTAMP),
+                       (@episodeAssetId, 'title', 'Pilot', CURRENT_TIMESTAMP);
+                """,
+                new
+                {
+                    collectionId,
+                    showId,
+                    seasonId,
+                    episodeId,
+                    editionId,
+                    episodeAssetId,
+                    libraryId = libraryId.ToString("D"),
+                    ruleJson,
+                    hash = Guid.NewGuid().ToString("N"),
+                    path = $"C:/library/{episodeAssetId:N}.mkv",
+                });
+        }
+
+        var detail = await CreateCollectionComposer().BuildAuthorizedAsync(
+            MediaEngine.Contracts.Details.DetailEntityType.Collection,
+            collectionId,
+            MediaEngine.Contracts.Details.DetailPresentationContext.Default,
+            CancellationToken.None,
+            selectedContainerId: null,
+            MediaEngine.Domain.Aggregates.Profile.SeedProfileId,
+            default(DetailActionAuthorizationContext),
+            authorizedAssetIds: null,
+            authorizedWorks:
+            [
+                new DisplayWorkRow
+                {
+                    WorkId = episodeId,
+                    AssetId = episodeAssetId,
+                    LibraryId = libraryId.ToString("D"),
+                    MediaType = "TV",
+                },
+            ]);
+
+        Assert.NotNull(detail);
+        Assert.Equal("Smart TV", detail!.Title);
+        var item = Assert.Single(detail.MediaGroups.SelectMany(group => group.Items));
+        Assert.Equal(showId.ToString("D"), item.Id);
+    }
+
+    [Fact]
     public async Task PersonDetailFiltersCreditsBeforeGroupsAndOwnedCount()
     {
         var personId = Guid.NewGuid();
@@ -747,6 +824,34 @@ public sealed class AuthorizedDisplayProjectionReadServiceTests : IDisposable
                 new PersonRepository(_database),
                 _database),
             new DetailRecommendationService(_database));
+
+    private DetailComposerService CreateCollectionComposer()
+    {
+        var collectionRepository = new CollectionRepository(_database);
+        var collectionLookup = new CollectionMediaLookupReadService(_database);
+        var collectionCatalog = new CollectionCatalogReadService(
+            collectionRepository,
+            new SeriesManifestRepository(_database),
+            new PersonRepository(_database),
+            new ArtworkPaletteService(),
+            collectionLookup,
+            _database,
+            NullLogger<CollectionCatalogReadService>.Instance);
+        return new DetailComposerService(
+            _database,
+            new LibraryItemRepository(_database),
+            new PersonRepository(_database),
+            new EntityAssetRepository(_database),
+            new CanonicalValueArrayRepository(_database),
+            new SeriesManifestRepository(_database),
+            new PersonCreditReadService(
+                new CanonicalValueArrayRepository(_database),
+                new PersonRepository(_database),
+                _database),
+            new DetailRecommendationService(_database),
+            collectionCatalog: collectionCatalog,
+            profiles: new ProfileRepository(_database));
+    }
 
     [Fact]
     public async Task PlayerScopeRejectsOtherProfilesAndAssetsAndRemovesRevokedQueueEntries()

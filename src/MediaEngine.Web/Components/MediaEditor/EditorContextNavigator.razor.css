@@ -1,0 +1,218 @@
+.editor-context {
+    display: flex;
+    align-items: center;
+    gap: var(--tl-space-4);
+    min-height: 5.5rem;
+    padding: var(--tl-space-3) var(--tl-space-5);
+    border-block: 1px solid var(--tl-border-subtle);
+    background: color-mix(in srgb, var(--tl-bg-surface) 88%, transparent);
+}
+
+.editor-context__heading {
+    flex: 0 0 auto;
+    color: var(--tl-text-muted);
+    font-size: var(--tl-font-size-xs);
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.editor-context__track {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--tl-space-3);
+    overflow-x: auto;
+    padding: 2px;
+    scrollbar-width: thin;
+}
+
+.editor-context__separator {
+    flex: 0 0 auto;
+    color: color-mix(in srgb, var(--tl-text-muted) 74%, transparent);
+}
+
+.editor-context-level {
+    min-width: 15rem;
+    max-width: 25rem;
+    flex: 1 1 18rem;
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--tl-border-default) 88%, transparent);
+    border-radius: var(--tl-radius-md);
+    background: color-mix(in srgb, var(--tl-bg-surface-raised) 82%, transparent);
+    transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
+}
+
+.editor-context-level:hover,
+.editor-context-level:focus-within {
+    border-color: color-mix(in srgb, var(--tl-accent-primary) 48%, var(--tl-border-default));
+    background: color-mix(in srgb, var(--tl-bg-surface-raised) 92%, var(--tl-accent-primary) 8%);
+}
+
+.editor-context-level.is-active {
+    border-color: color-mix(in srgb, var(--tl-accent-primary) 72%, var(--tl-border-default));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--tl-accent-primary) 22%, transparent);
+}
+
+::deep .editor-context-level__body {
+    min-width: 0;
+    min-height: 4.25rem !important;
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: var(--tl-space-2) var(--tl-space-3) !important;
+    background: transparent !important;
+    color: var(--tl-text-primary) !important;
+    cursor: pointer;
+}
+
+::deep .editor-context-level__body.mud-disabled {
+    opacity: .72 !important;
+    cursor: default;
+}
+
+::deep .editor-context-level__body .mud-button-label {
+    min-width: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--tl-space-3);
+    text-align: left;
+}
+
+.editor-context-level__icon {
+    width: 2.35rem;
+    height: 2.35rem;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: calc(var(--tl-radius-md) - 2px);
+    background: color-mix(in srgb, var(--tl-accent-primary) 16%, transparent);
+    color: color-mix(in srgb, var(--tl-accent-primary) 74%, white);
+}
+
+.editor-context-level__copy {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: grid;
+    gap: 3px;
+}
+
+.editor-context-level__label,
+.editor-context-option__label {
+    color: var(--tl-text-muted);
+    font-size: var(--tl-font-size-xs);
+    font-weight: 600;
+    letter-spacing: .02em;
+}
+
+.editor-context-level__identity {
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: var(--tl-space-2);
+}
+
+.editor-context-level__identity strong {
+    overflow: hidden;
+    color: var(--tl-text-primary);
+    font-size: var(--tl-font-size-md);
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-context-level__identity > span {
+    overflow: hidden;
+    color: var(--tl-text-muted);
+    font-size: var(--tl-font-size-sm);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+::deep .editor-context-level__selector {
+    min-width: 3.5rem;
+    flex: 0 0 3.5rem;
+    align-self: stretch;
+}
+
+::deep .editor-context-level__selector.app-overflow-menu {
+    display: flex;
+}
+
+::deep .editor-context-level__selector .editor-context-level__selector-trigger,
+::deep .editor-context-level__selector.app-icon-button {
+    width: 100%;
+    min-width: 3.5rem;
+    height: 100%;
+    min-height: 4.25rem;
+    border: 0;
+    border-left: 1px solid color-mix(in srgb, var(--tl-border-default) 82%, transparent);
+    border-radius: 0 !important;
+    background: color-mix(in srgb, var(--tl-bg-surface-hover) 54%, transparent);
+    color: var(--tl-text-secondary);
+    cursor: pointer;
+}
+
+::deep .editor-context-level__selector .editor-context-level__selector-trigger:hover,
+::deep .editor-context-level__selector .editor-context-level__selector-trigger:focus-visible {
+    background: color-mix(in srgb, var(--tl-accent-primary) 15%, var(--tl-bg-surface-hover));
+    color: var(--tl-text-primary);
+}
+
+::deep .editor-context-level__selector--disabled.app-icon-button {
+    cursor: default;
+    opacity: .46;
+}
+
+::deep .editor-context-option .app-menu-item,
+::deep .editor-context-option {
+    min-width: 17rem;
+}
+
+.editor-context-option__copy {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: grid;
+    justify-items: start;
+    gap: 2px;
+}
+
+.editor-context-option__copy strong,
+.editor-context-option__subtitle {
+    max-width: 19rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-context-option__subtitle {
+    color: var(--tl-text-muted);
+    font-size: var(--tl-font-size-xs);
+}
+
+::deep .editor-context-option.is-active {
+    background: color-mix(in srgb, var(--tl-accent-primary) 14%, transparent);
+    color: var(--tl-text-primary);
+}
+
+@media (max-width: 840px) {
+    .editor-context {
+        align-items: flex-start;
+        gap: var(--tl-space-3);
+        padding: var(--tl-space-3);
+    }
+
+    .editor-context__heading {
+        padding-top: var(--tl-space-2);
+    }
+
+    .editor-context-level {
+        min-width: 14rem;
+    }
+}

@@ -159,6 +159,25 @@ public sealed class SharedUiPrimitiveTests : AsyncBunitContext
     }
 
     [Fact]
+    public void AppButton_MergesUserLoadingAndUnmatchedAttributesWithoutMudButtonCollision()
+    {
+        var cut = Render<AppButton>(parameters => parameters
+            .Add(component => component.Label, "Save")
+            .Add(component => component.Loading, true)
+            .Add(component => component.UserAttributes, new Dictionary<string, object>
+            {
+                ["aria-expanded"] = "false",
+            })
+            .AddUnmatched("data-editor-action", "save"));
+
+        var button = cut.Find("button");
+        Assert.Equal("true", button.GetAttribute("aria-busy"));
+        Assert.Equal("false", button.GetAttribute("aria-expanded"));
+        Assert.Equal("save", button.GetAttribute("data-editor-action"));
+        Assert.True(button.HasAttribute("disabled"));
+    }
+
+    [Fact]
     public void AppTextField_RendersLabelHelpTextAndSizeClass()
     {
         var cut = Render<AppTextField>(parameters => parameters

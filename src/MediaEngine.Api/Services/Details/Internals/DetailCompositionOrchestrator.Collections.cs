@@ -167,7 +167,18 @@ internal sealed partial class DetailCompositionOrchestrator
         {
             ownedWorks = NormalizeStandardCollectionWorks(ownedWorks, resolvedCollectionItems);
         }
-        ownedWorks = FilterAuthorizedCollectionWorks(ownedWorks, authorizedWorks);
+        IReadOnlySet<Guid>? authorizedDisplayWorkIds = null;
+        if (authorizedWorks is not null && _collectionCatalog is not null)
+        {
+            authorizedDisplayWorkIds = (await _collectionCatalog.GetDisplayWorkIdsAsync(
+                    authorizedWorks.Select(work => work.WorkId),
+                    ct).ConfigureAwait(false))
+                .ToHashSet();
+        }
+        ownedWorks = FilterAuthorizedCollectionWorks(
+            ownedWorks,
+            authorizedWorks,
+            authorizedDisplayWorkIds);
         if (authorizedWorks is not null && ownedWorks.Count == 0)
         {
             return null;
@@ -393,7 +404,8 @@ internal sealed partial class DetailCompositionOrchestrator
 
     private static IReadOnlyList<CollectionWorkSummary> FilterAuthorizedCollectionWorks(
         IReadOnlyList<CollectionWorkSummary> works,
-        IReadOnlyList<DisplayWorkRow>? authorizedWorks)
+        IReadOnlyList<DisplayWorkRow>? authorizedWorks,
+        IReadOnlySet<Guid>? authorizedDisplayWorkIds = null)
     {
         if (authorizedWorks is null)
         {
@@ -404,9 +416,16 @@ internal sealed partial class DetailCompositionOrchestrator
             .GroupBy(work => work.WorkId)
             .ToDictionary(group => group.Key, group => group.First());
         return works
-            .Select(work => Guid.TryParse(work.Id, out var workId)
-                && visibleByWork.TryGetValue(workId, out var visible)
-                    ? work with
+            .Select(work =>
+            {
+                if (!Guid.TryParse(work.Id, out var workId))
+                {
+                    return null;
+                }
+
+                if (visibleByWork.TryGetValue(workId, out var visible))
+                {
+                    return work with
                     {
                         AssetId = visible.AssetId.ToString("D"),
                         ArtworkUrl = FirstText(visible.CoverUrl, visible.SquareUrl),
@@ -414,8 +433,23 @@ internal sealed partial class DetailCompositionOrchestrator
                         HasAsset = true,
                         IsCatalogOnly = false,
                         Ownership = "Owned",
+                    };
+                }
+
+                // Collection presentation collapses episode, issue, and track
+                // identities to their show, series, or album root. Accept that
+                // root only when it was derived from the caller's authorized
+                // work set; the rule/detail authorization has already proven an
+                // accessible underlying asset.
+                return authorizedDisplayWorkIds?.Contains(workId) == true
+                    ? work with
+                    {
+                        HasAsset = true,
+                        IsCatalogOnly = false,
+                        Ownership = "Owned",
                     }
-                    : null)
+                    : null;
+            })
             .Where(work => work is not null)
             .Cast<CollectionWorkSummary>()
             .ToList();

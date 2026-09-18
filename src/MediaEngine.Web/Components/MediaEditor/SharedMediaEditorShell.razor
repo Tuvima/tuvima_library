@@ -228,38 +228,8 @@
 
             @if (HasContextNavigator)
             {
-                <nav class="sme-context-navigator" aria-label="Edit context">
-                    <span class="sme-context-navigator__label">Edit context</span>
-                    <AppButton ButtonStyle="AppButtonStyle.Text"
-                               Tone="AppUiTone.Neutral"
-                               Class="@(SelectedNavigatorNode?.Depth == 0 ? "sme-context-root is-active" : "sme-context-root")"
-                               OnClick="SelectContextRootAsync">
-                        <span>@NavigatorRootNode!.Label</span>
-                        <strong>@NavigatorRootNode.Title</strong>
-                    </AppButton>
-
-                    @if (ContextLevelOneNodes.Count > 0)
-                    {
-                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Class="sme-context-chevron" />
-                        <AppSelect Value="@SelectedContextLevelOneValue"
-                                   ValueChanged="SelectContextLevelOneAsync"
-                                   Options="@ContextLevelOneOptions"
-                                   Placeholder="@BuildContextPlaceholder(ContextLevelOneLabel)"
-                                   aria-label="@($"Select {ContextLevelOneLabel.ToLowerInvariant()}")"
-                                   Class="sme-context-select" />
-                    }
-
-                    @if (SelectedContextLevelOneNode is not null && ContextLevelTwoNodes.Count > 0)
-                    {
-                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Class="sme-context-chevron" />
-                        <AppSelect Value="@SelectedContextLevelTwoValue"
-                                   ValueChanged="SelectContextLevelTwoAsync"
-                                   Options="@ContextLevelTwoOptions"
-                                   Placeholder="@BuildContextPlaceholder(ContextLevelTwoLabel)"
-                                   aria-label="@($"Select {ContextLevelTwoLabel.ToLowerInvariant()}")"
-                                   Class="sme-context-select" />
-                    }
-                </nav>
+                <EditorContextNavigator Levels="@EditorContextLevels"
+                                        OnTargetSelected="SelectEditorContextTargetAsync" />
             }
 
             <div class="sme-workspace">
@@ -665,26 +635,35 @@
                                 {
                                     var collapsed = IsContentGroupCollapsed(group);
                                     <div class="sme-content-group @(collapsed ? "is-collapsed" : string.Empty)">
-                                        <AppButton ButtonStyle="AppButtonStyle.Text"
-                                                   Tone="AppUiTone.Neutral"
-                                                   FullWidth="true"
-                                                   Class="sme-content-group-header"
-                                                   UserAttributes="@GetContentGroupHeaderAttributes(collapsed)"
-                                                   OnClick="@(() => ToggleContentGroup(group))">
-                                            <span class="sme-content-group-icon">
-                                                <MudIcon Icon="@(string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? Icons.Material.Outlined.Album : Icons.Material.Outlined.CalendarMonth)" Size="Size.Small" />
-                                            </span>
-                                            <span class="sme-content-group-copy">
-                                                <span class="sme-content-group-title">@group.Title</span>
-                                            </span>
-                                            <span class="sme-content-group-meter">
-                                                <span class="sme-content-group-progress" aria-hidden="true">
-                                                    <AppCssElement Tag="span" Css="@($"width: {$"{group.CompletionPercent:F0}%"}")"></AppCssElement>
+                                        <div class="sme-content-group-header">
+                                            <AppButton ButtonStyle="AppButtonStyle.Text"
+                                                       Tone="AppUiTone.Neutral"
+                                                       FullWidth="true"
+                                                       Disabled="@(!CanSelectContentGroup(group))"
+                                                       Class='@($"sme-content-group-target {(IsContentGroupSelected(group) ? "is-active" : string.Empty)}")'
+                                                       aria-current="@(IsContentGroupSelected(group) ? "true" : null)"
+                                                       OnClick="@(() => SelectContentGroupAsync(group))">
+                                                <span class="sme-content-group-icon">
+                                                    <MudIcon Icon="@(string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? Icons.Material.Outlined.Album : Icons.Material.Outlined.CalendarMonth)" Size="Size.Small" />
                                                 </span>
-                                                <strong>@group.OwnedCount / @group.TotalCount</strong>
-                                            </span>
-                                            <MudIcon Icon="@(collapsed ? Icons.Material.Outlined.KeyboardArrowDown : Icons.Material.Outlined.KeyboardArrowUp)" Size="Size.Small" />
-                                        </AppButton>
+                                                <span class="sme-content-group-copy">
+                                                    <span class="sme-content-group-title">@group.Title</span>
+                                                </span>
+                                                <span class="sme-content-group-meter">
+                                                    <span class="sme-content-group-progress" aria-hidden="true">
+                                                        <AppCssElement Tag="span" Css="@($"width: {$"{group.CompletionPercent:F0}%"}")"></AppCssElement>
+                                                    </span>
+                                                    <strong>@group.OwnedCount / @group.TotalCount</strong>
+                                                </span>
+                                            </AppButton>
+                                            <AppIconButton Icon="@(collapsed ? Icons.Material.Outlined.KeyboardArrowDown : Icons.Material.Outlined.KeyboardArrowUp)"
+                                                           Size="AppControlSize.Compact"
+                                                           Class="sme-content-group-toggle"
+                                                           Tooltip="@(collapsed ? $"Expand {group.Title}" : $"Collapse {group.Title}")"
+                                                           AriaLabel="@(collapsed ? $"Expand {group.Title}" : $"Collapse {group.Title}")"
+                                                           OnClick="@(() => ToggleContentGroup(group))"
+                                                           aria-expanded="@(!collapsed)" />
+                                        </div>
 
                                         @if (!collapsed)
                                         {

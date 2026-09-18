@@ -2165,63 +2165,6 @@
     }
 }
 
-/* The edit context is the editor's only hierarchy control. Keep it visually
-   separate from section navigation so changing a target never looks like
-   changing a tab. */
-.sme-context-navigator {
-    display: flex;
-    align-items: center;
-    gap: var(--tl-space-3);
-    min-height: 4.5rem;
-    padding: var(--tl-space-3) var(--tl-space-5);
-    border-block: 1px solid var(--tl-color-border-subtle);
-    background: color-mix(in srgb, var(--tl-color-surface-1) 86%, transparent);
-}
-
-.sme-context-navigator__label {
-    flex: 0 0 auto;
-    color: var(--tl-color-text-muted);
-    font-size: var(--tl-font-size-xs);
-    font-weight: 700;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-}
-
-::deep .sme-context-root {
-    min-width: 12rem;
-    justify-content: flex-start;
-    border: 1px solid var(--tl-color-border-subtle);
-    border-radius: var(--tl-radius-md);
-    padding: var(--tl-space-2) var(--tl-space-3);
-}
-
-::deep .sme-context-root .mud-button-label {
-    display: grid;
-    justify-items: start;
-    line-height: 1.2;
-}
-
-::deep .sme-context-root span {
-    color: var(--tl-color-text-muted);
-    font-size: var(--tl-font-size-xs);
-}
-
-::deep .sme-context-root.is-active {
-    border-color: var(--tl-color-primary);
-    background: color-mix(in srgb, var(--tl-color-primary) 16%, transparent);
-}
-
-.sme-context-chevron {
-    flex: 0 0 auto;
-    color: var(--tl-color-text-muted);
-}
-
-::deep .sme-context-select {
-    flex: 1 1 16rem;
-    max-width: 22rem;
-    margin: 0;
-}
-
 .sme-inherited-capability {
     display: flex;
     align-items: center;
@@ -2234,23 +2177,6 @@
 }
 
 @media (max-width: 840px) {
-    .sme-context-navigator {
-        align-items: stretch;
-        flex-direction: column;
-        gap: var(--tl-space-2);
-        padding: var(--tl-space-3);
-    }
-
-    .sme-context-chevron {
-        display: none;
-    }
-
-    ::deep .sme-context-root,
-    ::deep .sme-context-select {
-        width: 100%;
-        max-width: none;
-    }
-
     .sme-inherited-capability {
         align-items: flex-start;
         flex-direction: column;
@@ -2672,7 +2598,7 @@
 
 ::deep .sme-content-root .mud-button-label,
 ::deep .sme-content-item .mud-button-label,
-::deep .sme-content-group-header .mud-button-label {
+::deep .sme-content-group-target .mud-button-label {
     width: 100%;
     display: flex;
     align-items: center;
@@ -2740,16 +2666,15 @@
 
 .sme-content-group-header {
     width: 100%;
-    justify-content: flex-start;
     margin-bottom: 10px;
-    padding: 0 !important;
-    color: inherit !important;
-    text-transform: none !important;
+    display: flex;
+    align-items: stretch;
 }
 
-.sme-content-group-header:focus-visible {
+::deep .sme-content-group-target:focus-visible,
+::deep .sme-content-group-toggle:focus-visible {
     outline: 2px solid rgba(255,255,255,0.24);
-    outline-offset: 4px;
+    outline-offset: -3px;
 }
 
 .sme-content-group-meta {
@@ -2837,7 +2762,7 @@
         grid-template-columns: 1fr;
     }
 
-    ::deep .sme-content-group-header .mud-button-label,
+    ::deep .sme-content-group-target .mud-button-label,
     ::deep .sme-content-item .mud-button-label {
         flex-wrap: wrap;
     }
@@ -2871,12 +2796,39 @@
 
 .sme-content-group-header {
     margin-bottom: 0;
-    padding: 12px 14px !important;
-    border: 0 !important;
-    border-radius: 0 !important;
     background:
         linear-gradient(90deg, rgba(101, 92, 226, 0.34), rgba(67, 92, 205, 0.14)) !important;
     box-shadow: inset 4px 0 0 rgba(142, 122, 255, 0.85), inset 0 -1px 0 rgba(164, 175, 255, 0.18);
+}
+
+::deep .sme-content-group-target {
+    min-width: 0;
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    padding: 12px 14px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: inherit !important;
+    text-transform: none !important;
+}
+
+::deep .sme-content-group-target.mud-disabled {
+    opacity: 1 !important;
+}
+
+::deep .sme-content-group-target.is-active {
+    background: rgba(139, 123, 255, 0.14) !important;
+    box-shadow: inset 4px 0 0 var(--tl-accent-primary-border);
+}
+
+::deep .sme-content-group-toggle {
+    width: 48px;
+    min-width: 48px;
+    align-self: stretch;
+    border-left: 1px solid rgba(164, 175, 255, 0.18);
+    border-radius: 0 !important;
+    color: rgba(232, 229, 255, 0.92) !important;
 }
 
 .sme-content-group-icon {
