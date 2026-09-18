@@ -420,10 +420,119 @@ internal sealed class CatalogueResourceAuthorizationService(
             return [];
         }
 
-        return (await connection.QueryAsync<Guid>(new CommandDefinition(
+        var candidates = (await connection.QueryAsync<Guid>(new CommandDefinition(
             sql,
             new { entityId },
             cancellationToken: ct)).ConfigureAwait(false)).AsList();
+
+        if (!IsCollectionEntityType(normalized))
+        {
+            return candidates;
+        }
+
+        var dynamicCandidates = await GetDynamicCollectionAssetCandidatesAsync(
+            connection,
+            entityId,
+            ct).ConfigureAwait(false);
+        return candidates
+            .Concat(dynamicCandidates)
+            .Distinct()
+            .ToList();
+    }
+
+    private async Task<IReadOnlyList<Guid>> GetDynamicCollectionAssetCandidatesAsync(
+        System.Data.IDbConnection connection,
+        Guid collectionId,
+        CancellationToken ct)
+    {
+        var collection = await connection.QuerySingleOrDefaultAsync<DynamicCollectionRule>(new CommandDefinition(
+            """
+            SELECT rule_json AS RuleJson,
+                   sort_field AS SortField,
+                   sort_direction AS SortDirection,
+                   secondary_sort_field AS SecondarySortField,
+                   secondary_sort_direction AS SecondarySortDirection
+            FROM collections
+            WHERE id=@collectionId
+              AND resolution='query'
+              AND is_enabled=1
+              AND rule_json IS NOT NULL
+              AND TRIM(rule_json) <> ''
+            LIMIT 1;
+            """,
+            new { collectionId },
+            cancellationToken: ct)).ConfigureAwait(false);
+        if (collection is null)
+        {
+            return [];
+        }
+
+        IReadOnlyList<Guid> workIds;
+        try
+        {
+            var definition = CollectionRuleEvaluator.ParseDefinition(collection.RuleJson);
+            if (definition.AllConditions.Count == 0)
+            {
+                return [];
+            }
+
+            workIds = new CollectionRuleEvaluator(database).Evaluate(
+                definition,
+                collection.SortField,
+                string.IsNullOrWhiteSpace(collection.SortDirection) ? "desc" : collection.SortDirection,
+                secondarySortField: collection.SecondarySortField,
+                secondarySortDirection: collection.SecondarySortDirection);
+        }
+        catch (FormatException)
+        {
+            // Unsupported persisted rules must fail closed instead of making the
+            // authorization filter crash or granting access without a proven asset.
+            return [];
+        }
+
+        if (workIds.Count == 0)
+        {
+            return [];
+        }
+
+        var assetIds = new List<Guid>();
+        foreach (var chunk in workIds.Distinct().Chunk(400))
+        {
+            var resolved = await connection.QueryAsync<Guid>(new CommandDefinition(
+                """
+                WITH RECURSIVE work_tree(id) AS (
+                    SELECT id FROM works WHERE id IN @workIds
+                    UNION
+                    SELECT child.id
+                    FROM works child
+                    JOIN work_tree parent ON child.parent_work_id=parent.id
+                )
+                SELECT DISTINCT ma.id
+                FROM work_tree member
+                JOIN editions e ON e.work_id=member.id
+                JOIN media_assets ma ON ma.edition_id=e.id
+                WHERE ma.status='Normal' AND ma.is_orphaned=0
+                ORDER BY ma.id;
+                """,
+                new { workIds = chunk.Select(GuidSql.ToBlob).ToArray() },
+                cancellationToken: ct)).ConfigureAwait(false);
+            assetIds.AddRange(resolved);
+        }
+
+        return assetIds.Distinct().ToList();
+    }
+
+    private static bool IsCollectionEntityType(string normalized) => normalized.ToLowerInvariant() is
+        "collection" or "universe" or "movieseries" or "bookseries" or "comicseries"
+        or "musicalbum" or "tvshow" or "tvseason";
+
+    private sealed class DynamicCollectionRule
+    {
+        public string RuleJson { get; init; } = string.Empty;
+        public string? SortField { get; init; }
+        public string SortDirection { get; init; } = "desc";
+        public string? SecondarySortField { get; init; }
+        public string? SecondarySortDirection { get; init; }
     }
 
     private sealed class AssetResource

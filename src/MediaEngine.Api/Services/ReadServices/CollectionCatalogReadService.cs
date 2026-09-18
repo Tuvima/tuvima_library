@@ -90,6 +90,10 @@ public sealed class CollectionCatalogReadService(
         IReadOnlySet<Guid>? allowedWorkIds = null)
     {
         var collections = await GetAccessibleCollectionsAsync(activeProfile, ct).ConfigureAwait(false);
+        var allowedDisplayWorkIds = allowedWorkIds is null
+            ? null
+            : (await GetCollectionCatalogDisplayWorkIdsAsync(allowedWorkIds, ct).ConfigureAwait(false))
+                .ToHashSet();
         var candidates = new List<CollectionManagementCatalogCandidate>();
         foreach (var collection in collections)
         {
@@ -105,9 +109,13 @@ public sealed class CollectionCatalogReadService(
             var classification = ClassifyCollectionForCatalog(collection);
             var sourceWorkIds = await GetCollectionCatalogSourceWorkIdsAsync(collection, collections, ct).ConfigureAwait(false);
             var workIds = await GetOwnedCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, ct).ConfigureAwait(false);
-            if (allowedWorkIds is not null)
+            if (allowedDisplayWorkIds is not null)
             {
-                workIds = workIds.Where(allowedWorkIds.Contains).ToList();
+                // TV, comic, and music members are deliberately collapsed to their
+                // display root. Authorize against the same collapsed identity so an
+                // owned episode does not lose its show tile and artwork merely because
+                // the raw authorized projection contains the episode ID.
+                workIds = workIds.Where(allowedDisplayWorkIds.Contains).ToList();
             }
 
             var itemCount = workIds.Count;
@@ -1138,14 +1146,14 @@ public sealed class CollectionCatalogReadService(
                                  cva.ordinal
                         LIMIT 1)) AS Creator,
                    w.media_type AS MediaType,
+                   ra.AssetId AS MediaAssetId,
                    CASE
                        WHEN LOWER(COALESCE(w.work_kind, '')) = 'parent'
                             AND LOWER(COALESCE(w.media_type, '')) LIKE '%tv%'
                            THEN NULLIF(cover_work.value, '')
                        ELSE COALESCE(
                            NULLIF(cover_work.value, ''),
-                           NULLIF(cover_asset.value, ''),
-                           CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END
+                           NULLIF(cover_asset.value, '')
                        )
                    END AS CoverUrl,
                    (SELECT c.id
@@ -1200,10 +1208,24 @@ public sealed class CollectionCatalogReadService(
                 Title = row.Title,
                 Creator = ToNullableText(row.Creator),
                 MediaType = row.MediaType,
-                CoverUrl = row.CoverUrl,
+                CoverUrl = ResolveCollectionItemCoverUrl(row),
                 SortOrder = preserveRequestedOrder ? index : row.SortOrder,
                 DetailRoute = BuildCollectionItemDetailRoute(row),
             }).ToList();
+    }
+
+    private static string? ResolveCollectionItemCoverUrl(GeneratedCollectionItemRow row)
+    {
+        if (!string.IsNullOrWhiteSpace(row.CoverUrl))
+        {
+            return row.CoverUrl;
+        }
+
+        var isTvParent = string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase)
+            && row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase);
+        return !isTvParent && row.MediaAssetId is { } assetId
+            ? $"/stream/{assetId:D}/cover"
+            : null;
     }
 
     private static bool HasSupportedRuleDefinition(Collection collection)
@@ -1303,9 +1325,10 @@ public sealed class CollectionCatalogReadService(
             SELECT w.id AS WorkId,
                    COALESCE(NULLIF(title_work.value, ''), NULLIF(episode_title.value, ''), NULLIF(show_name.value, ''), NULLIF(series_item.item_label, ''), 'Untitled') AS Title,
                    w.media_type AS MediaType,
+                   ra.AssetId AS MediaAssetId,
                    preferred_cover.id AS CoverAssetId,
                    preferred_cover.asset_type AS ArtworkType,
-                   COALESCE(NULLIF(cover_asset.value, ''), NULLIF(cover_work.value, ''), CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END) AS CoverUrl,
+                   COALESCE(NULLIF(cover_asset.value, ''), NULLIF(cover_work.value, '')) AS CoverUrl,
                    COALESCE(
                        (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'short_description' LIMIT 1),
                        (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'description' LIMIT 1)) AS Description,
@@ -1380,7 +1403,11 @@ public sealed class CollectionCatalogReadService(
                     MediaType = row.MediaType ?? "Unknown",
                     CoverUrl = row.CoverAssetId is { } coverAssetId
                         ? $"/stream/artwork/{coverAssetId:D}"
-                        : row.CoverUrl,
+                        : !string.IsNullOrWhiteSpace(row.CoverUrl)
+                            ? row.CoverUrl
+                            : row.MediaAssetId is { } mediaAssetId
+                                ? $"/stream/{mediaAssetId:D}/cover"
+                                : null,
                     Description = row.Description,
                     Facts = DisplayFactBuilder.Build(
                         DisplayMediaRules.NormalizeDisplayKind(row.MediaType ?? string.Empty),
@@ -1490,6 +1517,7 @@ public sealed class CollectionCatalogReadService(
         public Guid WorkId { get; init; }
         public string? Title { get; init; }
         public string? MediaType { get; init; }
+        public Guid? MediaAssetId { get; init; }
         public Guid? CoverAssetId { get; init; }
         public string? ArtworkType { get; init; }
         public string? CoverUrl { get; init; }
@@ -1521,6 +1549,7 @@ public sealed class CollectionCatalogReadService(
         public object? Creator { get; init; }
         public string MediaType { get; init; } = string.Empty;
         public string WorkKind { get; init; } = string.Empty;
+        public Guid? MediaAssetId { get; init; }
         public string? CoverUrl { get; init; }
         public Guid? StructuralCollectionId { get; init; }
         public int SortOrder { get; init; }

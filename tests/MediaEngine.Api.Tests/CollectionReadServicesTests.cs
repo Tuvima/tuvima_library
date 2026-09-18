@@ -302,6 +302,67 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task QueryCollectionCatalogRetainsAuthorizedTvShowTileAndArtwork()
+    {
+        var collectionId = Guid.NewGuid();
+        var showId = Guid.NewGuid();
+        var seasonId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var definition = CollectionRuleDefinition.SingleGroup(
+            [new CollectionRulePredicate { Field = "media_type", Op = "eq", Value = "TV" }]);
+        var ruleJson = JsonSerializer.Serialize(definition);
+
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO collections
+                    (id, display_name, collection_type, scope, resolution, is_enabled, rule_json)
+                VALUES
+                    (@collectionId, 'Smart television', 'Custom', 'library', 'query', 1, @ruleJson);
+
+                INSERT INTO works (id, media_type, work_kind, curator_state)
+                VALUES (@showId, 'TV', 'parent', 'accepted');
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, curator_state)
+                VALUES (@seasonId, 'TV', 'parent', @showId, 'accepted'),
+                       (@episodeId, 'TV', 'child', @seasonId, 'accepted');
+                INSERT INTO editions (id, work_id) VALUES (@editionId, @episodeId);
+                INSERT INTO media_assets
+                    (id, edition_id, content_hash, file_path_root, status, is_orphaned)
+                VALUES
+                    (@assetId, @editionId, @contentHash, @filePath, 'Normal', 0);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES (@showId, 'title', 'The Smart Show', CURRENT_TIMESTAMP);
+                """,
+                new
+                {
+                    collectionId,
+                    showId,
+                    seasonId,
+                    episodeId,
+                    editionId,
+                    assetId,
+                    ruleJson,
+                    contentHash = Guid.NewGuid().ToString("N"),
+                    filePath = $"C:/library/{assetId:N}.mkv",
+                });
+        }
+
+        var entry = Assert.Single(await _catalog.GetCatalogAsync(
+            null,
+            CancellationToken.None,
+            new HashSet<Guid> { episodeId }));
+
+        Assert.Equal(collectionId, entry.Id);
+        Assert.Equal(1, entry.ItemCount);
+        var artwork = Assert.Single(entry.ArtworkItems);
+        Assert.Equal(showId, artwork.WorkId);
+        Assert.Equal($"/stream/{assetId:D}/cover", artwork.CoverUrl);
+    }
+
+    [Fact]
     public async Task CollectionItems_ResolveGuidBlobMembershipAndManagedArtwork()
     {
         var seeded = await SeedMusicHierarchyAsync();

@@ -9,6 +9,7 @@ using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -207,6 +208,52 @@ public sealed class AuthorizedDisplayProjectionReadServiceTests : IDisposable
             await service.EvaluateArtworkVariantAsync(context, deniedVariant, ApplicationPermissionIds.ArtworkRead));
         Assert.Equal(CatalogueResourceAccess.NotFound,
             await service.EvaluateArtworkVariantAsync(context, Guid.NewGuid(), ApplicationPermissionIds.ArtworkRead));
+    }
+
+    [Fact]
+    public async Task QueryCollectionAuthorizationResolvesRulesAndRetainsAssetGrantChecks()
+    {
+        var accountId = Guid.NewGuid();
+        var allowedLibrary = Guid.NewGuid();
+        await CreateHumanAsync(accountId,
+            new HashSet<AccountFeatureId> { AccountFeatureId.Read },
+            new HashSet<Guid> { allowedLibrary });
+        await InsertOwnedWorkAsync(allowedLibrary, "Allowed book", "Book");
+        await InsertOwnedWorkAsync(allowedLibrary, "Feature-denied movie", "Movies");
+
+        var bookCollectionId = Guid.NewGuid();
+        var movieCollectionId = Guid.NewGuid();
+        var bookRules = System.Text.Json.JsonSerializer.Serialize(CollectionRuleDefinition.SingleGroup(
+            [new CollectionRulePredicate { Field = "media_type", Op = "eq", Value = "Book" }]));
+        var movieRules = System.Text.Json.JsonSerializer.Serialize(CollectionRuleDefinition.SingleGroup(
+            [new CollectionRulePredicate { Field = "media_type", Op = "eq", Value = "Movies" }]));
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO collections
+                    (id, display_name, collection_type, scope, resolution, is_enabled, rule_json)
+                VALUES
+                    (@bookCollectionId, 'Dynamic books', 'Custom', 'library', 'query', 1, @bookRules),
+                    (@movieCollectionId, 'Dynamic movies', 'Custom', 'library', 'query', 1, @movieRules);
+                """,
+                new { bookCollectionId, movieCollectionId, bookRules, movieRules });
+        }
+
+        var context = HumanContext(accountId, MediaEngine.Domain.Aggregates.Profile.SeedProfileId);
+        var service = CreateResourceService(context);
+
+        Assert.Equal(CatalogueResourceAccess.Allowed,
+            await service.EvaluateEntityAsync(
+                context, "Collection", bookCollectionId, ApplicationPermissionIds.LibraryRead));
+        Assert.Equal(CatalogueResourceAccess.Denied,
+            await service.EvaluateEntityAsync(
+                context, "Collection", movieCollectionId, ApplicationPermissionIds.LibraryRead));
+
+        using var verify = _database.CreateConnection();
+        Assert.Equal(0, await verify.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM collection_items WHERE collection_id IN (@bookCollectionId, @movieCollectionId);",
+            new { bookCollectionId, movieCollectionId }));
     }
 
     [Fact]
