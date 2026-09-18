@@ -23,6 +23,24 @@ public sealed class ViewEndpointRouteTests
     }
 
     [Fact]
+    public void ScopeEndpointAuthorizesBeforeProvisioningAndResolvesAfterProvisioning()
+    {
+        var endpoint = File.ReadAllText(Path.Combine(
+            FindRepoRoot(), "src", "MediaEngine.Api", "Endpoints", "ViewEndpoints.cs"));
+        var routeStart = endpoint.IndexOf("group.MapGet(\"/scopes\"", StringComparison.Ordinal);
+        var routeEnd = endpoint.IndexOf("group.MapGet(\"/preferences\"", routeStart, StringComparison.Ordinal);
+        var route = endpoint[routeStart..routeEnd];
+
+        var permission = route.IndexOf("AuthorizePersonalScopeBootstrapAsync", StringComparison.Ordinal);
+        var provision = route.IndexOf("EnsurePersonalSpaceAsync", StringComparison.Ordinal);
+        var resolution = route.LastIndexOf("AuthorizeAsync", StringComparison.Ordinal);
+
+        Assert.True(permission >= 0);
+        Assert.True(provision > permission);
+        Assert.True(resolution > provision);
+    }
+
+    [Fact]
     public void EngineMapsOnlyTheViewLocalAssetSurface()
     {
         var root = FindRepoRoot();

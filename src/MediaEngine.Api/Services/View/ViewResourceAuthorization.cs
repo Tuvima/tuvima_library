@@ -191,6 +191,29 @@ public sealed class ViewResourceAuthorizationService(
             : ViewAccessDecision.NotFound(resolution.Scope);
     }
 
+    /// <summary>
+    /// Establishes the account/Application capability without resolving a scope.
+    /// This permits an authorized profile's Personal Space to be provisioned before
+    /// the scope resolver requires that space to exist.
+    /// </summary>
+    public async Task<ViewAccessOutcome> AuthorizePersonalScopeBootstrapAsync(
+        RequestAuthority caller,
+        CancellationToken ct = default)
+    {
+        if (!caller.IsAuthenticated)
+        {
+            return ViewAccessOutcome.Unauthenticated;
+        }
+
+        // Establish the account/Application capability before asking the scope store
+        // to enumerate profiles, labels, or physical library identities.
+        var request = new ViewResourceRequest(
+            ViewScopeRequest.Mine, ViewResourceKind.Search, null);
+        return await AuthorizePermissionAsync(caller, request, ct).ConfigureAwait(false)
+            ? ViewAccessOutcome.Allowed
+            : ViewAccessOutcome.Forbidden;
+    }
+
     private async Task<bool> AuthorizePermissionAsync(
         RequestAuthority caller,
         ViewResourceRequest request,

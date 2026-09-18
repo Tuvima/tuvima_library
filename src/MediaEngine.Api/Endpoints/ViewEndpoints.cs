@@ -34,11 +34,10 @@ public static class ViewEndpoints
 
             if (authority.ActiveProfileId is { } activeProfileId)
             {
-                var featureAccess = await authorization.AuthorizeAsync(authority,
-                    new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Search, null), ct);
-                if (!featureAccess.IsAllowed)
+                var featureAccess = await authorization.AuthorizePersonalScopeBootstrapAsync(authority, ct);
+                if (featureAccess != ViewAccessOutcome.Allowed)
                 {
-                    return Access(featureAccess.Outcome);
+                    return Access(featureAccess);
                 }
 
                 var policy = await preferences.GetPolicyAsync(activeProfileId, ct);

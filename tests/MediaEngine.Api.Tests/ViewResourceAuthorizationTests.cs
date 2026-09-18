@@ -7,6 +7,24 @@ namespace MediaEngine.Api.Tests;
 
 public sealed class ViewResourceAuthorizationTests
 {
+    [Fact]
+    public async Task PermissionCheckAllowsPersonalSpaceBootstrapWithoutEnumeratingScopes()
+    {
+        var caller = State(access: true, include: false) with { PersonalSpace = null };
+        var store = new CountingScopeStore([caller]);
+        var service = new ViewResourceAuthorizationService(
+            new ViewScopeResolver(store), new ResourceStore(), new AllowEvaluator());
+        var request = new ViewResourceRequest(
+            ViewScopeRequest.Mine, ViewResourceKind.Search, null);
+
+        var permission = await service.AuthorizePersonalScopeBootstrapAsync(Identity(caller));
+        var unresolvedScope = await service.AuthorizeAsync(Identity(caller), request);
+
+        Assert.Equal(ViewAccessOutcome.Allowed, permission);
+        Assert.Equal(ViewAccessOutcome.NotFound, unresolvedScope.Outcome);
+        Assert.Equal(1, store.ProfileReads);
+    }
+
     [Theory]
     [InlineData(ViewResourceKind.Asset)]
     [InlineData(ViewResourceKind.Thumbnail)]
