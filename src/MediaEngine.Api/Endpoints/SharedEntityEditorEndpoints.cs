@@ -145,7 +145,7 @@ public static class SharedEntityEditorEndpoints
     {
         if (await AuthorizedRootAsync(qid, http, roots, entities, display, authorization, ApplicationPermissionIds.MetadataRead, ct) is null) return ApiErrors.NotFound("Universe not found.");
         var visible = await VisibleWorksAsync(display, ct);
-        var entityQids = (await entities.SearchVisibleByUniverseAsync(qid, visible, null, null, 0, 100, ct)).Items.Select(entity => entity.WikidataQid).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var entityQids = (await LoadAllVisibleEntitiesAsync(qid, entities, visible, ct)).Select(entity => entity.WikidataQid).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var rows = await relationships.GetByUniverseAsync(entityQids, ct);
         return Results.Ok(rows.Where(row => string.IsNullOrWhiteSpace(row.ContextWorkQid) || visible.Contains(row.ContextWorkQid!)).Select(row => new SharedEntityRelationshipDto(row.StatementKey, row.SubjectQid, row.RelationshipTypeValue, row.ObjectQid, row.Provenance, row.ContextWorkQid, row.Qualifiers.Select(q => new UniverseGraphQualifierDto(q.QualifierType, q.Value, q.ValueKind, q.Provenance, q.IsSupplemental, q.SourceProvider, q.Confidence)).ToList())));
     }
@@ -154,8 +154,8 @@ public static class SharedEntityEditorEndpoints
     {
         if (await AuthorizedRootAsync(qid, http, roots, entities, display, authorization, ApplicationPermissionIds.MetadataRead, ct) is null) return ApiErrors.NotFound("Universe not found.");
         var visible = await VisibleWorksAsync(display, ct);
-        var page = await entities.SearchVisibleByUniverseAsync(qid, visible, null, null, 0, 100, ct);
-        var links = await entities.GetWorkLinksAsync(page.Items.Select(entity => entity.Id), ct);
+        var allEntities = await LoadAllVisibleEntitiesAsync(qid, entities, visible, ct);
+        var links = await entities.GetWorkLinksAsync(allEntities.Select(entity => entity.Id), ct);
         return Results.Ok(links.Where(link => visible.Contains(link.WorkQid) && (!string.IsNullOrWhiteSpace(link.NarrativeTimeIndex) || !string.IsNullOrWhiteSpace(link.StartTime) || !string.IsNullOrWhiteSpace(link.EndTime))).Select(link => new SharedEntityTimelineEntryDto("appearance", link.NarrativeTimeIndex ?? link.WorkLabel ?? link.WorkQid, link.StartTime, link.EndTime, link.WorkQid, link.Provenance)));
     }
 
@@ -163,8 +163,8 @@ public static class SharedEntityEditorEndpoints
     {
         if (await AuthorizedRootAsync(qid, http, roots, entities, display, authorization, ApplicationPermissionIds.MetadataRead, ct) is null) return ApiErrors.NotFound("Universe not found.");
         var visible = await VisibleWorksAsync(display, ct);
-        var page = await entities.SearchVisibleByUniverseAsync(qid, visible, null, null, 0, 100, ct);
-        var links = await entities.GetWorkLinksAsync(page.Items.Select(entity => entity.Id), ct);
+        var allEntities = await LoadAllVisibleEntitiesAsync(qid, entities, visible, ct);
+        var links = await entities.GetWorkLinksAsync(allEntities.Select(entity => entity.Id), ct);
         return Results.Ok(links.Where(link => visible.Contains(link.WorkQid)).Select(link => new SharedEntitySourceDto("appearance", link.AppearanceKey ?? link.WorkQid, link.Provenance, link.SourceProvider, link.WorkQid)));
     }
 
@@ -336,6 +336,19 @@ public static class SharedEntityEditorEndpoints
     private static IReadOnlyList<SharedEntityEditorCapabilityDto> RootCapabilities() => [new(SharedEntityEditorSections.Details, true, true), new(SharedEntityEditorSections.Artwork, true, true), new(SharedEntityEditorSections.Entities, true, false), new(SharedEntityEditorSections.Relationships, true, false), new(SharedEntityEditorSections.Timeline, true, false), new(SharedEntityEditorSections.Sources, true, false), new(SharedEntityEditorSections.History, true, false), new(SharedEntityEditorSections.Enrichment, true, false)];
     private static IReadOnlyList<SharedEntityEditorCapabilityDto> EntityCapabilities() => [new(SharedEntityEditorSections.Details, true, true), new(SharedEntityEditorSections.Artwork, true, true), new(SharedEntityEditorSections.Appearances, true, false, "Refreshed from enrichment."), new(SharedEntityEditorSections.Relationships, true, false), new(SharedEntityEditorSections.Timeline, true, false), new(SharedEntityEditorSections.Sources, true, false), new(SharedEntityEditorSections.History, true, false), new(SharedEntityEditorSections.Enrichment, true, false)];
     private static async Task<HashSet<string>> VisibleWorksAsync(IDisplayProjectionReadService display, CancellationToken ct) => (await display.LoadWorksAsync(ct)).Select(work => work.IdentityQid).Where(qid => !string.IsNullOrWhiteSpace(qid)).Select(qid => qid!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    private static async Task<IReadOnlyList<FictionalEntity>> LoadAllVisibleEntitiesAsync(string universeQid, IFictionalEntityRepository entities, IReadOnlyCollection<string> visibleWorks, CancellationToken ct)
+    {
+        const int pageSize = 100;
+        var offset = 0;
+        var result = new List<FictionalEntity>();
+        while (true)
+        {
+            var page = await entities.SearchVisibleByUniverseAsync(universeQid, visibleWorks, null, null, offset, pageSize, ct);
+            result.AddRange(page.Items);
+            offset += page.Items.Count;
+            if (offset >= page.Total || page.Items.Count == 0) return result;
+        }
+    }
     private static EntityType ToHarvestEntityType(string category) => category switch
     {
         "Character" => EntityType.Character,
