@@ -45,12 +45,16 @@ public sealed class ReviewTargetResolverTests
     [InlineData("MissingQid", MediaEditorIdentityIntent.FixWikidataMatch, "Search Wikidata")]
     [InlineData("MultipleQidMatches", MediaEditorIdentityIntent.FixWikidataMatch, "Search Wikidata")]
     [InlineData("ArtworkUnconfirmed", MediaEditorIdentityIntent.ConfirmArtwork, "Review Artwork")]
-    [InlineData("AmbiguousMediaType", MediaEditorIdentityIntent.ReclassifyMediaType, "Change Media Type")]
+    [InlineData("AmbiguousMediaType", MediaEditorIdentityIntent.ReviewClassification, "Review classification")]
     public void Resolve_Trigger_MapsIntentAndPrimaryAction(string trigger, MediaEditorIdentityIntent intent, string label)
     {
         var target = ReviewTargetResolver.Resolve("Comics", trigger);
 
         Assert.Equal(intent, target.Intent);
         Assert.Equal(label, target.PrimaryActionLabel);
+        if (intent == MediaEditorIdentityIntent.ReviewClassification)
+        {
+            Assert.Contains("does not change the media type", target.Summary, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

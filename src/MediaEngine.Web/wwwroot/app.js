@@ -58,6 +58,72 @@ window.tuvimaFocusById = function (id) {
     if (target) target.focus({ preventScroll: true });
 };
 
+window.tuvimaPositionSharedEntityPopover = function (anchorId, popoverId) {
+    const anchor = anchorId && document.getElementById(anchorId);
+    const popover = popoverId && document.getElementById(popoverId);
+    if (!anchor || !popover) return;
+
+    const positions = window.__tuvimaSharedEntityPopoverPositions ||= new Map();
+    const current = positions.get(popoverId);
+    if (current && current.anchorId === anchorId) {
+        current.position();
+        return;
+    }
+    if (current) {
+        window.removeEventListener('resize', current.position);
+        window.removeEventListener('scroll', current.position, true);
+    }
+
+    const position = () => {
+        if (!anchor.isConnected || !popover.isConnected) return;
+        const rect = anchor.getBoundingClientRect();
+        const gutter = 12;
+        const maxWidth = Math.max(120, Math.min(440, window.innerWidth - (gutter * 2)));
+        const width = Math.min(maxWidth, Math.max(Math.min(300, maxWidth), rect.width));
+        const left = Math.max(gutter, Math.min((rect.left + rect.right - width) / 2, window.innerWidth - width - gutter));
+        const maxHeight = Math.max(120, Math.min(368, window.innerHeight - (gutter * 2)));
+        const roomBelow = Math.max(0, window.innerHeight - rect.bottom - (gutter * 2));
+        const roomAbove = Math.max(0, rect.top - (gutter * 2));
+        const placeBelow = roomBelow >= Math.min(maxHeight, 220) || roomBelow >= roomAbove;
+        const availableHeight = Math.max(80, Math.min(maxHeight, placeBelow ? roomBelow : roomAbove));
+        const proposedTop = placeBelow ? rect.bottom + 8 : rect.top - availableHeight - 8;
+        const top = Math.max(gutter, Math.min(proposedTop, window.innerHeight - availableHeight - gutter));
+
+        popover.style.position = 'fixed';
+        popover.style.left = `${left}px`;
+        popover.style.top = `${top}px`;
+        popover.style.width = `${width}px`;
+        popover.style.maxWidth = `calc(100vw - ${gutter * 2}px)`;
+        popover.style.maxHeight = `${availableHeight}px`;
+        popover.style.zIndex = '1500';
+    };
+
+    positions.set(popoverId, { anchorId, position });
+    window.addEventListener('resize', position);
+    window.addEventListener('scroll', position, true);
+    position();
+};
+
+window.tuvimaRemoveSharedEntityPopoverPosition = function (popoverId) {
+    const positions = window.__tuvimaSharedEntityPopoverPositions;
+    const current = positions && positions.get(popoverId);
+    if (current) {
+        window.removeEventListener('resize', current.position);
+        window.removeEventListener('scroll', current.position, true);
+        positions.delete(popoverId);
+    }
+    const popover = popoverId && document.getElementById(popoverId);
+    if (popover) {
+        popover.style.removeProperty('position');
+        popover.style.removeProperty('left');
+        popover.style.removeProperty('top');
+        popover.style.removeProperty('width');
+        popover.style.removeProperty('max-width');
+        popover.style.removeProperty('max-height');
+        popover.style.removeProperty('z-index');
+    }
+};
+
 // All custom menus use the same click-away contract. MudMenu already handles
 // its own dismissal; this covers richer application-owned popout surfaces.
 (function installDismissibleSurfaceHandler() {

@@ -28,26 +28,26 @@ This is the **Presentation** philosophy at the core of Tuvima Library. The stori
 
 ---
 
-## The Hierarchy
+## Three Related Models, Not One Tall Hierarchy
 
-Every item in your library lives somewhere in this structure:
+The library has three connected but distinct ways to describe media. They answer different questions, so a graph relationship must not silently move a work between authored containers or structural shelves.
+
+**Structural placement** answers “where does this title belong in my media organization?” A Series can group Works; a Work can have Editions; Editions are represented by one or more Media Assets (files). A Universe may provide a broader cross-media context, but it is not a required parent row above every Series or Work.
 
 ```
-Library
-  `-- Universe   (the creative world - e.g. "Dune")
-        `-- Series   (a sub-grouping - e.g. "Dune Novels" or "Dune Films")
-              `-- Work   (a single title - e.g. "Dune Part One")
-                    `-- Edition   (a specific version - e.g. "4K HDR Blu-ray Remux")
-                          `-- Media Asset   (the file on disk)
+Structural/catalogue:  Library → Series (optional) → Work → Edition → Media Asset
+Knowledge graph:      Universe → fictional entities ↔ qualified links to Works
+Authored containers:  user-owned canonical title and explicit member/order choices
 ```
 
-Each level serves a different purpose:
+- **Work** - a single title, regardless of how many files or formats you own.
+- **Edition** - a specific version of a Work, such as theatrical and director's cuts.
+- **Media Asset** - an actual file for an Edition.
+- **Series** - a lane-level structural shelf, such as Dune novels or Dune films.
+- **Authored container** - a user-authored grouping whose canonical title and member order remain authoritative; enrichment does not rename or reorder it.
+- **Universe and fictional entities** - knowledge-graph identities connected to visible Works by scoped, sourced facts, not by implicit file or shelf containment.
 
-- **Universe** - the franchise or creative world. Groups multiple related shelves when the library contains enough structure to justify a broader collection.
-- **Series** - a lane-level shelf. Organizes related works into an ordered group, such as the novels as one shelf and the films as another.
-- **Work** - a single title. "Dune Part One" is one Work, regardless of how many files or formats you own.
-- **Edition** - a specific version of a Work. The standard theatrical cut and the director's cut are two Editions of the same Work.
-- **Media Asset** - the actual file on disk. One Edition might have multiple Assets (e.g., the video file and its external subtitle files).
+Retail matching answers which provider record identifies an edition/work and may also propose structural placement. When a selected candidate would move an item to another parent or position, the editor shows the previous and target paths before Apply. This is separate from Universe identity: confirming a Wikidata/Universe relationship does not itself change the Work's authored title, Series order, or media placement.
 
 ---
 
@@ -138,13 +138,19 @@ Grouping items together is the first layer. The Universe Graph is the second - a
 The Universe Graph tracks:
 
 - **Characters** - fictional entities that appear across multiple works (a character appearing in both novels and their film adaptations)
-- **Locations** - fictional places that recur across media
-- **Factions** - organizations, families, orders
+- **Locations/Places** - fictional places that recur across media
+- **Organizations/Groups** - factions, families, orders, and their membership
+- **Events** - story-world events and their participants
+- **Objects/Artifacts** - notable fictional objects
 - **Narrative relationships** - which works are sequels, prequels, spin-offs, adaptations of each other
 
 This graph powers features beyond simple browsing. It's what enables "which actor played this character in which adaptation?" It's what connects a graphic novel adaptation to the novel that inspired it. It's the infrastructure for the Chronicle Explorer - the visual graph at `/universe/{QID}/explore` where you can navigate these relationships interactively.
 
-For now, Universe Graph data comes from Wikidata properties. The Tuvima.Wikidata.Graph module handles in-memory graph queries over this data so you can ask relationship questions without a network connection.
+For now, Universe Graph data comes from Wikidata properties. The Tuvima.Wikidata.Graph module handles in-memory graph queries over this data so you can ask relationship questions without a network connection. Organization membership and Event participation are distinct kinds of graph projection; neither replaces the broader relationship list.
+
+Entity appearances link an entity to a particular Work and can carry role, work context, anchor, narrative-time, date-range, and spoiler-for-work qualifiers. Those qualifiers keep a fact scoped to the adaptation, installment, or time span where it applies. Real-world dates (such as release or birth dates), in-universe narrative time, and editor History (when Tuvima changed a record) are separate timelines.
+
+Stage 2 establishes canonical identity for a matched Work. Bounded Stage 3 can then enrich grounded Universes, entities, qualified relationships, and artwork. It does not overwrite authored-container canonical titles/order or silently realign structural placement; any placement change must be an explicit Retail Match preview and Apply.
 
 ---
 

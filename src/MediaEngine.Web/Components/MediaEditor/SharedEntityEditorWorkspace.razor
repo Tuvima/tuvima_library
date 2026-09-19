@@ -29,6 +29,8 @@
                                 id="@($"see-category-{categoryId}")" tabindex="@(string.Equals(categoryId, _selectedCategory, StringComparison.OrdinalIgnoreCase) ? "0" : "-1")"
                                 role="tab" aria-selected="@(string.Equals(categoryId, _selectedCategory, StringComparison.OrdinalIgnoreCase) ? "true" : "false")"
                                 aria-label="@CategoryLabel(category)"
+                                aria-haspopup="dialog"
+                                aria-controls="see-selector-popover"
                                 aria-expanded="@(string.Equals(categoryId, _selectedCategory, StringComparison.OrdinalIgnoreCase) && _showSelectorPopover ? "true" : "false")"
                                 OnClick="() => ToggleCategorySelectorAsync(categoryId)"
                                 @onkeydown="args => OnCategoryItemKeyDown(args, categoryId)">
@@ -40,8 +42,8 @@
             </div>
             @if (_showSelectorPopover)
             {
-                <div class="see-selector-popover" aria-label="@CategoryLabel(_categories.FirstOrDefault(x => x.category == _selectedCategory)) entities">
-                    <div class="see-popover-heading"><strong>@CategoryLabel(_categories.FirstOrDefault(x => x.category == _selectedCategory))</strong><AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" aria-label="Close selector" OnClick="() => _showSelectorPopover = false">×</AppButton></div>
+                <div id="see-selector-popover" class="see-selector-popover" role="dialog" aria-modal="false" aria-label="@CategoryLabel(_categories.FirstOrDefault(x => x.category == _selectedCategory)) entities" tabindex="-1" @onkeydown="OnSelectorKeyDown">
+                    <div class="see-popover-heading"><strong>@CategoryLabel(_categories.FirstOrDefault(x => x.category == _selectedCategory))</strong><AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" aria-label="Close selector" OnClick="CloseSelectorPopoverAsync">×</AppButton></div>
                     <div class="see-search"><AppTextField T="string" Label="Search entities" Value="@_search" ValueChanged="SearchChangedAsync" InputType="InputType.Search" /></div>
                     <div class="see-selector-list" role="listbox" aria-label="Category entities">
                         @foreach (var item in _selectorItems)
@@ -61,12 +63,12 @@
         {
             <nav class="see-breadcrumb" aria-label="Entity location">
                 <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Primary" OnClick="ReturnToUniverseAsync">@UniverseBreadcrumbLabel</AppButton><span aria-hidden="true">›</span><strong>@_context?.label</strong>
-                <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" Class="see-sibling-toggle" aria-expanded="@_showSelectorPopover" OnClick="ToggleSiblingSelectorAsync">Other @CategoryName(_context?.category ?? "")</AppButton>
+                <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" Class="see-sibling-toggle" id="see-sibling-toggle" aria-haspopup="dialog" aria-controls="see-selector-popover" aria-expanded="@_showSelectorPopover" OnClick="ToggleSiblingSelectorAsync">Other @CategoryName(_context?.category ?? "")</AppButton>
             </nav>
             @if (_showSelectorPopover)
             {
-                <div class="see-selector-popover" aria-label="Other @CategoryName(_context?.category ?? "")">
-                    <div class="see-popover-heading"><strong>Other @CategoryName(_context?.category ?? "")</strong><AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" aria-label="Close selector" OnClick="() => _showSelectorPopover = false">×</AppButton></div>
+                <div id="see-selector-popover" class="see-selector-popover" role="dialog" aria-modal="false" aria-label="Other @CategoryName(_context?.category ?? "")" tabindex="-1" @onkeydown="OnSelectorKeyDown">
+                    <div class="see-popover-heading"><strong>Other @CategoryName(_context?.category ?? "")</strong><AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" aria-label="Close selector" OnClick="CloseSelectorPopoverAsync">×</AppButton></div>
                     <div class="see-search"><AppTextField T="string" Label="Search entities" Value="@_search" ValueChanged="SearchChangedAsync" InputType="InputType.Search" /></div>
                     <div class="see-selector-list" role="listbox" aria-label="Sibling entities">
                         @foreach (var item in _selectorItems)
@@ -180,9 +182,11 @@
                 {
                     <section class="see-panel"><h3>Appearances</h3>@if (_appearances.Count == 0) { <p class="see-muted">No work-scoped appearances are available.</p> } else { <div class="see-record-list">@foreach (var row in _appearances) { <article><strong>@(row.work_label ?? row.work_qid)</strong><span>@row.link_type@(string.IsNullOrWhiteSpace(row.role) ? string.Empty : $" · {row.role}")</span><small>@JoinNonEmpty(row.work_context, row.anchor_kind, row.anchor_value, row.narrative_time_index, row.start_time, row.end_time, string.IsNullOrWhiteSpace(row.spoiler_for_work_qid) ? null : $"Spoiler for {row.spoiler_for_work_qid}", row.provenance)</small></article> }</div> }</section>
                 }
-                else if (string.Equals(_activeSection, SharedEntityEditorSections.Relationships, StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(_activeSection, SharedEntityEditorSections.Members, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(_activeSection, SharedEntityEditorSections.Participants, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(_activeSection, SharedEntityEditorSections.Relationships, StringComparison.OrdinalIgnoreCase))
                 {
-                    <section class="see-panel"><h3>Relationships</h3>@if (_relationships.Count == 0) { <p class="see-muted">No qualified relationships are available.</p> } else { <div class="see-record-list">@foreach (var row in _relationships) { <article><strong>@row.subject_qid — @row.type — @row.object_qid</strong><small>@JoinNonEmpty(row.work_qid, row.provenance, string.Join(" · ", row.qualifiers.Select(q => $"{q.type}: {q.value}")))</small></article> }</div> }</section>
+                    <section class="see-panel"><h3>@SectionLabel(_activeSection, _context?.category)</h3>@if (!ActiveRelationshipRows.Any()) { <p class="see-muted">@($"No qualified {SectionLabel(_activeSection, _context?.category).ToLowerInvariant()} are available.")</p> } else { <div class="see-record-list">@foreach (var row in ActiveRelationshipRows) { <article><strong>@row.subject_qid — @row.type — @row.object_qid</strong><small>@JoinNonEmpty(row.work_qid, row.provenance, string.Join(" · ", row.qualifiers.Select(q => $"{q.type}: {q.value}")))</small></article> }</div> }</section>
                 }
                 else if (string.Equals(_activeSection, SharedEntityEditorSections.Timeline, StringComparison.OrdinalIgnoreCase))
                 {

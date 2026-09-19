@@ -212,6 +212,33 @@
                 </div>
             }
 
+            @if (CanSwitchEditorSurface)
+            {
+                <div class="sme-editor-surface-switch">
+                    <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                               Tone="AppUiTone.Neutral"
+                               Class="sme-editor-surface-switch__button"
+                               OnClick="RequestSharedEntityModeSwitchAsync">
+                        <MudIcon Icon="@(IsSharedEntityMode ? Icons.Material.Outlined.ArrowBack : Icons.Material.Outlined.AccountTree)" />
+                        @SharedEntityModeActionLabel
+                    </AppButton>
+                </div>
+            }
+
+            @if (HasPendingSharedEntityModeSwitch)
+            {
+                <div class="sme-inline-decision sme-target-switch-decision" role="alert">
+                    <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
+                    <div>
+                        <strong>Save changes before switching to @PendingSharedEntityModeTitle?</strong>
+                        <span>Unsaved edits on @CurrentEditorSurfaceTitle will be kept only if you save them.</span>
+                    </div>
+                    <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" OnClick="KeepEditingCurrentSurface">Stay here</AppButton>
+                    <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Error" OnClick="DiscardAndSwitchSharedEntityModeAsync">Discard and switch</AppButton>
+                    <AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@_saving" OnClick="SaveAndSwitchSharedEntityModeAsync">@(_saving ? "Saving..." : "Save and switch")</AppButton>
+                </div>
+            }
+
             @if (IsSharedEntityMode)
             {
                 <SharedEntityEditorWorkspace @ref="_sharedEntityWorkspace"

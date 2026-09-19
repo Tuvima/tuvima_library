@@ -124,6 +124,34 @@ public sealed class EngineApiClientSharedEntityEditorTests
         }));
     }
 
+    [Fact]
+    public async Task SharedTargetLaunch_AcceptsHybridMediaRequestAndOpensOneSharedShell()
+    {
+        var dialogProxy = DispatchProxy.Create<IDialogService, DialogServiceProxy>();
+        var dialogState = (DialogServiceProxy)(object)dialogProxy;
+        var launcher = new MediaEditorLauncherService(dialogProxy);
+        var mediaId = Guid.Parse("22222222-3333-4444-5555-666666666666");
+        var sharedTarget = new SharedEntityEditorTargetDto(SharedEntityEditorTargetKinds.Universe, "Q42", null, "Q42");
+        var request = new MediaEditorLaunchRequest
+        {
+            EntityIds = [mediaId],
+            LaunchEntityId = mediaId,
+            LaunchEntityKind = "Work",
+            SharedEntityTarget = sharedTarget,
+            Mode = SharedMediaEditorMode.Normal,
+            HeaderTitle = "Dune",
+        };
+
+        var opened = await launcher.OpenAsync(request);
+
+        Assert.True(opened);
+        Assert.Equal(1, dialogState.SharedEditorRequests);
+        Assert.Same(request, dialogState.LastSharedEditorRequest);
+        Assert.Equal([mediaId], dialogState.LastSharedEditorRequest!.EntityIds);
+        Assert.Equal(mediaId, dialogState.LastSharedEditorRequest.LaunchEntityId);
+        Assert.Equal(sharedTarget, dialogState.LastSharedEditorRequest.SharedEntityTarget);
+    }
+
     private sealed class RecordingHandler : HttpMessageHandler
     {
         public List<(string MethodAndPath, string ContentType)> Requests { get; } = [];
@@ -166,12 +194,19 @@ public sealed class EngineApiClientSharedEntityEditorTests
     private class DialogServiceProxy : DispatchProxy
     {
         public int SharedEditorRequests { get; private set; }
+        public MediaEditorLaunchRequest? LastSharedEditorRequest { get; private set; }
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
             if (targetMethod?.Name == "ShowAsync" && targetMethod.IsGenericMethod)
             {
-                if (targetMethod.GetGenericArguments()[0] == typeof(SharedMediaEditorShell)) SharedEditorRequests++;
+                if (targetMethod.GetGenericArguments()[0] == typeof(SharedMediaEditorShell))
+                {
+                    SharedEditorRequests++;
+                    var parameters = args?.OfType<DialogParameters>().FirstOrDefault();
+                    var indexer = parameters?.GetType().GetProperty("Item");
+                    LastSharedEditorRequest = indexer?.GetValue(parameters, [nameof(SharedMediaEditorShell.Request)]) as MediaEditorLaunchRequest;
+                }
                 var reference = DispatchProxy.Create<IDialogReference, DialogReferenceProxy>();
                 return Task.FromResult<IDialogReference?>(reference);
             }

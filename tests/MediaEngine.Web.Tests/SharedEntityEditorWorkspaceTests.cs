@@ -37,7 +37,12 @@ public sealed class SharedEntityEditorWorkspaceTests : AsyncBunitContext
         Assert.DoesNotContain("More", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Scroll categories left", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Scroll categories right", cut.Markup, StringComparison.Ordinal);
+        Assert.Equal("see-selector-popover", cut.Find("#see-category-Character").GetAttribute("aria-controls"));
+        Assert.Equal("dialog", cut.Find("#see-category-Character").GetAttribute("aria-haspopup"));
         Assert.Contains("@onwheel", ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedEntityEditorWorkspace.razor"), StringComparison.Ordinal);
+        Assert.Contains("position: fixed", ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedEntityEditorWorkspace.razor.css"), StringComparison.Ordinal);
+        Assert.Contains("tuvimaPositionSharedEntityPopover", ReadSource("src/MediaEngine.Web/wwwroot/app.js"), StringComparison.Ordinal);
+        Assert.Contains("roomBelow", ReadSource("src/MediaEngine.Web/wwwroot/app.js"), StringComparison.Ordinal);
         cut.Find("#see-category-Character").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "ArrowRight" });
         cut.WaitForAssertion(() => Assert.Contains("is-active", cut.Find("#see-category-Location").ClassList));
         Assert.Equal("0", cut.Find("#see-category-Location").GetAttribute("tabindex"));
@@ -58,8 +63,53 @@ public sealed class SharedEntityEditorWorkspaceTests : AsyncBunitContext
         cut.Find(".see-sibling-toggle").Click();
         cut.WaitForAssertion(() => Assert.Contains("Mara Venn", cut.Find(".see-selector-popover").TextContent, StringComparison.Ordinal));
         Assert.Equal("true", cut.FindAll(".see-selector-popover .see-selector-item").First().GetAttribute("aria-selected"));
+        cut.Find(".see-selector-popover").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" });
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".see-selector-popover")));
+        Assert.Equal("see-selector-popover", cut.Find("#see-sibling-toggle").GetAttribute("aria-controls"));
+        Assert.Equal("dialog", cut.Find("#see-sibling-toggle").GetAttribute("aria-haspopup"));
+        cut.Find("#see-sibling-toggle").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".see-selector-popover")));
         cut.Find(".see-breadcrumb button").Click();
         cut.WaitForAssertion(() => Assert.Equal(5, cut.FindAll(".see-category").Count));
+    }
+
+    [Fact]
+    public void UniverseCategorySelectorRetargetsToLocationPlace()
+    {
+        var cut = Render<SharedEntityEditorWorkspace>(parameters => parameters
+            .Add(component => component.InitialTarget, RootTarget()));
+
+        cut.WaitForAssertion(() => Assert.Equal(5, cut.FindAll(".see-category").Count));
+        cut.Find("#see-category-Location").Click();
+        cut.WaitForAssertion(() => Assert.Contains("Old Harbor", cut.Find(".see-selector-popover").TextContent, StringComparison.Ordinal));
+        cut.FindAll(".see-selector-popover .see-selector-item").Single().Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Old Harbor", cut.Find(".see-breadcrumb").TextContent, StringComparison.Ordinal));
+        Assert.Contains("Appearances", cut.FindAll(".see-nav-item").Select(node => node.TextContent));
+    }
+
+    [Fact]
+    public void OrganizationMembersAndEventParticipantsUseFriendlyCapabilityProjections()
+    {
+        var organization = Render<SharedEntityEditorWorkspace>(parameters => parameters
+            .Add(component => component.InitialTarget, EntityTarget(CharacterId, "QORG1")));
+        organization.WaitForAssertion(() => Assert.Contains("Members", organization.FindAll(".see-nav-item").Select(node => node.TextContent)));
+        Assert.Contains("Appearances", organization.FindAll(".see-nav-item").Select(node => node.TextContent));
+        organization.FindAll(".see-nav-item").Single(node => node.TextContent == "Members").Click();
+        organization.WaitForAssertion(() => Assert.Equal("Members", organization.Find(".see-content h3").TextContent));
+        Assert.Equal(2, organization.FindAll(".see-record-list article").Count);
+        Assert.Contains(organization.FindAll(".see-record-list article"), row => row.TextContent.Contains("member_of", StringComparison.Ordinal));
+        Assert.Contains(organization.FindAll(".see-record-list article"), row => row.TextContent.Contains("has_parts", StringComparison.Ordinal));
+        Assert.DoesNotContain("related_to", organization.Markup, StringComparison.OrdinalIgnoreCase);
+
+        var eventEntity = Render<SharedEntityEditorWorkspace>(parameters => parameters
+            .Add(component => component.InitialTarget, EntityTarget(SiblingId, "QEVENT1")));
+        eventEntity.WaitForAssertion(() => Assert.Contains("Participants", eventEntity.FindAll(".see-nav-item").Select(node => node.TextContent)));
+        Assert.Contains("Appearances", eventEntity.FindAll(".see-nav-item").Select(node => node.TextContent));
+        eventEntity.FindAll(".see-nav-item").Single(node => node.TextContent == "Participants").Click();
+        eventEntity.WaitForAssertion(() => Assert.Equal("Participants", eventEntity.Find(".see-content h3").TextContent));
+        Assert.Single(eventEntity.FindAll(".see-record-list article"));
+        Assert.Contains("participant", eventEntity.Find(".see-record-list article").TextContent, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -98,11 +148,22 @@ public sealed class SharedEntityEditorWorkspaceTests : AsyncBunitContext
         var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
         var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
         var workspace = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedEntityEditorWorkspace.razor");
+        var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
+        var sharedEntityIntegration = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.SharedEntity.cs");
         var branch = code.IndexOf("if (IsSharedEntityMode)", StringComparison.Ordinal);
         var providerInit = code.IndexOf("ProviderCatalogue.GetCatalogueAsync", StringComparison.Ordinal);
 
         Assert.True(branch >= 0 && branch < providerInit);
         Assert.Contains("Request.EntityIds.FirstOrDefault()", code, StringComparison.Ordinal);
+        Assert.Contains("SharedEntityTarget = Model.EntityType != DetailEntityType.Person", detailPage, StringComparison.Ordinal);
+        Assert.Contains("item.EntityType == RelatedEntityType.Universe", detailPage, StringComparison.Ordinal);
+        Assert.Contains("IsCanonicalUniverseQid", detailPage, StringComparison.Ordinal);
+        Assert.Contains("CanSwitchEditorSurface", shell, StringComparison.Ordinal);
+        Assert.Contains("SaveAndSwitchSharedEntityModeAsync", shell, StringComparison.Ordinal);
+        Assert.Contains("DiscardAndSwitchSharedEntityModeAsync", shell, StringComparison.Ordinal);
+        Assert.Contains("Request.LaunchEntityId ?? Request.EntityIds.FirstOrDefault()", sharedEntityIntegration, StringComparison.Ordinal);
+        Assert.Contains("LoadSingleItemAsync(returnEntityId, resetEditorState: true)", sharedEntityIntegration, StringComparison.Ordinal);
+        Assert.Contains("CurrentEditorSurfaceTitle", shell, StringComparison.Ordinal);
         Assert.Contains("if (IsSharedEntityMode)", shell, StringComparison.Ordinal);
         Assert.Contains("<SharedEntityEditorWorkspace", shell, StringComparison.Ordinal);
         Assert.Contains("<AppTextarea", workspace, StringComparison.Ordinal);
@@ -139,39 +200,48 @@ public sealed class SharedEntityEditorWorkspaceTests : AsyncBunitContext
         {
             var target = (SharedEntityEditorTargetDto)args![0]!;
             var isRoot = string.Equals(target.Kind, SharedEntityEditorTargetKinds.Universe, StringComparison.OrdinalIgnoreCase);
+            var category = GetCategory(target);
             return Task.FromResult<SharedEntityEditorContextDto?>(new(
                 target,
-                isRoot ? "Chronicle World" : string.Equals(target.FictionalEntityId, SiblingId) ? "Elian" : "Mara Venn",
-                isRoot ? "Universe" : "Character",
-                isRoot ? RootCapabilities() : EntityCapabilities(),
+                isRoot ? "Chronicle World" : target.Qid switch { "QORG1" => "Lantern Council", "QEVENT1" => "Night of Ash", "QLOC1" => "Old Harbor", _ => string.Equals(target.FictionalEntityId, SiblingId) ? "Elian" : "Mara Venn" },
+                category,
+                isRoot ? RootCapabilities() : EntityCapabilities(category),
                 "available",
-                isRoot ? ["Chronicle World"] : ["Chronicle World", "Mara Venn"]));
+                isRoot ? ["Chronicle World"] : ["Chronicle World", target.Qid ?? "Mara Venn"]));
         });
         stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityCategoriesAsync), _ => Task.FromResult<IReadOnlyList<SharedEntityCategorySummaryDto>>(
         [new("Character", "Character", 2), new("Location", "Places", 1), new("Organization", "Groups", 1), new("Event", "Event", 1), new("Object", "Object", 1)]));
         stub.SetHandler(nameof(IEngineApiClient.GetSharedEntitySelectorPageAsync), args =>
         {
-            var offset = (int)args![3]!;
-            IReadOnlyList<SharedEntitySelectorItemDto> all =
-            [new(CharacterId, "QCHAR1", "Mara Venn", "Character", "A traveler"), new(SiblingId, "QCHAR2", "Elian", "Character", null)];
+            var category = (string?)args![1] ?? "Character";
+            var offset = (int)args[3]!;
+            IReadOnlyList<SharedEntitySelectorItemDto> all = category switch
+            {
+                "Location" => [new(CharacterId, "QLOC1", "Old Harbor", "Location", "A coastal district")],
+                "Organization" => [new(CharacterId, "QORG1", "Lantern Council", "Organization", null)],
+                "Event" => [new(SiblingId, "QEVENT1", "Night of Ash", "Event", null)],
+                "Object" => [new(SiblingId, "QOBJ1", "Glass Compass", "Object", null)],
+                _ => [new(CharacterId, "QCHAR1", "Mara Venn", "Character", "A traveler"), new(SiblingId, "QCHAR2", "Elian", "Character", null)],
+            };
             var items = all.Skip(offset).Take(1).ToList();
             return Task.FromResult<SharedEntitySelectorPageDto?>(new(items, offset, 1, 2, offset + items.Count < 2));
         });
         stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityDetailsAsync), args =>
         {
             var target = (SharedEntityEditorTargetDto)args![0]!;
-            return Task.FromResult<SharedEntityDetailsDto?>(new(target.FictionalEntityId, target.Qid ?? "Q42", string.Equals(target.Kind, SharedEntityEditorTargetKinds.Universe, StringComparison.OrdinalIgnoreCase) ? "Chronicle World" : "Mara Venn", string.Equals(target.Kind, SharedEntityEditorTargetKinds.Universe, StringComparison.OrdinalIgnoreCase) ? "Universe" : "Character", "The shared world", target.UniverseQid, "Chronicle World"));
+            return Task.FromResult<SharedEntityDetailsDto?>(new(target.FictionalEntityId, target.Qid ?? "Q42", string.Equals(target.Kind, SharedEntityEditorTargetKinds.Universe, StringComparison.OrdinalIgnoreCase) ? "Chronicle World" : target.Qid switch { "QORG1" => "Lantern Council", "QEVENT1" => "Night of Ash", "QLOC1" => "Old Harbor", _ => "Mara Venn" }, GetCategory(target), "The shared world", target.UniverseQid, "Chronicle World"));
         });
         stub.SetHandler(nameof(IEngineApiClient.UpdateSharedEntityDetailsAsync), args =>
         {
             var target = (SharedEntityEditorTargetDto)args![0]!;
             var request = (SharedEntityDetailsUpdateRequest)args[1]!;
-            return Task.FromResult<SharedEntityDetailsDto?>(new(target.FictionalEntityId, target.Qid ?? "Q42", request.label, string.Equals(target.Kind, SharedEntityEditorTargetKinds.Universe, StringComparison.OrdinalIgnoreCase) ? "Universe" : "Character", request.description, target.UniverseQid, "Chronicle World"));
+            return Task.FromResult<SharedEntityDetailsDto?>(new(target.FictionalEntityId, target.Qid ?? "Q42", request.label, GetCategory(target), request.description, target.UniverseQid, "Chronicle World"));
         });
         stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityArtworkAsync), _ => Task.FromResult<IReadOnlyList<SharedEntityArtworkDto>>([]));
         stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityEnrichmentAsync), _ => Task.FromResult<SharedEntityEnrichmentStatusDto?>(new("available", null, 10)));
         stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityAppearancesAsync), _ => Task.FromResult<IReadOnlyList<SharedEntityAppearanceDto>>([]));
-        stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityRelationshipsAsync), _ => Task.FromResult<IReadOnlyList<SharedEntityRelationshipDto>>([]));
+        stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityRelationshipsAsync), _ => Task.FromResult<IReadOnlyList<SharedEntityRelationshipDto>>(
+        [new("member-1", "QORG1", "member_of", "QPERSON1", "Wikidata", null, []), new("member-2", "QORG1", "has_parts", "QPERSON2", "Wikidata", null, []), new("unrelated-1", "QORG1", "related_to", "QWORK1", "Wikidata", null, []), new("participant-1", "QEVENT1", "participant", "QPERSON3", "Wikidata", null, []), new("unrelated-2", "QEVENT1", "located_in", "QPLACE1", "Wikidata", null, [])]));
         stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityTimelineAsync), _ => Task.FromResult<IReadOnlyList<SharedEntityTimelineEntryDto>>([]));
         stub.SetHandler(nameof(IEngineApiClient.GetSharedEntitySourcesAsync), _ => Task.FromResult<IReadOnlyList<SharedEntitySourceDto>>([]));
         stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityHistoryAsync), _ => Task.FromResult<IReadOnlyList<SharedEntityHistoryEntryDto>>([]));
@@ -179,10 +249,33 @@ public sealed class SharedEntityEditorWorkspaceTests : AsyncBunitContext
 
     private static SharedEntityEditorTargetDto RootTarget() => new(SharedEntityEditorTargetKinds.Universe, "Q42", null, "Q42");
     private static SharedEntityEditorTargetDto EntityTarget(Guid id, string qid) => new(SharedEntityEditorTargetKinds.FictionalEntity, "Q42", id, qid);
+    private static string GetCategory(SharedEntityEditorTargetDto target) => target.Kind == SharedEntityEditorTargetKinds.Universe ? "Universe" : target.Qid switch { "QORG1" => "Organization", "QEVENT1" => "Event", "QLOC1" => "Location", "QOBJ1" => "Object", _ => "Character" };
     private static IReadOnlyList<SharedEntityEditorCapabilityDto> RootCapabilities() =>
     [new(SharedEntityEditorSections.Details, true, true), new(SharedEntityEditorSections.Artwork, true, true), new(SharedEntityEditorSections.Entities, true, false), new(SharedEntityEditorSections.Relationships, true, false), new(SharedEntityEditorSections.Timeline, true, false), new(SharedEntityEditorSections.Sources, true, false), new(SharedEntityEditorSections.History, true, false), new(SharedEntityEditorSections.Enrichment, true, false)];
-    private static IReadOnlyList<SharedEntityEditorCapabilityDto> EntityCapabilities() =>
-    [new(SharedEntityEditorSections.Details, true, true), new(SharedEntityEditorSections.Artwork, true, true), new(SharedEntityEditorSections.Appearances, true, false), new(SharedEntityEditorSections.Relationships, true, false), new(SharedEntityEditorSections.Timeline, true, false), new(SharedEntityEditorSections.Sources, true, false), new(SharedEntityEditorSections.History, true, false), new(SharedEntityEditorSections.Enrichment, true, false), new("private", false, true)];
+    private static IReadOnlyList<SharedEntityEditorCapabilityDto> EntityCapabilities(string category)
+    {
+        var subjectSection = category switch
+        {
+            "Organization" => SharedEntityEditorSections.Members,
+            "Event" => SharedEntityEditorSections.Participants,
+            _ => SharedEntityEditorSections.Appearances,
+        };
+        var capabilities = new List<SharedEntityEditorCapabilityDto>
+        {
+            new(SharedEntityEditorSections.Details, true, true),
+            new(SharedEntityEditorSections.Artwork, true, true),
+            new(subjectSection, true, false),
+            new(SharedEntityEditorSections.Relationships, true, false),
+            new(SharedEntityEditorSections.Timeline, true, false),
+            new(SharedEntityEditorSections.Sources, true, false),
+            new(SharedEntityEditorSections.History, true, false),
+            new(SharedEntityEditorSections.Enrichment, true, false),
+            new("private", false, true),
+        };
+        if (category is "Organization" or "Event")
+            capabilities.Insert(3, new(SharedEntityEditorSections.Appearances, true, false));
+        return capabilities;
+    }
 
     private void RecordDirty(bool dirty) => _dirtyChanges.Add(dirty);
 
