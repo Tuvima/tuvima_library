@@ -30,9 +30,7 @@ public sealed record HierarchyIdentityMutation(
     IReadOnlyList<HierarchyCanonicalMutation> CanonicalValues,
     IReadOnlyList<HierarchyBridgeIdMutation> BridgeIds,
     IReadOnlyList<HierarchyIdentityArtifactMutation> StaleArtifacts,
-    Guid? ExternalIdentifierWorkId = null,
-    IReadOnlyList<string>? ExternalIdentifierKeysToRemove = null,
-    IReadOnlyDictionary<string, string>? ExternalIdentifierReplacements = null);
+    IReadOnlyList<HierarchyExternalIdentifierMutation>? ExternalIdentifierMutations = null);
 
 public sealed record HierarchyClaimMutation(
     Guid EntityId,
@@ -60,6 +58,11 @@ public sealed record HierarchyBridgeIdMutation(
     DateTimeOffset CreatedAt);
 
 public sealed record HierarchyIdentityArtifactMutation(Guid EntityId, string Key);
+
+public sealed record HierarchyExternalIdentifierMutation(
+    Guid EntityId,
+    IReadOnlyList<string> KeysToRemove,
+    IReadOnlyDictionary<string, string> Replacements);
 
 public sealed record MediaEditorNavigatorEnvelope(
     [property: JsonPropertyName("enabled")] bool Enabled,

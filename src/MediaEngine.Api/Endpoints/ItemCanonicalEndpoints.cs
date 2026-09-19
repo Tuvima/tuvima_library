@@ -312,6 +312,13 @@ public static class ItemCanonicalEndpoints
 
             if (shouldSearchRetail)
             {
+                // Explicit user search is allowed to discover a different
+                // container. Keep the current draft as soft file hints, but do
+                // not send it as structured search fields that a provider can
+                // interpret as a hard show/season constraint.
+                var searchFields = string.IsNullOrWhiteSpace(request.QueryOverride) && draftFields.Count > 0
+                    ? draftFields
+                    : null;
                 var retail = await retailMatchPreview.SearchAsync(
                     new Domain.Models.SearchRetailRequest(
                         Query: query,
@@ -321,7 +328,7 @@ public static class ItemCanonicalEndpoints
                         LocalAuthor: context.PrimaryCreator,
                         LocalYear: context.Year,
                         FileHints: draftFields.Count > 0 ? draftFields : null,
-                        SearchFields: draftFields.Count > 0 ? draftFields : null),
+                        SearchFields: searchFields),
                     ct);
 
                 retailCandidates = retail.Candidates
@@ -432,10 +439,11 @@ public static class ItemCanonicalEndpoints
             var claims = new List<MetadataClaim>();
             var canonicals = new List<CanonicalValue>();
             var lineage = await workRepo.GetLineageByAssetAsync(context.AssetId, ct);
+            var alignmentEntityId = await itemCanonicalData.ResolveWorkIdForAssetAsync(context.AssetId, ct) ?? context.AssetId;
             var hierarchyRequest = BuildHierarchyAlignmentRequest(policy, selectedFields, request);
             var hierarchyImpact = hierarchyRequest is null
                 ? null
-                : await hierarchyAlignment.PreviewAsync(context.AssetId, hierarchyRequest, ct);
+                : await hierarchyAlignment.PreviewAsync(alignmentEntityId, hierarchyRequest, ct);
             if (hierarchyImpact is { CanApply: false }
                 && string.Equals(hierarchyImpact.Action, "conflict", StringComparison.OrdinalIgnoreCase))
             {
@@ -782,6 +790,7 @@ public static class ItemCanonicalEndpoints
             {
                 return ApiErrors.NotFound($"No work lineage found for {entityId}.");
             }
+            var alignmentEntityId = await itemCanonicalData.ResolveWorkIdForAssetAsync(context.AssetId, ct) ?? context.AssetId;
 
             var allowedFieldKeys = policy.RequiredFieldKeys
                 .Concat(policy.SuggestedFieldKeys)
@@ -930,8 +939,19 @@ public static class ItemCanonicalEndpoints
             // one managed write callback. The queue and
             // all provider/network work remain below this durable boundary.
             var workId = ResolvePolicyWorkTarget(lineage, policy, BridgeIdKeys.WikidataQid);
+            var externalIdentifierMutations = policy.BridgeIdKeys
+                .Concat(selectedBridgeIds.Keys)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .GroupBy(key => ResolvePolicyWorkTarget(lineage, policy, key))
+                .Select(group => new HierarchyExternalIdentifierMutation(
+                    group.Key,
+                    staleBridgeKeys.Where(key => group.Contains(key, StringComparer.OrdinalIgnoreCase)).ToList(),
+                    selectedBridgeIds
+                        .Where(pair => group.Contains(pair.Key, StringComparer.OrdinalIgnoreCase))
+                        .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase)))
+                .ToList();
             hierarchyImpact = await hierarchyAlignment.ApplyRetailIdentityAsync(
-                context.AssetId,
+                alignmentEntityId,
                 hierarchyRequest ?? new MembershipPreviewRequest(null, null, null, null),
                 new HierarchyIdentityMutation(
                     claims.Select(claim => new HierarchyClaimMutation(
@@ -958,9 +978,7 @@ public static class ItemCanonicalEndpoints
                         entry.CreatedAt)).ToList(),
                     staleBridgeKeys.Select(key => new HierarchyIdentityArtifactMutation(
                         ResolvePolicyScopedTarget(context.AssetId, lineage, policy, key), key)).ToList(),
-                    workId,
-                    staleBridgeKeys,
-                    selectedBridgeIds),
+                    externalIdentifierMutations),
                 ct);
             if (hierarchyImpact is { CanApply: false }
                 && string.Equals(hierarchyImpact.Action, "conflict", StringComparison.OrdinalIgnoreCase))

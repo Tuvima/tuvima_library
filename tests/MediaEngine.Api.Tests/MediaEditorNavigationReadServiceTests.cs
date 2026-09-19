@@ -327,6 +327,142 @@ public sealed class MediaEditorNavigationReadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task HierarchyAlignment_RetailTvCrossParentMove_RetainsLeafAndWritesContainerIdentityToFinalShow()
+    {
+        var showAId = Guid.NewGuid();
+        var seasonAId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+        var showBId = Guid.NewGuid();
+        var seasonBId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+
+        using (var connection = _database.CreateConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO works (id, media_type, work_kind, ownership, external_identifiers)
+                VALUES ($showAId, 'TV', 'parent', 'Owned', '{"tmdb_id":"show-a"}');
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, ordinal, ownership)
+                VALUES ($seasonAId, 'TV', 'parent', $showAId, 1, 'Owned');
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, ordinal, ownership)
+                VALUES ($episodeId, 'TV', 'child', $seasonAId, 1, 'Owned');
+
+                INSERT INTO works (id, media_type, work_kind, ownership, external_identifiers)
+                VALUES ($showBId, 'TV', 'parent', 'Owned', '{"tmdb_id":"show-b-old"}');
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, ordinal, ownership)
+                VALUES ($seasonBId, 'TV', 'parent', $showBId, 2, 'Owned');
+
+                INSERT INTO editions (id, work_id, format_label) VALUES ($editionId, $episodeId, 'MP4');
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES ($assetId, $editionId, 'cross-parent-tv-hash', 'tv/show-a/s01e01.mp4');
+
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES
+                    ($showAId, 'show_name', 'Show A', datetime('now')),
+                    ($showBId, 'show_name', 'Show B (old)', datetime('now')),
+                    ($episodeId, 'identity_provider', 'old-provider', datetime('now'));
+                INSERT INTO bridge_ids (id, entity_id, id_type, id_value, provider_id, created_at)
+                VALUES ($bridgeAId, $showAId, 'tmdb_id', 'show-a', 'tmdb', datetime('now'));
+                """;
+            command.Parameters.AddWithValue("$showAId", GuidSql.ToBlob(showAId));
+            command.Parameters.AddWithValue("$seasonAId", GuidSql.ToBlob(seasonAId));
+            command.Parameters.AddWithValue("$episodeId", GuidSql.ToBlob(episodeId));
+            command.Parameters.AddWithValue("$showBId", GuidSql.ToBlob(showBId));
+            command.Parameters.AddWithValue("$seasonBId", GuidSql.ToBlob(seasonBId));
+            command.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));
+            command.Parameters.AddWithValue("$assetId", GuidSql.ToBlob(assetId));
+            command.Parameters.AddWithValue("$bridgeAId", GuidSql.ToBlob(Guid.NewGuid()));
+            command.ExecuteNonQuery();
+        }
+
+        var service = new HierarchyAlignmentService(_database, null!);
+        var request = new MembershipPreviewRequest(
+            ScopeId: "show_episode",
+            FieldValues: new Dictionary<string, string?>
+            {
+                ["show_name"] = "Show B",
+                ["season_number"] = "2",
+                ["episode_number"] = "4",
+                ["episode_title"] = "Moved episode",
+            },
+            SelectedTargetIds: new Dictionary<string, Guid?>
+            {
+                ["show"] = showBId,
+                ["season"] = seasonBId,
+            },
+            SelectedSuggestions: null);
+        var now = DateTimeOffset.UtcNow;
+        var mutation = new HierarchyIdentityMutation(
+            [
+                new HierarchyClaimMutation(episodeId, WellKnownProviders.UserManual, WellKnownProviders.UserManual, "show_name", "Show B", 1, false, now),
+                new HierarchyClaimMutation(episodeId, WellKnownProviders.UserManual, WellKnownProviders.UserManual, "tmdb_id", "show-b-new", 1, false, now),
+                new HierarchyClaimMutation(episodeId, WellKnownProviders.UserManual, WellKnownProviders.UserManual, "identity_provider", "tmdb", 1, false, now),
+                new HierarchyClaimMutation(episodeId, WellKnownProviders.UserManual, WellKnownProviders.UserManual, "identity_provider_item_id", "episode-4", 1, false, now),
+                new HierarchyClaimMutation(episodeId, WellKnownProviders.UserManual, WellKnownProviders.UserManual, "identity_revision", "revision-4", 1, false, now),
+                new HierarchyClaimMutation(episodeId, WellKnownProviders.UserManual, WellKnownProviders.UserManual, "tmdb_episode_id", "episode-4", 1, false, now),
+            ],
+            [
+                new HierarchyCanonicalMutation(episodeId, "show_name", "Show B", WellKnownProviders.UserManual, false, now),
+                new HierarchyCanonicalMutation(episodeId, "tmdb_id", "show-b-new", WellKnownProviders.UserManual, false, now),
+                new HierarchyCanonicalMutation(episodeId, "identity_provider", "tmdb", WellKnownProviders.UserManual, false, now),
+                new HierarchyCanonicalMutation(episodeId, "identity_provider_item_id", "episode-4", WellKnownProviders.UserManual, false, now),
+                new HierarchyCanonicalMutation(episodeId, "identity_revision", "revision-4", WellKnownProviders.UserManual, false, now),
+                new HierarchyCanonicalMutation(episodeId, "tmdb_episode_id", "episode-4", WellKnownProviders.UserManual, false, now),
+            ],
+            [
+                new HierarchyBridgeIdMutation(episodeId, "tmdb_id", "show-b-new", "tmdb", now),
+                new HierarchyBridgeIdMutation(episodeId, "tmdb_episode_id", "episode-4", "tmdb", now),
+            ],
+            [],
+            [new HierarchyExternalIdentifierMutation(
+                episodeId,
+                [],
+                new Dictionary<string, string>
+                {
+                    ["tmdb_id"] = "show-b-new",
+                    ["tmdb_episode_id"] = "episode-4",
+                })]);
+
+        var result = await service.ApplyRetailIdentityAsync(episodeId, request, mutation, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.True(result.Applied);
+        Assert.Equal(episodeId, result.SelectedEntityId);
+        Assert.Equal(showBId, result.TargetRootEntityId);
+        Assert.Equal(seasonBId, result.TargetParentEntityId);
+        Assert.Equal("Show B / Season 2 / Episode 4", result.TargetPath);
+
+        using var verification = _database.CreateConnection();
+        var retained = verification.QuerySingle<(Guid ParentWorkId, long Ordinal, Guid EditionId, Guid AssetId, string FilePath)>("""
+            SELECT w.parent_work_id AS ParentWorkId, w.ordinal AS Ordinal, e.id AS EditionId,
+                   ma.id AS AssetId, ma.file_path_root AS FilePath
+            FROM works w
+            JOIN editions e ON e.work_id = w.id
+            JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE w.id = @episodeId;
+            """, new { episodeId });
+        Assert.Equal(seasonBId, retained.ParentWorkId);
+        Assert.Equal(4, retained.Ordinal);
+        Assert.Equal(editionId, retained.EditionId);
+        Assert.Equal(assetId, retained.AssetId);
+        Assert.Equal("tv/show-a/s01e01.mp4", retained.FilePath);
+
+        Assert.Equal("Show A", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @showAId AND key = 'show_name';", new { showAId }));
+        Assert.Equal("show-a", verification.QuerySingle<string>("SELECT id_value FROM bridge_ids WHERE entity_id = @showAId AND id_type = 'tmdb_id';", new { showAId }));
+        Assert.Equal("Show B", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @showBId AND key = 'show_name';", new { showBId }));
+        Assert.Equal("show-b-new", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @showBId AND key = 'tmdb_id';", new { showBId }));
+        Assert.Equal("show-b-new", verification.QuerySingle<string>("SELECT id_value FROM bridge_ids WHERE entity_id = @showBId AND id_type = 'tmdb_id';", new { showBId }));
+        Assert.Equal("tmdb", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @episodeId AND key = 'identity_provider';", new { episodeId }));
+        Assert.Equal("episode-4", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @episodeId AND key = 'identity_provider_item_id';", new { episodeId }));
+        Assert.Equal("revision-4", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @episodeId AND key = 'identity_revision';", new { episodeId }));
+        Assert.Equal("episode-4", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @episodeId AND key = 'tmdb_episode_id';", new { episodeId }));
+        Assert.Equal("episode-4", verification.QuerySingle<string>("SELECT id_value FROM bridge_ids WHERE entity_id = @episodeId AND id_type = 'tmdb_episode_id';", new { episodeId }));
+        Assert.Contains("show-a", verification.QuerySingle<string>("SELECT external_identifiers FROM works WHERE id = @showAId;", new { showAId }), StringComparison.Ordinal);
+        Assert.Contains("show-b-new", verification.QuerySingle<string>("SELECT external_identifiers FROM works WHERE id = @showBId;", new { showBId }), StringComparison.Ordinal);
+        Assert.Contains("episode-4", verification.QuerySingle<string>("SELECT external_identifiers FROM works WHERE id = @episodeId;", new { episodeId }), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task HierarchyAlignment_RetailIdentityFailure_RollsBackPlacementAndRetainsEditionAssetAndArtwork()
     {
         var bookId = Guid.NewGuid();

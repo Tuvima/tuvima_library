@@ -138,7 +138,7 @@ public sealed class CanonicalCandidateBuilderTests
     }
 
     [Fact]
-    public void EpisodeQuery_RetainsSeriesSeasonAndEpisodeWhenUserRefinesSearch()
+    public void EpisodeQuery_ExplicitOverrideDoesNotForceTheCurrentSeriesSeasonOrEpisode()
     {
         var draft = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -149,7 +149,7 @@ public sealed class CanonicalCandidateBuilderTests
 
         var result = CanonicalCandidateBuilder.BuildCanonicalQuery(EpisodePolicy, draft, "Home");
 
-        Assert.Equal("Home The Expanse 2 5", result);
+        Assert.Equal("Home", result);
     }
 
     [Fact]

@@ -5,6 +5,7 @@ using Dapper;
 using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -42,13 +43,13 @@ public sealed class HierarchyAlignmentService(IDatabaseConnection db, IHydration
         return await db.ExecuteWriteAsync<MembershipPreviewEnvelope?>((conn, tx, innerCt) =>
         {
             var entityRow = conn.QueryFirstOrDefault<MembershipEntityRow>("""
-                SELECT w.id             AS WorkId,
+                SELECT LOWER(HEX(w.id)) AS WorkIdValue,
                        w.media_type     AS MediaType,
                        w.work_kind      AS WorkKind,
-                       w.parent_work_id AS ParentWorkId,
+                       CASE WHEN w.parent_work_id IS NULL THEN NULL ELSE LOWER(HEX(w.parent_work_id)) END AS ParentWorkIdValue,
                        w.ordinal        AS Ordinal,
                        w.parent_key     AS ParentKey,
-                       COALESCE(gp.id, p.id, w.id) AS RootWorkId
+                       LOWER(HEX(COALESCE(gp.id, p.id, w.id))) AS RootWorkIdValue
                 FROM works w
                 LEFT JOIN works p ON p.id = w.parent_work_id
                 LEFT JOIN works gp ON gp.id = p.parent_work_id
@@ -67,9 +68,59 @@ public sealed class HierarchyAlignmentService(IDatabaseConnection db, IHydration
                 return finalized;
             }
 
-            ApplyRetailIdentityMutation(conn, tx, identityMutation, innerCt);
+            var finalizedMutation = RemapParentScopedRetailIdentity(identityMutation, finalized.TargetRootEntityId, plan.MediaType);
+            ApplyRetailIdentityMutation(
+                conn,
+                tx,
+                finalizedMutation,
+                innerCt);
             return finalized with { Applied = true };
         }, ct);
+    }
+
+    private static HierarchyIdentityMutation RemapParentScopedRetailIdentity(
+        HierarchyIdentityMutation mutation,
+        Guid targetRootEntityId,
+        string mediaType)
+    {
+        if (!Enum.TryParse<MediaType>(mediaType, true, out var parsedMediaType)
+            || targetRootEntityId == Guid.Empty)
+        {
+            return mutation;
+        }
+
+        bool IsTargetRootScoped(string key) => ClaimScopeCatalog.IsParentScoped(key, parsedMediaType);
+        return mutation with
+        {
+            Claims = mutation.Claims.Select(item => IsTargetRootScoped(item.Key) ? item with { EntityId = targetRootEntityId } : item).ToList(),
+            CanonicalValues = mutation.CanonicalValues.Select(item => IsTargetRootScoped(item.Key) ? item with { EntityId = targetRootEntityId } : item).ToList(),
+            BridgeIds = mutation.BridgeIds.Select(item => IsTargetRootScoped(item.Key) ? item with { EntityId = targetRootEntityId } : item).ToList(),
+            StaleArtifacts = mutation.StaleArtifacts.Select(item => IsTargetRootScoped(item.Key) ? item with { EntityId = targetRootEntityId } : item).ToList(),
+            ExternalIdentifierMutations = (mutation.ExternalIdentifierMutations ?? [])
+                .SelectMany(item => SplitExternalIdentifierMutation(item, targetRootEntityId, IsTargetRootScoped))
+                .ToList(),
+        };
+    }
+
+    private static IEnumerable<HierarchyExternalIdentifierMutation> SplitExternalIdentifierMutation(
+        HierarchyExternalIdentifierMutation mutation,
+        Guid targetRootEntityId,
+        Func<string, bool> isTargetRootScoped)
+    {
+        var targets = mutation.KeysToRemove
+            .Concat(mutation.Replacements.Keys)
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .GroupBy(key => isTargetRootScoped(key) ? targetRootEntityId : mutation.EntityId);
+        foreach (var target in targets)
+        {
+            yield return new HierarchyExternalIdentifierMutation(
+                target.Key,
+                mutation.KeysToRemove.Where(key => target.Contains(key, StringComparer.OrdinalIgnoreCase)).ToList(),
+                mutation.Replacements
+                    .Where(pair => target.Contains(pair.Key, StringComparer.OrdinalIgnoreCase))
+                    .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase));
+        }
     }
 
     internal static async Task<MembershipPreviewEnvelope?> BuildMembershipPreviewAsync(
@@ -861,14 +912,26 @@ public sealed class HierarchyAlignmentService(IDatabaseConnection db, IHydration
             }, tx);
         }
 
-        if (mutation.ExternalIdentifierWorkId is not { } workId || workId == Guid.Empty)
+        foreach (var externalIdentifiers in mutation.ExternalIdentifierMutations ?? [])
+        {
+            ApplyExternalIdentifierMutation(conn, tx, externalIdentifiers, ct);
+        }
+    }
+
+    private static void ApplyExternalIdentifierMutation(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        HierarchyExternalIdentifierMutation mutation,
+        CancellationToken ct)
+    {
+        if (mutation.EntityId == Guid.Empty)
         {
             return;
         }
-
+        ct.ThrowIfCancellationRequested();
         var currentJson = conn.QueryFirstOrDefault<string?>(
             "SELECT external_identifiers FROM works WHERE id = @workId LIMIT 1;",
-            new { workId }, tx);
+            new { workId = mutation.EntityId }, tx);
         Dictionary<string, string> identifiers;
         try
         {
@@ -882,7 +945,7 @@ public sealed class HierarchyAlignmentService(IDatabaseConnection db, IHydration
             identifiers = new(StringComparer.OrdinalIgnoreCase);
         }
 
-        foreach (var key in mutation.ExternalIdentifierKeysToRemove ?? [])
+        foreach (var key in mutation.KeysToRemove)
         {
             if (!string.IsNullOrWhiteSpace(key))
             {
@@ -890,8 +953,7 @@ public sealed class HierarchyAlignmentService(IDatabaseConnection db, IHydration
             }
         }
 
-        foreach (var (key, value) in mutation.ExternalIdentifierReplacements
-                     ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase))
+        foreach (var (key, value) in mutation.Replacements)
         {
             if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
             {
@@ -901,7 +963,7 @@ public sealed class HierarchyAlignmentService(IDatabaseConnection db, IHydration
 
         conn.Execute(
             "UPDATE works SET external_identifiers = @identifiers WHERE id = @workId;",
-            new { workId, identifiers = JsonSerializer.Serialize(identifiers) }, tx);
+            new { workId = mutation.EntityId, identifiers = JsonSerializer.Serialize(identifiers) }, tx);
     }
 
     private static string BuildTelevisionTargetPath(MembershipPlan plan)

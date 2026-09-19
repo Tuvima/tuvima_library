@@ -103,6 +103,8 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.DoesNotContain("FindChildParentIdentityConflictAsync(", canonical, StringComparison.Ordinal);
         Assert.Contains("IHierarchyAlignmentService hierarchyAlignment", canonical, StringComparison.Ordinal);
         Assert.Contains("BuildHierarchyAlignmentRequest", canonical, StringComparison.Ordinal);
+        Assert.Contains("ResolveWorkIdForAssetAsync(context.AssetId, ct)", canonical, StringComparison.Ordinal);
+        Assert.Contains("HierarchyExternalIdentifierMutation", canonical + ReadSource("src/MediaEngine.Application/ReadModels/MediaEditorReadModels.cs"), StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"hierarchy_changed\")", models, StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"previous_path\")", models, StringComparison.Ordinal);
         Assert.Contains("BridgeIdKeys.TmdbEpisodeId", canonical, StringComparison.Ordinal);
@@ -115,6 +117,17 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("JsonPropertyName(\"cover_url\")", models, StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"artwork_changed\")", models, StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"target_scope_id\")", models, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExplicitCanonicalSearch_DoesNotReuseCurrentParentAsARequiredSearchField()
+    {
+        var canonical = ReadSource("src/MediaEngine.Api/Endpoints/ItemCanonicalEndpoints.cs");
+        var builder = ReadSource("src/MediaEngine.Api/Services/Canonical/CanonicalCandidateBuilder.cs");
+
+        Assert.Contains("var searchFields = string.IsNullOrWhiteSpace(request.QueryOverride)", canonical, StringComparison.Ordinal);
+        Assert.Contains("SearchFields: searchFields", canonical, StringComparison.Ordinal);
+        Assert.DoesNotContain("Episode matching must stay inside the selected series/season context.", builder, StringComparison.Ordinal);
     }
 
     private static string ReadSource(string relativePath) =>
