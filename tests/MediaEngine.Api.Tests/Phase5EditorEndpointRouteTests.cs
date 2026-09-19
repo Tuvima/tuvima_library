@@ -40,6 +40,7 @@ public sealed class Phase5EditorEndpointRouteTests
             + ReadSource("src/MediaEngine.Application/ReadModels/MediaEditorReadModels.cs");
         Assert.Contains("IMediaEditorNavigationReadService navigationReadService", navigator, StringComparison.Ordinal);
         Assert.Contains("IMediaEditorMembershipReadService membershipReadService", navigator, StringComparison.Ordinal);
+        Assert.Contains("IHierarchyAlignmentService hierarchyAlignment", navigator, StringComparison.Ordinal);
         Assert.Contains("compact_ordinal_label", navigatorService, StringComparison.Ordinal);
         Assert.Contains("technical_badges", navigatorService, StringComparison.Ordinal);
         Assert.Contains("primary_asset_id", navigatorService, StringComparison.Ordinal);
@@ -99,7 +100,16 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("ResolveTargetPolicy(context.MediaType, request.TargetKind, request.TargetFieldGroup)", canonical, StringComparison.Ordinal);
         Assert.Contains("DecisionSourceProviderId = WellKnownProviders.UserManual", canonical, StringComparison.Ordinal);
         Assert.Contains("MetadataFieldConstants.IdentityProviderItemId", canonical, StringComparison.Ordinal);
-        Assert.Contains("FindChildParentIdentityConflictAsync", canonical, StringComparison.Ordinal);
+        Assert.DoesNotContain("FindChildParentIdentityConflictAsync(", canonical, StringComparison.Ordinal);
+        Assert.Contains("IHierarchyAlignmentService hierarchyAlignment", canonical, StringComparison.Ordinal);
+        Assert.Contains("BuildHierarchyAlignmentRequest", canonical, StringComparison.Ordinal);
+        Assert.Contains("ResolveWorkIdForAssetAsync(context.AssetId, ct)", canonical, StringComparison.Ordinal);
+        Assert.Contains("HierarchyExternalIdentifierMutation", canonical + ReadSource("src/MediaEngine.Application/ReadModels/MediaEditorReadModels.cs"), StringComparison.Ordinal);
+        Assert.Contains("var postAlignmentWorkId = ClaimScopeCatalog.IsParentScoped(BridgeIdKeys.WikidataQid, lineage.MediaType)", canonical, StringComparison.Ordinal);
+        Assert.Contains("LoadWorkWikidataStateAsync(postAlignmentWorkId, ct)", canonical, StringComparison.Ordinal);
+        Assert.Contains("UpdateWorkWikidataMatchStateAsync(postAlignmentWorkId", canonical, StringComparison.Ordinal);
+        Assert.Contains("JsonPropertyName(\"hierarchy_changed\")", models, StringComparison.Ordinal);
+        Assert.Contains("JsonPropertyName(\"previous_path\")", models, StringComparison.Ordinal);
         Assert.Contains("BridgeIdKeys.TmdbEpisodeId", canonical, StringComparison.Ordinal);
         Assert.Contains("(\"Music\", \"track\")", canonical, StringComparison.Ordinal);
         Assert.Contains("identityJobId = await pipeline.EnqueueAsync", canonical, StringComparison.Ordinal);
@@ -110,6 +120,17 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("JsonPropertyName(\"cover_url\")", models, StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"artwork_changed\")", models, StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"target_scope_id\")", models, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExplicitCanonicalSearch_DoesNotReuseCurrentParentAsARequiredSearchField()
+    {
+        var canonical = ReadSource("src/MediaEngine.Api/Endpoints/ItemCanonicalEndpoints.cs");
+        var builder = ReadSource("src/MediaEngine.Api/Services/Canonical/CanonicalCandidateBuilder.cs");
+
+        Assert.Contains("var searchFields = string.IsNullOrWhiteSpace(request.QueryOverride)", canonical, StringComparison.Ordinal);
+        Assert.Contains("SearchFields: searchFields", canonical, StringComparison.Ordinal);
+        Assert.DoesNotContain("Episode matching must stay inside the selected series/season context.", builder, StringComparison.Ordinal);
     }
 
     private static string ReadSource(string relativePath) =>

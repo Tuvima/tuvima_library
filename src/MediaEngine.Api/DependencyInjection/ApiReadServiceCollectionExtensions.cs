@@ -37,6 +37,8 @@ public static class ApiReadServiceCollectionExtensions
         services.AddSingleton<MediaEditorNavigationReadService>();
         services.AddSingleton<IMediaEditorNavigationReadService>(sp => sp.GetRequiredService<MediaEditorNavigationReadService>());
         services.AddSingleton<IMediaEditorMembershipReadService>(sp => sp.GetRequiredService<MediaEditorNavigationReadService>());
+        services.AddSingleton<HierarchyAlignmentService>();
+        services.AddSingleton<IHierarchyAlignmentService>(sp => sp.GetRequiredService<HierarchyAlignmentService>());
         return services;
     }
 }

@@ -3632,6 +3632,12 @@ MediaEngine.Contracts.Matching.MediaEngine.Contracts.Matching.ItemCanonicalApply
   ArtworkChanged: System.Boolean | nullability=not-null | accessors=get,set
   ArtworkRemovedCount: System.Int32 | nullability=not-null | accessors=get,set
   ArtworkMessage: System.String | nullability=nullable | accessors=get,set
+  HierarchyChanged: System.Boolean | nullability=not-null | accessors=get,set
+  SelectedEntityId: System.Guid | nullability=not-null | accessors=get,set
+  TargetRootEntityId: System.Guid | nullability=not-null | accessors=get,set
+  TargetParentEntityId: System.Guid? | nullability=nullable | accessors=get,set
+  PreviousPath: System.String | nullability=nullable | accessors=get,set
+  TargetPath: System.String | nullability=nullable | accessors=get,set
 
 MediaEngine.Contracts.Matching.MediaEngine.Contracts.Matching.ItemCanonicalLinkedCandidateDto
   CandidateId: System.String | nullability=not-null | accessors=get,set

@@ -20,6 +20,50 @@ public sealed record MembershipSuggestionSelection(
     [property: JsonPropertyName("external_id_key")] string? ExternalIdKey,
     [property: JsonPropertyName("external_id_value")] string? ExternalIdValue);
 
+/// <summary>
+/// The identity artifacts that must commit alongside a confirmed structural
+/// alignment. Kept as primitive data so the API can build the intent without
+/// leaking storage repository implementations into its endpoint surface.
+/// </summary>
+public sealed record HierarchyIdentityMutation(
+    IReadOnlyList<HierarchyClaimMutation> Claims,
+    IReadOnlyList<HierarchyCanonicalMutation> CanonicalValues,
+    IReadOnlyList<HierarchyBridgeIdMutation> BridgeIds,
+    IReadOnlyList<HierarchyIdentityArtifactMutation> StaleArtifacts,
+    IReadOnlyList<HierarchyExternalIdentifierMutation>? ExternalIdentifierMutations = null);
+
+public sealed record HierarchyClaimMutation(
+    Guid EntityId,
+    Guid ProviderId,
+    Guid DecisionSourceProviderId,
+    string Key,
+    string Value,
+    double Confidence,
+    bool IsUserLocked,
+    DateTimeOffset ClaimedAt);
+
+public sealed record HierarchyCanonicalMutation(
+    Guid EntityId,
+    string Key,
+    string Value,
+    Guid? WinningProviderId,
+    bool NeedsReview,
+    DateTimeOffset LastScoredAt);
+
+public sealed record HierarchyBridgeIdMutation(
+    Guid EntityId,
+    string Key,
+    string Value,
+    string ProviderName,
+    DateTimeOffset CreatedAt);
+
+public sealed record HierarchyIdentityArtifactMutation(Guid EntityId, string Key);
+
+public sealed record HierarchyExternalIdentifierMutation(
+    Guid EntityId,
+    IReadOnlyList<string> KeysToRemove,
+    IReadOnlyDictionary<string, string> Replacements);
+
 public sealed record MediaEditorNavigatorEnvelope(
     [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("media_type")] string MediaType,

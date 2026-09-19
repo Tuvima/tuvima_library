@@ -1,4 +1,6 @@
+using Dapper;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Domain;
 using MediaEngine.Storage;
 
 namespace MediaEngine.Api.Tests;
@@ -59,7 +61,7 @@ public sealed class MediaEditorNavigationReadServiceTests : IDisposable
             command.ExecuteNonQuery();
         }
 
-        var service = new MediaEditorNavigationReadService(_database, null!, null!);
+        var service = new MediaEditorNavigationReadService(_database, null!, new HierarchyAlignmentService(_database, null!));
 
         var navigator = await service.GetNavigatorAsync(seriesId, CancellationToken.None);
 
@@ -115,7 +117,7 @@ public sealed class MediaEditorNavigationReadServiceTests : IDisposable
             command.ExecuteNonQuery();
         }
 
-        var service = new MediaEditorNavigationReadService(_database, null!, null!);
+        var service = new MediaEditorNavigationReadService(_database, null!, new HierarchyAlignmentService(_database, null!));
         var navigator = await service.GetNavigatorAsync(seriesId, CancellationToken.None);
 
         Assert.NotNull(navigator);
@@ -159,7 +161,7 @@ public sealed class MediaEditorNavigationReadServiceTests : IDisposable
             command.ExecuteNonQuery();
         }
 
-        var service = new MediaEditorNavigationReadService(_database, null!, null!);
+        var service = new MediaEditorNavigationReadService(_database, null!, new HierarchyAlignmentService(_database, null!));
         var navigator = await service.GetNavigatorAsync(movieId, CancellationToken.None);
 
         Assert.NotNull(navigator);
@@ -171,9 +173,376 @@ public sealed class MediaEditorNavigationReadServiceTests : IDisposable
         Assert.True(movie.CanSelectAsEditorTarget);
     }
 
+    [Fact]
+    public async Task HierarchyAlignment_BookSeriesPreviewThenApply_MovesOnlyTheWorkAndRetainsTheAsset()
+    {
+        var previousSeriesId = Guid.NewGuid();
+        var bookId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+
+        using (var connection = _database.CreateConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO works (id, media_type, work_kind, ownership, parent_key)
+                VALUES ($previousSeriesId, 'Books', 'parent', 'Owned', 'old author|old series');
+
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, ordinal, ownership)
+                VALUES ($bookId, 'Books', 'child', $previousSeriesId, 1, 'Owned');
+
+                INSERT INTO editions (id, work_id, format_label)
+                VALUES ($editionId, $bookId, 'EPUB');
+
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES ($assetId, $editionId, 'book-hash', 'books/example.epub');
+                """;
+            command.Parameters.AddWithValue("$previousSeriesId", GuidSql.ToBlob(previousSeriesId));
+            command.Parameters.AddWithValue("$bookId", GuidSql.ToBlob(bookId));
+            command.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));
+            command.Parameters.AddWithValue("$assetId", GuidSql.ToBlob(assetId));
+            command.ExecuteNonQuery();
+        }
+
+        var service = new HierarchyAlignmentService(_database, null!);
+        var request = new MembershipPreviewRequest(
+            ScopeId: "volume_issue",
+            FieldValues: new Dictionary<string, string?>
+            {
+                ["series"] = "The New Series",
+                ["author"] = "New Author",
+                ["series_position"] = "2",
+                ["title"] = "Retained Book",
+            },
+            SelectedTargetIds: null,
+            SelectedSuggestions: null);
+
+        var preview = await service.PreviewAsync(bookId, request, CancellationToken.None);
+
+        Assert.NotNull(preview);
+        Assert.Equal("move_child", preview.Action);
+        Assert.True(preview.RequiresNewTarget);
+        Assert.True(preview.CanApply);
+        Assert.False(preview.Applied);
+        Assert.Equal(bookId, preview.SelectedEntityId);
+        Assert.Equal(previousSeriesId, preview.TargetRootEntityId);
+
+        var applied = await service.ApplyAsync(bookId, request, CancellationToken.None);
+
+        Assert.NotNull(applied);
+        Assert.True(applied.Applied);
+        Assert.True(applied.TargetParentEntityId.HasValue);
+        Assert.NotEqual(previousSeriesId, applied.TargetParentEntityId.Value);
+        Assert.Contains("The New Series", applied.TargetPath, StringComparison.Ordinal);
+
+        using var verification = _database.CreateConnection();
+        var retained = verification.QuerySingle<(Guid ParentWorkId, long Ordinal, Guid AssetId, string FilePath)>("""
+            SELECT w.parent_work_id AS ParentWorkId,
+                   w.ordinal AS Ordinal,
+                   ma.id AS AssetId,
+                   ma.file_path_root AS FilePath
+            FROM works w
+            INNER JOIN editions e ON e.work_id = w.id
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE w.id = @bookId;
+            """, new { bookId });
+
+        Assert.Equal(applied.TargetParentEntityId.Value, retained.ParentWorkId);
+        Assert.Equal(2, retained.Ordinal);
+        Assert.Equal(assetId, retained.AssetId);
+        Assert.Equal("books/example.epub", retained.FilePath);
+    }
+
+    [Fact]
+    public async Task HierarchyAlignment_DuplicateOwnedSeriesOrdinal_ReturnsConflictWithoutMovingTheAsset()
+    {
+        var seriesId = Guid.NewGuid();
+        var bookId = Guid.NewGuid();
+        var conflictingBookId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+
+        using (var connection = _database.CreateConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO works (id, media_type, work_kind, ownership, parent_key)
+                VALUES ($seriesId, 'Books', 'parent', 'Owned', 'author|series');
+
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, ordinal, ownership)
+                VALUES ($bookId, 'Books', 'child', NULL, 1, 'Owned');
+
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, ordinal, ownership)
+                VALUES ($conflictingBookId, 'Books', 'child', $seriesId, 2, 'Owned');
+
+                INSERT INTO editions (id, work_id, format_label)
+                VALUES ($editionId, $bookId, 'EPUB');
+
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES ($assetId, $editionId, 'book-hash', 'books/conflict.epub');
+                """;
+            command.Parameters.AddWithValue("$seriesId", GuidSql.ToBlob(seriesId));
+            command.Parameters.AddWithValue("$bookId", GuidSql.ToBlob(bookId));
+            command.Parameters.AddWithValue("$conflictingBookId", GuidSql.ToBlob(conflictingBookId));
+            command.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));
+            command.Parameters.AddWithValue("$assetId", GuidSql.ToBlob(assetId));
+            command.ExecuteNonQuery();
+        }
+
+        var service = new HierarchyAlignmentService(_database, null!);
+        var request = new MembershipPreviewRequest(
+            ScopeId: "volume_issue",
+            FieldValues: new Dictionary<string, string?>
+            {
+                ["series"] = "Series",
+                ["author"] = "Author",
+                ["series_position"] = "2",
+            },
+            SelectedTargetIds: null,
+            SelectedSuggestions: null);
+
+        var preview = await service.PreviewAsync(bookId, request, CancellationToken.None);
+        var applied = await service.ApplyAsync(bookId, request, CancellationToken.None);
+
+        Assert.NotNull(preview);
+        Assert.Equal("conflict", preview.Action);
+        Assert.False(preview.CanApply);
+        Assert.NotNull(applied);
+        Assert.False(applied.Applied);
+
+        using var verification = _database.CreateConnection();
+        var retained = verification.QuerySingle<(Guid? ParentWorkId, Guid AssetId, string FilePath)>("""
+            SELECT w.parent_work_id AS ParentWorkId,
+                   ma.id AS AssetId,
+                   ma.file_path_root AS FilePath
+            FROM works w
+            INNER JOIN editions e ON e.work_id = w.id
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE w.id = @bookId;
+            """, new { bookId });
+
+        Assert.Null(retained.ParentWorkId);
+        Assert.Equal(assetId, retained.AssetId);
+        Assert.Equal("books/conflict.epub", retained.FilePath);
+    }
+
+    [Fact]
+    public async Task HierarchyAlignment_RetailTvCrossParentMove_RetainsLeafAndWritesContainerIdentityToFinalShow()
+    {
+        var showAId = Guid.NewGuid();
+        var seasonAId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+        var showBId = Guid.NewGuid();
+        var seasonBId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+
+        using (var connection = _database.CreateConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO works (id, media_type, work_kind, ownership, external_identifiers)
+                VALUES ($showAId, 'TV', 'parent', 'Owned', '{"tmdb_id":"show-a"}');
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, ordinal, ownership)
+                VALUES ($seasonAId, 'TV', 'parent', $showAId, 1, 'Owned');
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, ordinal, ownership)
+                VALUES ($episodeId, 'TV', 'child', $seasonAId, 1, 'Owned');
+
+                INSERT INTO works (id, media_type, work_kind, ownership, external_identifiers)
+                VALUES ($showBId, 'TV', 'parent', 'Owned', '{"tmdb_id":"show-b-old"}');
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, ordinal, ownership)
+                VALUES ($seasonBId, 'TV', 'parent', $showBId, 2, 'Owned');
+
+                INSERT INTO editions (id, work_id, format_label) VALUES ($editionId, $episodeId, 'MP4');
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES ($assetId, $editionId, 'cross-parent-tv-hash', 'tv/show-a/s01e01.mp4');
+
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES
+                    ($showAId, 'show_name', 'Show A', datetime('now')),
+                    ($showBId, 'show_name', 'Show B (old)', datetime('now')),
+                    ($episodeId, 'identity_provider', 'old-provider', datetime('now'));
+                INSERT INTO bridge_ids (id, entity_id, id_type, id_value, provider_id, created_at)
+                VALUES ($bridgeAId, $showAId, 'tmdb_id', 'show-a', 'tmdb', datetime('now'));
+                """;
+            command.Parameters.AddWithValue("$showAId", GuidSql.ToBlob(showAId));
+            command.Parameters.AddWithValue("$seasonAId", GuidSql.ToBlob(seasonAId));
+            command.Parameters.AddWithValue("$episodeId", GuidSql.ToBlob(episodeId));
+            command.Parameters.AddWithValue("$showBId", GuidSql.ToBlob(showBId));
+            command.Parameters.AddWithValue("$seasonBId", GuidSql.ToBlob(seasonBId));
+            command.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));
+            command.Parameters.AddWithValue("$assetId", GuidSql.ToBlob(assetId));
+            command.Parameters.AddWithValue("$bridgeAId", GuidSql.ToBlob(Guid.NewGuid()));
+            command.ExecuteNonQuery();
+        }
+
+        var service = new HierarchyAlignmentService(_database, null!);
+        var request = new MembershipPreviewRequest(
+            ScopeId: "show_episode",
+            FieldValues: new Dictionary<string, string?>
+            {
+                ["show_name"] = "Show B",
+                ["season_number"] = "2",
+                ["episode_number"] = "4",
+                ["episode_title"] = "Moved episode",
+            },
+            SelectedTargetIds: new Dictionary<string, Guid?>
+            {
+                ["show"] = showBId,
+                ["season"] = seasonBId,
+            },
+            SelectedSuggestions: null);
+        var now = DateTimeOffset.UtcNow;
+        var mutation = new HierarchyIdentityMutation(
+            [
+                new HierarchyClaimMutation(episodeId, WellKnownProviders.UserManual, WellKnownProviders.UserManual, "show_name", "Show B", 1, false, now),
+                new HierarchyClaimMutation(episodeId, WellKnownProviders.UserManual, WellKnownProviders.UserManual, "tmdb_id", "show-b-new", 1, false, now),
+                new HierarchyClaimMutation(episodeId, WellKnownProviders.UserManual, WellKnownProviders.UserManual, "identity_provider", "tmdb", 1, false, now),
+                new HierarchyClaimMutation(episodeId, WellKnownProviders.UserManual, WellKnownProviders.UserManual, "identity_provider_item_id", "episode-4", 1, false, now),
+                new HierarchyClaimMutation(episodeId, WellKnownProviders.UserManual, WellKnownProviders.UserManual, "identity_revision", "revision-4", 1, false, now),
+                new HierarchyClaimMutation(episodeId, WellKnownProviders.UserManual, WellKnownProviders.UserManual, "tmdb_episode_id", "episode-4", 1, false, now),
+            ],
+            [
+                new HierarchyCanonicalMutation(episodeId, "show_name", "Show B", WellKnownProviders.UserManual, false, now),
+                new HierarchyCanonicalMutation(episodeId, "tmdb_id", "show-b-new", WellKnownProviders.UserManual, false, now),
+                new HierarchyCanonicalMutation(episodeId, "identity_provider", "tmdb", WellKnownProviders.UserManual, false, now),
+                new HierarchyCanonicalMutation(episodeId, "identity_provider_item_id", "episode-4", WellKnownProviders.UserManual, false, now),
+                new HierarchyCanonicalMutation(episodeId, "identity_revision", "revision-4", WellKnownProviders.UserManual, false, now),
+                new HierarchyCanonicalMutation(episodeId, "tmdb_episode_id", "episode-4", WellKnownProviders.UserManual, false, now),
+            ],
+            [
+                new HierarchyBridgeIdMutation(episodeId, "tmdb_id", "show-b-new", "tmdb", now),
+                new HierarchyBridgeIdMutation(episodeId, "tmdb_episode_id", "episode-4", "tmdb", now),
+            ],
+            [],
+            [new HierarchyExternalIdentifierMutation(
+                episodeId,
+                [],
+                new Dictionary<string, string>
+                {
+                    ["tmdb_id"] = "show-b-new",
+                    ["tmdb_episode_id"] = "episode-4",
+                })]);
+
+        var result = await service.ApplyRetailIdentityAsync(episodeId, request, mutation, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.True(result.Applied);
+        Assert.Equal(episodeId, result.SelectedEntityId);
+        Assert.Equal(showBId, result.TargetRootEntityId);
+        Assert.Equal(seasonBId, result.TargetParentEntityId);
+        Assert.Equal("Show A / Season 1 / Episode 1", result.CurrentPath);
+        Assert.Equal("Show B / Season 2 / Episode 4", result.TargetPath);
+
+        using var verification = _database.CreateConnection();
+        var retained = verification.QuerySingle<(Guid ParentWorkId, long Ordinal, Guid EditionId, Guid AssetId, string FilePath)>("""
+            SELECT w.parent_work_id AS ParentWorkId, w.ordinal AS Ordinal, e.id AS EditionId,
+                   ma.id AS AssetId, ma.file_path_root AS FilePath
+            FROM works w
+            JOIN editions e ON e.work_id = w.id
+            JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE w.id = @episodeId;
+            """, new { episodeId });
+        Assert.Equal(seasonBId, retained.ParentWorkId);
+        Assert.Equal(4, retained.Ordinal);
+        Assert.Equal(editionId, retained.EditionId);
+        Assert.Equal(assetId, retained.AssetId);
+        Assert.Equal("tv/show-a/s01e01.mp4", retained.FilePath);
+
+        Assert.Equal("Show A", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @showAId AND key = 'show_name';", new { showAId }));
+        Assert.Equal("show-a", verification.QuerySingle<string>("SELECT id_value FROM bridge_ids WHERE entity_id = @showAId AND id_type = 'tmdb_id';", new { showAId }));
+        Assert.Equal("Show B", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @showBId AND key = 'show_name';", new { showBId }));
+        Assert.Equal("show-b-new", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @showBId AND key = 'tmdb_id';", new { showBId }));
+        Assert.Equal("show-b-new", verification.QuerySingle<string>("SELECT id_value FROM bridge_ids WHERE entity_id = @showBId AND id_type = 'tmdb_id';", new { showBId }));
+        Assert.Equal("tmdb", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @episodeId AND key = 'identity_provider';", new { episodeId }));
+        Assert.Equal("episode-4", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @episodeId AND key = 'identity_provider_item_id';", new { episodeId }));
+        Assert.Equal("revision-4", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @episodeId AND key = 'identity_revision';", new { episodeId }));
+        Assert.Equal("episode-4", verification.QuerySingle<string>("SELECT value FROM canonical_values WHERE entity_id = @episodeId AND key = 'tmdb_episode_id';", new { episodeId }));
+        Assert.Equal("episode-4", verification.QuerySingle<string>("SELECT id_value FROM bridge_ids WHERE entity_id = @episodeId AND id_type = 'tmdb_episode_id';", new { episodeId }));
+        Assert.Contains("show-a", verification.QuerySingle<string>("SELECT external_identifiers FROM works WHERE id = @showAId;", new { showAId }), StringComparison.Ordinal);
+        Assert.Contains("show-b-new", verification.QuerySingle<string>("SELECT external_identifiers FROM works WHERE id = @showBId;", new { showBId }), StringComparison.Ordinal);
+        Assert.Contains("episode-4", verification.QuerySingle<string>("SELECT external_identifiers FROM works WHERE id = @episodeId;", new { episodeId }), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HierarchyAlignment_RetailIdentityFailure_RollsBackPlacementAndRetainsEditionAssetAndArtwork()
+    {
+        var bookId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var artworkId = Guid.NewGuid();
+        using (var connection = _database.CreateConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO works (id, media_type, work_kind, ownership) VALUES ($bookId, 'Books', 'child', 'Owned');
+                INSERT INTO editions (id, work_id, format_label) VALUES ($editionId, $bookId, 'EPUB');
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root) VALUES ($assetId, $editionId, 'rollback-hash', 'books/rollback.epub');
+                INSERT INTO entity_assets (id, entity_id, entity_type, asset_type, image_url, source_provider, owner_scope, is_user_override, created_at)
+                VALUES ($artworkId, $bookId, 'Work', 'CoverArt', 'managed://cover', 'user', 'Work', 1, datetime('now'));
+                """;
+            command.Parameters.AddWithValue("$bookId", GuidSql.ToBlob(bookId));
+            command.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));
+            command.Parameters.AddWithValue("$assetId", GuidSql.ToBlob(assetId));
+            command.Parameters.AddWithValue("$artworkId", GuidSql.ToBlob(artworkId));
+            command.ExecuteNonQuery();
+        }
+
+        var service = new HierarchyAlignmentService(_database, null!);
+        var request = new MembershipPreviewRequest(null, new Dictionary<string, string?>
+        {
+            ["series"] = "Rollback Series", ["author"] = "Author", ["series_position"] = "1",
+        }, null, null);
+        var mutation = new HierarchyIdentityMutation(
+            [new HierarchyClaimMutation(bookId, Guid.NewGuid(), WellKnownProviders.UserManual, "title", "Should fail", 1, false, DateTimeOffset.UtcNow)],
+            [], [], []);
+
+        await Assert.ThrowsAnyAsync<Exception>(() => service.ApplyRetailIdentityAsync(bookId, request, mutation, CancellationToken.None));
+
+        using var verification = _database.CreateConnection();
+        var retained = verification.QuerySingle<(Guid? ParentWorkId, Guid EditionId, Guid AssetId, string FilePath, Guid ArtworkId)>("""
+            SELECT w.parent_work_id AS ParentWorkId, e.id AS EditionId, ma.id AS AssetId,
+                   ma.file_path_root AS FilePath, ea.id AS ArtworkId
+            FROM works w INNER JOIN editions e ON e.work_id = w.id
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            INNER JOIN entity_assets ea ON ea.entity_id = w.id
+            WHERE w.id = @bookId;
+            """, new { bookId });
+        Assert.Null(retained.ParentWorkId);
+        Assert.Equal(editionId, retained.EditionId);
+        Assert.Equal(assetId, retained.AssetId);
+        Assert.Equal("books/rollback.epub", retained.FilePath);
+        Assert.Equal(artworkId, retained.ArtworkId);
+        Assert.Equal(0, verification.QuerySingle<int>("SELECT COUNT(*) FROM works WHERE parent_key = 'author|rollback series';"));
+        Assert.Equal(0, verification.QuerySingle<int>("SELECT COUNT(*) FROM metadata_claims WHERE entity_id = @bookId AND claim_key = 'title';", new { bookId }));
+    }
+
+    [Theory]
+    [InlineData("TV")]
+    [InlineData("Music")]
+    [InlineData("Movies")]
+    [InlineData("Books")]
+    [InlineData("Audiobooks")]
+    [InlineData("Comics")]
+    public void HierarchyAlignmentPlanner_DeclaresSupportedMediaFamilies(string mediaType)
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Api", "Services", "ReadServices", "HierarchyAlignmentService.cs"));
+
+        var expectedBranch = mediaType is "TV" or "Music"
+            ? $"mediaType == \"{mediaType}\""
+            : $"\"{mediaType}\"";
+        Assert.Contains(expectedBranch, source, StringComparison.Ordinal);
+    }
+
     public void Dispose()
     {
         try { _database.Dispose(); } catch { }
         try { File.Delete(_databasePath); } catch { }
+    }
+
+    private static string FindRepoRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx"))) directory = directory.Parent;
+        return directory?.FullName ?? throw new DirectoryNotFoundException();
     }
 }
