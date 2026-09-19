@@ -6841,6 +6841,9 @@ MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.UniverseGraphEdgeD
   provenance: System.String | nullability=not-null | accessors=get,init
   source_plugin: System.String | nullability=nullable | accessors=get,init
   source_url: System.String | nullability=nullable | accessors=get,init
+  statement_key: System.String | nullability=nullable | accessors=get,init
+  qualifiers: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Universe.UniverseGraphQualifierDto> | nullability=nullable | accessors=get,init
+  source_provider: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.UniverseGraphNodeDto
   id: System.String | nullability=not-null | accessors=get,init
@@ -6854,6 +6857,15 @@ MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.UniverseGraphNodeD
   source_plugin: System.String | nullability=nullable | accessors=get,init
   source_url: System.String | nullability=nullable | accessors=get,init
 
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.UniverseGraphQualifierDto
+  type: System.String | nullability=not-null | accessors=get,init
+  value: System.String | nullability=not-null | accessors=get,init
+  value_kind: System.String | nullability=not-null | accessors=get,init
+  provenance: System.String | nullability=not-null | accessors=get,init
+  supplemental: System.Boolean | nullability=not-null | accessors=get,init
+  source_provider: System.String | nullability=nullable | accessors=get,init
+  confidence: System.Double? | nullability=nullable | accessors=get,init
+
 MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.UniverseGraphRef
   qid: System.String | nullability=not-null | accessors=get,init
   label: System.String | nullability=not-null | accessors=get,init
@@ -6866,6 +6878,20 @@ MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.UniverseGraphRespo
 MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.UniverseGraphWorkLinkDto
   qid: System.String | nullability=not-null | accessors=get,init
   label: System.String | nullability=nullable | accessors=get,init
+  link_type: System.String | nullability=nullable | accessors=get,init
+  appearance_role: System.String | nullability=nullable | accessors=get,init
+  work_context: System.String | nullability=nullable | accessors=get,init
+  anchor_kind: System.String | nullability=nullable | accessors=get,init
+  anchor_value: System.String | nullability=nullable | accessors=get,init
+  narrative_time_index: System.String | nullability=nullable | accessors=get,init
+  start_time: System.String | nullability=nullable | accessors=get,init
+  end_time: System.String | nullability=nullable | accessors=get,init
+  spoiler_for_work_qid: System.String | nullability=nullable | accessors=get,init
+  source_provider: System.String | nullability=nullable | accessors=get,init
+  provenance: System.String | nullability=nullable | accessors=get,init
+  supplemental: System.Boolean? | nullability=nullable | accessors=get,init
+  confidence: System.Double? | nullability=nullable | accessors=get,init
+  appearance_key: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.UniverseHealthResponse
   qid: System.String | nullability=not-null | accessors=get,init

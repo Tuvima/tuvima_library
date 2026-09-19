@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -8,7 +10,7 @@ namespace MediaEngine.Storage;
 /// <summary>
 /// SQLite implementation of <see cref="IFictionalEntityRepository"/>.
 ///
-/// Fictional entities (Characters, Locations, Organizations) are discovered
+/// Fictional entities (Characters, Locations, Organizations, Events, and Objects) are discovered
 /// during work hydration and enriched asynchronously via Wikidata SPARQL.
 /// Work-link junction records live in <c>fictional_entity_work_links</c>.
 /// </summary>
@@ -180,7 +182,7 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
 
         using var conn = _db.CreateConnection();
         var results = conn.Query<FictionalEntity>("""
-            SELECT fe.id                      AS Id,
+            SELECT DISTINCT fe.id             AS Id,
                    fe.wikidata_qid            AS WikidataQid,
                    fe.label                   AS Label,
                    fe.description             AS Description,
@@ -263,25 +265,69 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
     }
 
     /// <inheritdoc/>
-    public Task LinkToWorkAsync(
-        Guid entityId, string workQid, string? workLabel,
-        string linkType = "appears_in", CancellationToken ct = default)
+    public Task LinkToWorkAsync(FictionalEntityWorkLink appearance, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(appearance);
+        ArgumentException.ThrowIfNullOrWhiteSpace(appearance.WorkQid);
+        ArgumentException.ThrowIfNullOrWhiteSpace(appearance.LinkType);
+
+        var appearanceKey = string.IsNullOrWhiteSpace(appearance.AppearanceKey)
+            ? BuildAppearanceKey(appearance)
+            : appearance.AppearanceKey.Trim();
 
         using var conn = _db.CreateConnection();
         conn.Execute("""
-            INSERT OR IGNORE INTO fictional_entity_work_links
-                (entity_id, work_qid, work_label, link_type)
+            INSERT INTO fictional_entity_work_links
+                (id, appearance_key, entity_id, work_qid, work_label, link_type,
+                 appearance_role, work_context, anchor_kind, anchor_value,
+                 narrative_time_index, start_time, end_time, spoiler_for_work_qid,
+                 source_provider, provenance, is_supplemental, confidence)
             VALUES
-                (@entityId, @workQid, @workLabel, @linkType);
-            """,
-            new { entityId, workQid, workLabel, linkType });
+                (@Id, @AppearanceKey, @FictionalEntityId, @WorkQid, @WorkLabel, @LinkType,
+                 @AppearanceRole, @WorkContext, @AnchorKind, @AnchorValue,
+                 @NarrativeTimeIndex, @StartTime, @EndTime, @SpoilerForWorkQid,
+                 @SourceProvider, @Provenance, @IsSupplemental, @Confidence)
+            ON CONFLICT(appearance_key) DO UPDATE SET
+                work_label = excluded.work_label,
+                appearance_role = excluded.appearance_role,
+                work_context = excluded.work_context,
+                anchor_kind = excluded.anchor_kind,
+                anchor_value = excluded.anchor_value,
+                narrative_time_index = excluded.narrative_time_index,
+                start_time = excluded.start_time,
+                end_time = excluded.end_time,
+                spoiler_for_work_qid = excluded.spoiler_for_work_qid,
+                source_provider = excluded.source_provider,
+                provenance = excluded.provenance,
+                is_supplemental = excluded.is_supplemental,
+                confidence = excluded.confidence;
+            """, new
+            {
+                Id = Guid.NewGuid(),
+                AppearanceKey = appearanceKey,
+                appearance.FictionalEntityId,
+                appearance.WorkQid,
+                appearance.WorkLabel,
+                appearance.LinkType,
+                appearance.AppearanceRole,
+                appearance.WorkContext,
+                appearance.AnchorKind,
+                appearance.AnchorValue,
+                appearance.NarrativeTimeIndex,
+                appearance.StartTime,
+                appearance.EndTime,
+                appearance.SpoilerForWorkQid,
+                appearance.SourceProvider,
+                Provenance = string.IsNullOrWhiteSpace(appearance.Provenance) ? "Wikidata" : appearance.Provenance,
+                appearance.IsSupplemental,
+                appearance.Confidence,
+            });
         return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<(string WorkQid, string? WorkLabel, string LinkType)>>
+    public Task<IReadOnlyList<FictionalEntityWorkLink>>
         GetWorkLinksAsync(Guid entityId, CancellationToken ct = default)
     {
         return GetSingleEntityWorkLinksAsync(entityId, ct);
@@ -315,7 +361,20 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
                 SELECT entity_id  AS EntityId,
                        work_qid   AS WorkQid,
                        work_label AS WorkLabel,
-                       link_type  AS LinkType
+                       link_type  AS LinkType,
+                       appearance_role AS AppearanceRole,
+                       work_context AS WorkContext,
+                       anchor_kind AS AnchorKind,
+                       anchor_value AS AnchorValue,
+                       narrative_time_index AS NarrativeTimeIndex,
+                       start_time AS StartTime,
+                       end_time AS EndTime,
+                       spoiler_for_work_qid AS SpoilerForWorkQid,
+                       source_provider AS SourceProvider,
+                       provenance AS Provenance,
+                       is_supplemental AS IsSupplemental,
+                       confidence AS Confidence,
+                       appearance_key AS AppearanceKey
                 FROM   fictional_entity_work_links
                 WHERE  entity_id IN ({idClause})
                 ORDER BY entity_id, work_qid;
@@ -327,7 +386,20 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
                 row.EntityId,
                 row.WorkQid,
                 row.WorkLabel,
-                row.LinkType))
+                row.LinkType,
+                row.AppearanceRole,
+                row.WorkContext,
+                row.AnchorKind,
+                row.AnchorValue,
+                row.NarrativeTimeIndex,
+                row.StartTime,
+                row.EndTime,
+                row.SpoilerForWorkQid,
+                row.SourceProvider,
+                row.Provenance,
+                row.IsSupplemental,
+                row.Confidence,
+                row.AppearanceKey))
             .ToList();
         return Task.FromResult(result);
     }
@@ -391,13 +463,11 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
 
     // ── Private row types ────────────────────────────────────────────────────
 
-    private async Task<IReadOnlyList<(string WorkQid, string? WorkLabel, string LinkType)>>
+    private async Task<IReadOnlyList<FictionalEntityWorkLink>>
         GetSingleEntityWorkLinksAsync(Guid entityId, CancellationToken ct)
     {
         var links = await GetWorkLinksAsync([entityId], ct).ConfigureAwait(false);
-        return links
-            .Select(link => (link.WorkQid, link.WorkLabel, link.LinkType))
-            .ToList();
+        return links;
     }
 
     private static string AddGuidBlobList(
@@ -423,5 +493,31 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         public string WorkQid { get; set; } = string.Empty;
         public string? WorkLabel { get; set; }
         public string LinkType { get; set; } = string.Empty;
+        public string? AppearanceRole { get; set; }
+        public string? WorkContext { get; set; }
+        public string? AnchorKind { get; set; }
+        public string? AnchorValue { get; set; }
+        public string? NarrativeTimeIndex { get; set; }
+        public string? StartTime { get; set; }
+        public string? EndTime { get; set; }
+        public string? SpoilerForWorkQid { get; set; }
+        public string? SourceProvider { get; set; }
+        public string Provenance { get; set; } = "Wikidata";
+        public bool IsSupplemental { get; set; }
+        public double? Confidence { get; set; }
+        public string? AppearanceKey { get; set; }
+    }
+
+    private static string BuildAppearanceKey(FictionalEntityWorkLink appearance)
+    {
+        var canonical = string.Join('|',
+            appearance.FictionalEntityId.ToString("N"), appearance.WorkQid.Trim(), (appearance.LinkType ?? string.Empty).Trim(),
+            appearance.AppearanceRole?.Trim() ?? string.Empty, appearance.WorkContext?.Trim() ?? string.Empty,
+            appearance.AnchorKind?.Trim() ?? string.Empty, appearance.AnchorValue?.Trim() ?? string.Empty,
+            appearance.NarrativeTimeIndex?.Trim() ?? string.Empty, appearance.StartTime?.Trim() ?? string.Empty,
+            appearance.EndTime?.Trim() ?? string.Empty, appearance.SpoilerForWorkQid?.Trim() ?? string.Empty,
+            appearance.SourceProvider?.Trim() ?? string.Empty, (appearance.Provenance ?? "Wikidata").Trim(),
+            appearance.IsSupplemental ? "1" : "0");
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
     }
 }

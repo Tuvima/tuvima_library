@@ -8,8 +8,8 @@ namespace MediaEngine.Domain.Contracts;
 public interface IEntityRelationshipRepository
 {
     /// <summary>
-    /// Insert a relationship edge. Idempotent — duplicate edges
-    /// (same subject, type, object) are silently ignored.
+    /// Insert a relationship fact. Idempotency is based on its full statement key,
+    /// so equally-shaped triples with different scope or qualifiers survive.
     /// </summary>
     Task CreateAsync(EntityRelationship edge, CancellationToken ct = default);
 
@@ -43,6 +43,17 @@ public interface IEntityRelationshipRepository
     /// </summary>
     Task<IReadOnlyList<EntityRelationship>> GetByUniverseAsync(
         IReadOnlyCollection<string> entityQids, CancellationToken ct = default);
+
+    /// <summary>Return facts carrying the supplied normalized qualifier value.</summary>
+    Task<IReadOnlyList<EntityRelationship>> GetByQualifierAsync(
+        string qualifierType,
+        string value,
+        CancellationToken ct = default);
+
+    /// <summary>Load normalized qualifiers for one fact.</summary>
+    Task<IReadOnlyList<EntityRelationshipQualifier>> GetQualifiersAsync(
+        Guid relationshipId,
+        CancellationToken ct = default);
 
     /// <summary>Return total edge count (for stats).</summary>
     Task<int> CountAsync(CancellationToken ct = default);

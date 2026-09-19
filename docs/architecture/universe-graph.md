@@ -54,6 +54,7 @@ Entity types are stored in a single `fictional_entities` table with a sub-type d
 | Location | Arrakis, Mordor, Nostromo |
 | Organization | House Atreides, The Fellowship, Weyland-Yutani |
 | Event | Harkonnen assault on Arrakis, Battle of Helm's Deep |
+| Object | Artifacts, vehicles, weapons, devices, and important in-fiction documents |
 
 ---
 
@@ -140,7 +141,7 @@ The Chronicle Engine extends the Universe Graph with time-awareness.
 
 ### Temporal Qualifiers
 
-Relationships carry `StartTime` and `EndTime` (nullable ISO 8601 strings) sourced from Wikidata P580/P582 temporal qualifiers. A character may be married for part of a story, a faction may exist only during a specific era, an actor may have played a role in one adaptation but not another.
+Relationships carry `StartTime` and `EndTime` (nullable ISO 8601 strings) sourced from Wikidata P580/P582 temporal qualifiers. A character may be married for part of a story, a faction may exist only during a specific era, an actor may have played a role in one adaptation but not another. The fact also owns normalized queryable qualifiers, so work scope, fictional time indices, spoiler boundaries, statement nature, and provenance are not flattened or lost when the same graph triple is asserted in different contexts.
 
 ### Lore Delta Detection
 

@@ -171,7 +171,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v7-access-authority", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v8-graph-facts", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
 
         (string Table, string Column)[] internalGuidColumns =
         [
@@ -288,7 +288,10 @@ public sealed class DatabaseStartupSafetyTests
             ("enrichment_refresh_schedule", "entity_id"),
             ("enrichment_refresh_schedule", "operation_id"),
             ("entity_relationships", "id"),
+            ("entity_relationship_qualifiers", "id"),
+            ("entity_relationship_qualifiers", "relationship_id"),
             ("fictional_entities", "id"),
+            ("fictional_entity_work_links", "id"),
             ("fictional_entity_work_links", "entity_id"),
             ("plugin_lore_sources", "id"),
             ("plugin_lore_entities", "id"),
@@ -723,7 +726,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v7-access-authority", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v8-graph-facts", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.True(TableExists(conn, "review_queue"));
     }
 
@@ -756,7 +759,34 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         var exception = Assert.Throws<InvalidOperationException>(() => fixture.Database.InitializeSchema());
-        Assert.Contains("guid-blob-v7-access-authority", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("guid-blob-v8-graph-facts", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("not migrated in place", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PreviousGraphTripleEpoch_FailsFastInsteadOfAcceptingLossyFactsSchema()
+    {
+        using var fixture = TempDatabase.Create();
+        using (var conn = new SqliteConnection($"Data Source={fixture.Path};Pooling=False"))
+        {
+            conn.Open();
+            using var command = conn.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE storage_metadata (key TEXT NOT NULL PRIMARY KEY, value TEXT NOT NULL);
+                INSERT INTO storage_metadata (key, value) VALUES ('storage_epoch', 'guid-blob-v7-access-authority');
+                CREATE TABLE entity_relationships (
+                    id BLOB NOT NULL PRIMARY KEY,
+                    subject_qid TEXT NOT NULL,
+                    relationship_type TEXT NOT NULL,
+                    object_qid TEXT NOT NULL,
+                    UNIQUE (subject_qid, relationship_type, object_qid));
+                """;
+            command.ExecuteNonQuery();
+        }
+
+        var exception = Assert.Throws<InvalidOperationException>(() => fixture.Database.InitializeSchema());
+
+        Assert.Contains("guid-blob-v8-graph-facts", exception.Message, StringComparison.Ordinal);
         Assert.Contains("not migrated in place", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -780,7 +810,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v7-access-authority", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v8-graph-facts", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.Equal("BLOB", ColumnType(conn, "metadata_providers", "id"));
         Assert.True(TableExists(conn, "review_queue"));
 
@@ -819,7 +849,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         using var current = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v7-access-authority", Scalar(current, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v8-graph-facts", Scalar(current, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.Equal("INTEGER", ColumnType(current, "user_states", "revision"));
     }
 

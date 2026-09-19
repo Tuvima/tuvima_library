@@ -308,7 +308,23 @@ public static class UniverseGraphEndpoints
                     image: image,
                     works: workLinksByEntity[entity.Id]
                         .Where(link => visibleWorkQids.Contains(link.WorkQid))
-                        .Select(link => new UniverseGraphWorkLinkDto(qid: link.WorkQid, label: link.WorkLabel)),
+                        .Select(link => new UniverseGraphWorkLinkDto(
+                            qid: link.WorkQid,
+                            label: link.WorkLabel,
+                            link_type: link.LinkType,
+                            appearance_role: link.AppearanceRole,
+                            work_context: link.WorkContext,
+                            anchor_kind: link.AnchorKind,
+                            anchor_value: link.AnchorValue,
+                            narrative_time_index: link.NarrativeTimeIndex,
+                            start_time: link.StartTime,
+                            end_time: link.EndTime,
+                            spoiler_for_work_qid: link.SpoilerForWorkQid,
+                            source_provider: link.SourceProvider,
+                            provenance: link.Provenance,
+                            supplemental: link.IsSupplemental,
+                            confidence: link.Confidence,
+                            appearance_key: link.AppearanceKey)),
                     supplemental: false,
                     provenance: "wikidata",
                     source_plugin: (string?)null,
@@ -325,10 +341,20 @@ public static class UniverseGraphEndpoints
                 context_work: r.ContextWorkQid,
                 start_time: r.StartTime,
                 end_time: r.EndTime,
-                supplemental: false,
-                provenance: "wikidata",
+                supplemental: r.IsSupplemental,
+                provenance: r.Provenance,
                 source_plugin: (string?)null,
-                source_url: (string?)null)).ToList();
+                source_url: (string?)null,
+                statement_key: r.StatementKey,
+                qualifiers: r.Qualifiers.Select(qualifier => new UniverseGraphQualifierDto(
+                    type: qualifier.QualifierType,
+                    value: qualifier.Value,
+                    value_kind: qualifier.ValueKind,
+                    provenance: qualifier.Provenance,
+                    supplemental: qualifier.IsSupplemental,
+                    source_provider: qualifier.SourceProvider,
+                    confidence: qualifier.Confidence)).ToList(),
+                source_provider: r.SourceProvider)).ToList();
 
             if (include_supplemental_lore == true
                 && string.IsNullOrWhiteSpace(work)

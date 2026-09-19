@@ -129,7 +129,11 @@ public sealed class RecursiveFictionalEntityService : IRecursiveFictionalEntityS
         }
 
         // 2. Link entity to the source work (idempotent — INSERT OR IGNORE).
-        await _entityRepo.LinkToWorkAsync(entity.Id, workQid, workLabel, "appears_in", ct)
+        await _entityRepo.LinkToWorkAsync(new FictionalEntityWorkLink(
+            entity.Id,
+            workQid,
+            workLabel,
+            "appears_in"), ct)
             .ConfigureAwait(false);
 
         // 3. If not yet enriched, enqueue a Wikidata harvest request.
@@ -141,6 +145,8 @@ public sealed class RecursiveFictionalEntityService : IRecursiveFictionalEntityS
                 FictionalEntityType.Character => EntityType.Character,
                 FictionalEntityType.Location => EntityType.Location,
                 FictionalEntityType.Organization => EntityType.Organization,
+                FictionalEntityType.Event => EntityType.Event,
+                FictionalEntityType.Object => EntityType.Object,
                 _ => EntityType.Character,
             };
 

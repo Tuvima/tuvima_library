@@ -7,8 +7,9 @@ namespace MediaEngine.Domain.Entities;
 /// or <see cref="Person"/> records. The relationship type corresponds to a
 /// Wikidata property (see <see cref="Constants.RelationshipType"/>).
 ///
-/// UNIQUE constraint on (subject_qid, relationship_type, object_qid) prevents
-/// duplicate edges. Idempotent inserts via INSERT OR IGNORE.
+/// A relationship is a statement, not merely a subject/predicate/object triple.
+/// Distinct adaptation, temporal, source, and spoiler-qualified statements are
+/// preserved as separate facts while their qualifiers remain queryable.
 ///
 /// Maps 1:1 to a row in the <c>entity_relationships</c> table.
 /// </summary>
@@ -16,6 +17,12 @@ public sealed class EntityRelationship
 {
     /// <summary>Stable row identifier (UUID stored as a 16-byte BLOB in SQLite).</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
+
+    /// <summary>
+    /// Stable idempotency key for this precise statement and its qualifiers.
+    /// Re-enrichment may safely upsert the same fact without collapsing a scoped fact.
+    /// </summary>
+    public string StatementKey { get; set; } = string.Empty;
 
     /// <summary>
     /// Wikidata QID of the source entity.
@@ -41,6 +48,15 @@ public sealed class EntityRelationship
     /// </summary>
     public double Confidence { get; set; } = 0.9;
 
+    /// <summary>Provider that asserted the fact, if known.</summary>
+    public string? SourceProvider { get; set; }
+
+    /// <summary>Canonical source classification such as Wikidata or Plugin.</summary>
+    public string Provenance { get; set; } = "Wikidata";
+
+    /// <summary>Whether the fact is supplemental rather than canonical graph data.</summary>
+    public bool IsSupplemental { get; set; }
+
     /// <summary>
     /// Optional: the work QID providing context for this relationship.
     /// Used for performer relationships where the actor plays a character
@@ -56,4 +72,7 @@ public sealed class EntityRelationship
 
     /// <summary>ISO 8601 end time qualifier (Wikidata P582) — when this relationship ended.</summary>
     public string? EndTime { get; set; }
+
+    /// <summary>Normalized qualifiers retained with this fact.</summary>
+    public List<EntityRelationshipQualifier> Qualifiers { get; set; } = [];
 }
