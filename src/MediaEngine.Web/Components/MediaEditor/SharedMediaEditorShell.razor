@@ -61,7 +61,7 @@
                         {
                             <div class="sme-subtitle">@HeaderSubtitle</div>
                         }
-                        @if (IsSingleItem)
+                        @if (IsSingleItem && !IsSharedEntityMode)
                         {
                             <div class="sme-header-match-state" aria-label="Identity match status">
                                 <span class="sme-header-match-state__item @(HasCurrentRetailMatch ? "is-matched" : "is-unmatched")"
@@ -212,6 +212,16 @@
                 </div>
             }
 
+            @if (IsSharedEntityMode)
+            {
+                <SharedEntityEditorWorkspace @ref="_sharedEntityWorkspace"
+                                             InitialTarget="@(Request.SharedEntityTarget!)"
+                                             DirtyChanged="OnSharedEntityDirtyChanged"
+                                             ContextChanged="OnSharedEntityContextChanged"
+                                             Committed="OnSharedEntityCommittedAsync" />
+            }
+            else
+            {
             @if (HasContextNavigator)
             {
                 <div class="sme-context-rail" aria-label="Media hierarchy">
@@ -1715,6 +1725,7 @@
                     </div>
                 </div>
             </div>
+            }
 
             @if (ShouldShowEditorFooter && !Inline)
             {

@@ -1,0 +1,197 @@
+using Bunit;
+using MediaEngine.Contracts.Universe;
+using MediaEngine.Web.Components.MediaEditor;
+using MediaEngine.Web.Services.Integration;
+using MediaEngine.Web.Tests.Support;
+using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
+using MudBlazor.Services;
+
+namespace MediaEngine.Web.Tests;
+
+public sealed class SharedEntityEditorWorkspaceTests : AsyncBunitContext
+{
+    private static readonly Guid CharacterId = Guid.Parse("48d9a63a-f945-467e-b14f-046b1f748441");
+    private static readonly Guid SiblingId = Guid.Parse("04dbf67c-a0ea-4bf6-a105-e939c2e18491");
+    private readonly List<bool> _dirtyChanges = [];
+
+    public SharedEntityEditorWorkspaceTests()
+    {
+        Services.AddMudServices();
+        Services.AddSingleton(CreateApi());
+        JSInterop.Mode = JSRuntimeMode.Loose;
+    }
+
+    [Fact]
+    public void UniverseCategoryRailUsesApiOrderAndAnchoredBoundedSelectorsRetargetInPlace()
+    {
+        var cut = Render<SharedEntityEditorWorkspace>(parameters => parameters
+            .Add(component => component.InitialTarget, RootTarget())
+            .Add(component => component.DirtyChanged, EventCallback.Factory.Create<bool>(this, RecordDirty)));
+
+        cut.WaitForAssertion(() => Assert.Equal(5, cut.FindAll(".see-category").Count));
+        Assert.Equal(
+            ["Characters", "Locations/Places", "Organizations/Groups", "Events", "Objects"],
+            cut.FindAll(".see-category").Select(node => node.GetAttribute("aria-label")!).ToArray());
+        Assert.Equal(5, cut.FindAll(".see-category .mud-icon-root").Count);
+        Assert.DoesNotContain("More", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Scroll categories left", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Scroll categories right", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("@onwheel", ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedEntityEditorWorkspace.razor"), StringComparison.Ordinal);
+        cut.Find("#see-category-Character").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "ArrowRight" });
+        cut.WaitForAssertion(() => Assert.Contains("is-active", cut.Find("#see-category-Location").ClassList));
+        Assert.Equal("0", cut.Find("#see-category-Location").GetAttribute("tabindex"));
+        Assert.Contains("tuvimaFocusById", ReadSource("src/MediaEngine.Web/wwwroot/app.js"), StringComparison.Ordinal);
+        cut.Find("#see-category-Location").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "ArrowLeft" });
+        cut.WaitForAssertion(() => Assert.Contains("is-active", cut.Find("#see-category-Character").ClassList));
+
+        cut.FindAll(".see-category")[0].Click();
+        cut.WaitForAssertion(() => Assert.Contains("Mara Venn", cut.Find(".see-selector-popover").TextContent, StringComparison.Ordinal));
+        Assert.Contains("Load more", cut.Find(".see-selector-popover").TextContent, StringComparison.Ordinal);
+        cut.Find(".see-selector-popover .see-selector-item").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Mara Venn", cut.Find(".see-breadcrumb").TextContent, StringComparison.Ordinal));
+        Assert.Contains("Chronicle World", cut.Find(".see-breadcrumb").TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("see-category-rail", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Other Character", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Files", string.Join(" ", cut.FindAll(".see-nav-item").Select(node => node.TextContent)), StringComparison.OrdinalIgnoreCase);
+        cut.Find(".see-sibling-toggle").Click();
+        cut.WaitForAssertion(() => Assert.Contains("Mara Venn", cut.Find(".see-selector-popover").TextContent, StringComparison.Ordinal));
+        Assert.Equal("true", cut.FindAll(".see-selector-popover .see-selector-item").First().GetAttribute("aria-selected"));
+        cut.Find(".see-breadcrumb button").Click();
+        cut.WaitForAssertion(() => Assert.Equal(5, cut.FindAll(".see-category").Count));
+    }
+
+    [Fact]
+    public void EntitySectionsAreCapabilityDrivenAndKeepTimelineSeparateFromHistory()
+    {
+        var entityTarget = EntityTarget(CharacterId, "QCHAR1");
+        var cut = Render<SharedEntityEditorWorkspace>(parameters => parameters
+            .Add(component => component.InitialTarget, entityTarget)
+            .Add(component => component.DirtyChanged, EventCallback.Factory.Create<bool>(this, RecordDirty)));
+
+        cut.WaitForAssertion(() => Assert.Contains("Appearances", cut.Markup, StringComparison.Ordinal));
+        Assert.DoesNotContain("Files", string.Join(" ", cut.FindAll(".see-nav-item").Select(node => node.TextContent)), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("In-universe timeline", cut.FindAll(".see-nav-item").Select(node => node.TextContent));
+
+        cut.FindAll(".see-nav-item").Single(node => node.TextContent == "In-universe timeline").Click();
+        cut.WaitForAssertion(() => Assert.Contains("Narrative chronology, not editor or audit history.", cut.Markup, StringComparison.Ordinal));
+        cut.FindAll(".see-nav-item").Single(node => node.TextContent == "History").Click();
+        cut.WaitForAssertion(() => Assert.Equal("History", cut.Find(".see-content h3").TextContent));
+
+        cut.Find(".see-nav-item").Click();
+        Assert.NotNull(cut.Find(".see-field textarea"));
+        cut.Find(".see-field input").Input("Mara of the North");
+        Assert.Contains(true, _dirtyChanges);
+        cut.Find(".see-sibling-toggle").Click();
+        cut.FindAll(".see-selector-popover .see-load-more").Last().Click();
+        cut.FindAll(".see-selector-popover .see-selector-item").Single(node => node.TextContent.Contains("Elian", StringComparison.Ordinal)).Click();
+        cut.WaitForAssertion(() => Assert.Contains("Save changes before editing Elian?", cut.Markup, StringComparison.Ordinal));
+        Assert.Contains("Discard and switch", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Save and switch", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("flex-direction: row", ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedEntityEditorWorkspace.razor.css").Split("@media (max-width: 720px)", StringSplitOptions.None).Last(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedEditorShellBranchesBeforeMediaEntityLookupAndContainsWorkspaceOnly()
+    {
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+        var workspace = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedEntityEditorWorkspace.razor");
+        var branch = code.IndexOf("if (IsSharedEntityMode)", StringComparison.Ordinal);
+        var providerInit = code.IndexOf("ProviderCatalogue.GetCatalogueAsync", StringComparison.Ordinal);
+
+        Assert.True(branch >= 0 && branch < providerInit);
+        Assert.Contains("Request.EntityIds.FirstOrDefault()", code, StringComparison.Ordinal);
+        Assert.Contains("if (IsSharedEntityMode)", shell, StringComparison.Ordinal);
+        Assert.Contains("<SharedEntityEditorWorkspace", shell, StringComparison.Ordinal);
+        Assert.Contains("<AppTextarea", workspace, StringComparison.Ordinal);
+        Assert.DoesNotContain("@page", workspace, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShowAsync<SharedEntityEditorWorkspace>", shell, StringComparison.Ordinal);
+        Assert.Contains("else if (_context is null && !string.IsNullOrWhiteSpace(_error))", workspace, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SuccessfulDetailsCommitIsPropagatedToShellAppliedResultState()
+    {
+        var commits = new List<SharedEntityEditorCommitKind>();
+        var cut = Render<SharedEntityEditorWorkspace>(parameters => parameters
+            .Add(component => component.InitialTarget, RootTarget())
+            .Add(component => component.Committed, EventCallback.Factory.Create<SharedEntityEditorCommitKind>(this, commits.Add)));
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find(".see-field input")));
+        cut.Find(".see-field input").Input("Chronicle World Revised");
+        cut.Find(".see-primary").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains(SharedEntityEditorCommitKind.Details, commits));
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var integration = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.SharedEntity.cs");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+        Assert.Contains("Committed=\"OnSharedEntityCommittedAsync\"", shell, StringComparison.Ordinal);
+        Assert.Contains("_hasCommittedChanges = true", integration, StringComparison.Ordinal);
+        Assert.Contains("if (_hasCommittedChanges)", code, StringComparison.Ordinal);
+        Assert.Contains("Request.OnArtworkChanged.Invoke()", integration, StringComparison.Ordinal);
+    }
+
+    private static IEngineApiClient CreateApi() => EngineApiClientStub.Create(stub =>
+    {
+        stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityEditorContextAsync), args =>
+        {
+            var target = (SharedEntityEditorTargetDto)args![0]!;
+            var isRoot = string.Equals(target.Kind, SharedEntityEditorTargetKinds.Universe, StringComparison.OrdinalIgnoreCase);
+            return Task.FromResult<SharedEntityEditorContextDto?>(new(
+                target,
+                isRoot ? "Chronicle World" : string.Equals(target.FictionalEntityId, SiblingId) ? "Elian" : "Mara Venn",
+                isRoot ? "Universe" : "Character",
+                isRoot ? RootCapabilities() : EntityCapabilities(),
+                "available",
+                isRoot ? ["Chronicle World"] : ["Chronicle World", "Mara Venn"]));
+        });
+        stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityCategoriesAsync), _ => Task.FromResult<IReadOnlyList<SharedEntityCategorySummaryDto>>(
+        [new("Character", "Character", 2), new("Location", "Places", 1), new("Organization", "Groups", 1), new("Event", "Event", 1), new("Object", "Object", 1)]));
+        stub.SetHandler(nameof(IEngineApiClient.GetSharedEntitySelectorPageAsync), args =>
+        {
+            var offset = (int)args![3]!;
+            IReadOnlyList<SharedEntitySelectorItemDto> all =
+            [new(CharacterId, "QCHAR1", "Mara Venn", "Character", "A traveler"), new(SiblingId, "QCHAR2", "Elian", "Character", null)];
+            var items = all.Skip(offset).Take(1).ToList();
+            return Task.FromResult<SharedEntitySelectorPageDto?>(new(items, offset, 1, 2, offset + items.Count < 2));
+        });
+        stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityDetailsAsync), args =>
+        {
+            var target = (SharedEntityEditorTargetDto)args![0]!;
+            return Task.FromResult<SharedEntityDetailsDto?>(new(target.FictionalEntityId, target.Qid ?? "Q42", string.Equals(target.Kind, SharedEntityEditorTargetKinds.Universe, StringComparison.OrdinalIgnoreCase) ? "Chronicle World" : "Mara Venn", string.Equals(target.Kind, SharedEntityEditorTargetKinds.Universe, StringComparison.OrdinalIgnoreCase) ? "Universe" : "Character", "The shared world", target.UniverseQid, "Chronicle World"));
+        });
+        stub.SetHandler(nameof(IEngineApiClient.UpdateSharedEntityDetailsAsync), args =>
+        {
+            var target = (SharedEntityEditorTargetDto)args![0]!;
+            var request = (SharedEntityDetailsUpdateRequest)args[1]!;
+            return Task.FromResult<SharedEntityDetailsDto?>(new(target.FictionalEntityId, target.Qid ?? "Q42", request.label, string.Equals(target.Kind, SharedEntityEditorTargetKinds.Universe, StringComparison.OrdinalIgnoreCase) ? "Universe" : "Character", request.description, target.UniverseQid, "Chronicle World"));
+        });
+        stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityArtworkAsync), _ => Task.FromResult<IReadOnlyList<SharedEntityArtworkDto>>([]));
+        stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityEnrichmentAsync), _ => Task.FromResult<SharedEntityEnrichmentStatusDto?>(new("available", null, 10)));
+        stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityAppearancesAsync), _ => Task.FromResult<IReadOnlyList<SharedEntityAppearanceDto>>([]));
+        stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityRelationshipsAsync), _ => Task.FromResult<IReadOnlyList<SharedEntityRelationshipDto>>([]));
+        stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityTimelineAsync), _ => Task.FromResult<IReadOnlyList<SharedEntityTimelineEntryDto>>([]));
+        stub.SetHandler(nameof(IEngineApiClient.GetSharedEntitySourcesAsync), _ => Task.FromResult<IReadOnlyList<SharedEntitySourceDto>>([]));
+        stub.SetHandler(nameof(IEngineApiClient.GetSharedEntityHistoryAsync), _ => Task.FromResult<IReadOnlyList<SharedEntityHistoryEntryDto>>([]));
+    });
+
+    private static SharedEntityEditorTargetDto RootTarget() => new(SharedEntityEditorTargetKinds.Universe, "Q42", null, "Q42");
+    private static SharedEntityEditorTargetDto EntityTarget(Guid id, string qid) => new(SharedEntityEditorTargetKinds.FictionalEntity, "Q42", id, qid);
+    private static IReadOnlyList<SharedEntityEditorCapabilityDto> RootCapabilities() =>
+    [new(SharedEntityEditorSections.Details, true, true), new(SharedEntityEditorSections.Artwork, true, true), new(SharedEntityEditorSections.Entities, true, false), new(SharedEntityEditorSections.Relationships, true, false), new(SharedEntityEditorSections.Timeline, true, false), new(SharedEntityEditorSections.Sources, true, false), new(SharedEntityEditorSections.History, true, false), new(SharedEntityEditorSections.Enrichment, true, false)];
+    private static IReadOnlyList<SharedEntityEditorCapabilityDto> EntityCapabilities() =>
+    [new(SharedEntityEditorSections.Details, true, true), new(SharedEntityEditorSections.Artwork, true, true), new(SharedEntityEditorSections.Appearances, true, false), new(SharedEntityEditorSections.Relationships, true, false), new(SharedEntityEditorSections.Timeline, true, false), new(SharedEntityEditorSections.Sources, true, false), new(SharedEntityEditorSections.History, true, false), new(SharedEntityEditorSections.Enrichment, true, false), new("private", false, true)];
+
+    private void RecordDirty(bool dirty) => _dirtyChanges.Add(dirty);
+
+    private static string ReadSource(string relativePath)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+            directory = directory.Parent;
+        Assert.NotNull(directory);
+        return File.ReadAllText(Path.Combine(directory!.FullName, relativePath));
+    }
+}

@@ -49,6 +49,15 @@ window.scrollElementToTop = function (element) {
     if (element) element.scrollTop = 0;
 };
 
+window.tuvimaScrollElementBy = function (element, amount) {
+    if (element) element.scrollBy({ left: amount, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+};
+
+window.tuvimaFocusById = function (id) {
+    const target = id && document.getElementById(id);
+    if (target) target.focus({ preventScroll: true });
+};
+
 // All custom menus use the same click-away contract. MudMenu already handles
 // its own dismissal; this covers richer application-owned popout surfaces.
 (function installDismissibleSurfaceHandler() {
