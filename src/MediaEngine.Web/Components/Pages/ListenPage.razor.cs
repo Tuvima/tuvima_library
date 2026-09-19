@@ -913,9 +913,8 @@ public partial class ListenPage
         var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
         {
             ActiveProfileId = _activeProfileId,
-            Mode = isSmart ? CollectionEditorMode.SmartPlaylist : CollectionEditorMode.ManualPlaylist,
-            InitialCollectionType = isSmart ? "Smart" : "Playlist",
-            InitialRulesEnabled = isSmart,
+            Kind = ContainerEditorKind.Playlist,
+            InitialMembershipMode = isSmart ? "Smart" : "Manual",
             InitialTitle = string.Empty,
         });
 

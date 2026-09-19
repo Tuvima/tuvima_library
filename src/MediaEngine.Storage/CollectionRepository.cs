@@ -40,6 +40,12 @@ public sealed class CollectionRepository : ICollectionRepository
         public int ScopeRank { get; init; }
     }
 
+    private sealed class CollectionAudienceProfileRow
+    {
+        public Guid CollectionId { get; init; }
+        public Guid ProfileId { get; init; }
+    }
+
     // Reusable SELECT list for single-collection queries (no table prefix needed).
     private const string CollectionSelectColumns = """
         id                AS Id,
@@ -62,6 +68,10 @@ public sealed class CollectionRepository : ICollectionRepository
         logo_artwork_mime_type  AS LogoArtworkMimeType,
         scope             AS Scope,
         profile_id        AS ProfileId,
+        membership_mode   AS MembershipMode,
+        primary_area      AS PrimaryArea,
+        owner_kind        AS OwnerKind,
+        audience          AS Audience,
         is_enabled        AS IsEnabled,
         is_featured       AS IsFeatured,
         min_items         AS MinItems,
@@ -109,6 +119,29 @@ public sealed class CollectionRepository : ICollectionRepository
     private static Collection NormalizeCollection(Collection h)
     {
         return h;
+    }
+
+    private static void HydrateAudienceProfiles(SqliteConnection conn, IReadOnlyCollection<Collection> collections)
+    {
+        if (collections.Count == 0)
+            return;
+
+        var byId = collections.ToDictionary(collection => collection.Id);
+        foreach (var collection in collections)
+            collection.ReplaceAudienceProfiles([]);
+
+        var rows = conn.Query<CollectionAudienceProfileRow>("""
+            SELECT collection_id AS CollectionId, profile_id AS ProfileId
+            FROM collection_profile_audience
+            WHERE collection_id IN @CollectionIds
+            ORDER BY created_at, profile_id;
+            """, new { CollectionIds = byId.Keys.Select(GuidSql.ToBlob).ToArray() });
+
+        foreach (var group in rows.GroupBy(row => row.CollectionId))
+        {
+            if (byId.TryGetValue(group.Key, out var collection))
+                collection.ReplaceAudienceProfiles(group.Select(row => row.ProfileId));
+        }
     }
 
     private IReadOnlyList<string> GetCollectionRollupRelationshipTypes()
@@ -625,11 +658,13 @@ public sealed class CollectionRepository : ICollectionRepository
                 universe_status, wikidata_qid, collection_type, description, icon_name,
                 cover_artwork_path, cover_artwork_mime_type, background_artwork_path, background_artwork_mime_type,
                 banner_artwork_path, banner_artwork_mime_type, logo_artwork_path, logo_artwork_mime_type, scope, profile_id,
+                membership_mode, primary_area, owner_kind, audience,
                 is_enabled, is_featured, min_items, rule_json, resolution, rule_hash,
                 group_by_field, match_mode, sort_field, sort_direction, secondary_sort_field, secondary_sort_direction)
                 VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid, @ht, @desc, @icon,
                     @coverArtworkPath, @coverArtworkMimeType, @backgroundArtworkPath, @backgroundArtworkMimeType,
                     @bannerArtworkPath, @bannerArtworkMimeType, @logoArtworkPath, @logoArtworkMimeType, @scope, @pid,
+                    @membershipMode, @primaryArea, @ownerKind, @audience,
                     @enabled, @featured, @minItems, @ruleJson, @resolution, @ruleHash,
                     @groupByField, @matchMode, @sortField, @sortDirection, @secondarySortField, @secondarySortDirection);
             UPDATE collections SET display_name = @dn, universe_status = @us, parent_collection_id = @phid,
@@ -644,6 +679,8 @@ public sealed class CollectionRepository : ICollectionRepository
                             logo_artwork_path = @logoArtworkPath,
                             logo_artwork_mime_type = @logoArtworkMimeType,
                             scope = @scope, profile_id = @pid,
+                            membership_mode = @membershipMode, primary_area = @primaryArea,
+                            owner_kind = @ownerKind, audience = @audience,
                             is_enabled = @enabled, is_featured = @featured, min_items = @minItems,
                             rule_json = @ruleJson, resolution = @resolution, rule_hash = @ruleHash,
                             group_by_field = @groupByField, match_mode = @matchMode,
@@ -673,6 +710,10 @@ public sealed class CollectionRepository : ICollectionRepository
                 logoArtworkMimeType = collection.LogoArtworkMimeType,
                 scope = collection.Scope.ToStorageValue(),
                 pid = collection.ProfileId,
+                membershipMode = collection.MembershipMode.ToStorageValue(),
+                primaryArea = collection.PrimaryArea.ToStorageValue(),
+                ownerKind = collection.OwnerKind.ToStorageValue(),
+                audience = collection.Audience.ToStorageValue(),
                 enabled = collection.IsEnabled ? 1 : 0,
                 featured = collection.IsFeatured ? 1 : 0,
                 minItems = collection.MinItems,
@@ -705,11 +746,13 @@ public sealed class CollectionRepository : ICollectionRepository
                     universe_status, wikidata_qid, collection_type, description, icon_name,
                     cover_artwork_path, cover_artwork_mime_type, background_artwork_path, background_artwork_mime_type,
                     banner_artwork_path, banner_artwork_mime_type, logo_artwork_path, logo_artwork_mime_type, scope, profile_id,
+                    membership_mode, primary_area, owner_kind, audience,
                     is_enabled, is_featured, min_items, rule_json, resolution, rule_hash,
                     group_by_field, match_mode, sort_field, sort_direction, secondary_sort_field, secondary_sort_direction)
                 VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid, @ht, @desc, @icon,
                     @coverArtworkPath, @coverArtworkMimeType, @backgroundArtworkPath, @backgroundArtworkMimeType,
                     @bannerArtworkPath, @bannerArtworkMimeType, @logoArtworkPath, @logoArtworkMimeType, @scope, @pid,
+                    @membershipMode, @primaryArea, @ownerKind, @audience,
                     @enabled, @featured, @minItems, @ruleJson, @resolution, @ruleHash,
                     @groupByField, @matchMode, @sortField, @sortDirection, @secondarySortField, @secondarySortDirection)
                 """,
@@ -735,6 +778,10 @@ public sealed class CollectionRepository : ICollectionRepository
                     logoArtworkMimeType = collection.LogoArtworkMimeType,
                     scope = collection.Scope.ToStorageValue(),
                     pid = collection.ProfileId,
+                    membershipMode = collection.MembershipMode.ToStorageValue(),
+                    primaryArea = collection.PrimaryArea.ToStorageValue(),
+                    ownerKind = collection.OwnerKind.ToStorageValue(),
+                    audience = collection.Audience.ToStorageValue(),
                     enabled = collection.IsEnabled ? 1 : 0,
                     featured = collection.IsFeatured ? 1 : 0,
                     minItems = collection.MinItems,
@@ -771,6 +818,42 @@ public sealed class CollectionRepository : ICollectionRepository
             }
 
             return collection.Id;
+        }, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task ReplaceAudienceProfileIdsAsync(
+        Guid collectionId,
+        IReadOnlyCollection<Guid> profileIds,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(profileIds);
+        ct.ThrowIfCancellationRequested();
+
+        var normalizedIds = profileIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            innerCt.ThrowIfCancellationRequested();
+            conn.Execute(
+                "DELETE FROM collection_profile_audience WHERE collection_id = @CollectionId;",
+                new { CollectionId = collectionId },
+                transaction: tx);
+
+            foreach (var profileId in normalizedIds)
+            {
+                innerCt.ThrowIfCancellationRequested();
+                conn.Execute("""
+                    INSERT INTO collection_profile_audience(collection_id, profile_id, created_at)
+                    VALUES (@CollectionId, @ProfileId, @CreatedAt);
+                    """,
+                    new
+                    {
+                        CollectionId = collectionId,
+                        ProfileId = profileId,
+                        CreatedAt = DateTimeOffset.UtcNow.ToString("O"),
+                    },
+                    transaction: tx);
+            }
         }, ct);
     }
 
@@ -1069,7 +1152,12 @@ public sealed class CollectionRepository : ICollectionRepository
             LIMIT  1;
             """, new { id = collectionId });
 
-        return Task.FromResult(collection is null ? null : (Collection)NormalizeCollection(collection));
+        if (collection is null)
+            return Task.FromResult<Collection?>(null);
+
+        NormalizeCollection(collection);
+        HydrateAudienceProfiles(conn, [collection]);
+        return Task.FromResult<Collection?>(collection);
     }
 
     /// <inheritdoc/>
@@ -1107,6 +1195,7 @@ public sealed class CollectionRepository : ICollectionRepository
             .Where(collectionsById.ContainsKey)
             .Select(id => collectionsById[id])
             .ToList();
+        HydrateAudienceProfiles(conn, result);
         return Task.FromResult(result);
     }
 
@@ -1216,6 +1305,7 @@ public sealed class CollectionRepository : ICollectionRepository
             $"SELECT {CollectionSelectColumns} FROM collections WHERE collection_type = @CollectionType ORDER BY display_name",
             new { CollectionType = collectionType }).ToList();
         collections.ForEach(h => NormalizeCollection(h));
+        HydrateAudienceProfiles(conn, collections);
         return Task.FromResult<IReadOnlyList<Collection>>(collections);
     }
 
@@ -1227,6 +1317,7 @@ public sealed class CollectionRepository : ICollectionRepository
         var collections = conn.Query<Collection>(
             $"SELECT {CollectionSelectColumns} FROM collections WHERE collection_type IN ('Custom', 'Playlist') ORDER BY collection_type, display_name").ToList();
         collections.ForEach(h => NormalizeCollection(h));
+        HydrateAudienceProfiles(conn, collections);
         return Task.FromResult<IReadOnlyList<Collection>>(collections);
     }
 

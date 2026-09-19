@@ -993,9 +993,8 @@
         var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
         {
             ActiveProfileId = _activeProfile.Id,
-            InitialCollectionType = "Custom",
-            InitialRulesEnabled = true,
-            Mode = CollectionEditorMode.CuratedCollection,
+            InitialMembershipMode = "Manual",
+            Kind = ContainerEditorKind.Collection,
         });
 
         if (changed)

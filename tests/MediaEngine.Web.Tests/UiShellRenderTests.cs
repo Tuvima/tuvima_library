@@ -1117,7 +1117,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Assert.Contains("collection-editor-header-actions", source);
         Assert.DoesNotContain("<AppDialogShell", source);
         Assert.DoesNotContain("collection-editor-dialog", source);
-        Assert.Contains("IsPlaylistLaunch", source);
+        Assert.Contains("IsPlaylistDialog", source);
         Assert.Contains("app-artwork-picker", source);
         Assert.Contains("app-artwork-picker__edit", source);
         Assert.Contains("collection-editor-field", source);
@@ -1140,8 +1140,8 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         var ruleBuilder = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionRuleBuilder.razor"));
         var sharedRuleBuilder = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Rules", "SharedRuleBuilder.razor"));
 
-        Assert.Contains("SmartPlaylist", source);
-        Assert.Contains("Smart Playlist", source);
+        Assert.Contains("InitialMembershipMode", source);
+        Assert.Contains("Create a playlist, then choose manual or smart membership.", source);
         Assert.DoesNotContain("app-icon-picker__item", source);
         Assert.DoesNotContain("Show in My Profile and Search", source);
         Assert.DoesNotContain("<MudSelectItem T=\"string\" Value=\"@(\"media_type\")\">Media Type</MudSelectItem>", source);

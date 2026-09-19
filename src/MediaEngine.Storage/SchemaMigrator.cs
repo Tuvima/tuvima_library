@@ -351,6 +351,47 @@ internal sealed class SchemaMigrator
 
     private static void EnsureCurrentColumns(SqliteConnection conn)
     {
+        var addedMembershipMode = AddColumnIfMissing(conn, "collections", "membership_mode",
+            "ALTER TABLE collections ADD COLUMN membership_mode TEXT NOT NULL DEFAULT 'Smart';");
+        AddColumnIfMissing(conn, "collections", "primary_area",
+            "ALTER TABLE collections ADD COLUMN primary_area TEXT NOT NULL DEFAULT 'Mixed';");
+        var addedOwnerKind = AddColumnIfMissing(conn, "collections", "owner_kind",
+            "ALTER TABLE collections ADD COLUMN owner_kind TEXT NOT NULL DEFAULT 'Library';");
+        var addedAudience = AddColumnIfMissing(conn, "collections", "audience",
+            "ALTER TABLE collections ADD COLUMN audience TEXT NOT NULL DEFAULT 'Everyone';");
+        if (addedMembershipMode || addedOwnerKind || addedAudience)
+        {
+            using var backfill = conn.CreateCommand();
+            backfill.CommandText = """
+                UPDATE collections
+                SET membership_mode = CASE
+                        WHEN collection_type IN ('Custom', 'Playlist')
+                             AND (resolution = 'materialized' OR rule_json IS NULL OR trim(rule_json) = '')
+                            THEN 'Manual'
+                        ELSE membership_mode
+                    END,
+                    primary_area = CASE
+                        WHEN collection_type = 'Playlist' THEN 'Listen'
+                        ELSE primary_area
+                    END,
+                    owner_kind = CASE WHEN scope = 'user' THEN 'Profile' ELSE 'Library' END,
+                    audience = CASE WHEN scope = 'user' THEN 'Private' ELSE 'Everyone' END;
+                """;
+            backfill.ExecuteNonQuery();
+        }
+        using (var audienceTable = conn.CreateCommand())
+        {
+            audienceTable.CommandText = """
+                CREATE TABLE IF NOT EXISTS collection_profile_audience (
+                    collection_id BLOB NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+                    profile_id BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    PRIMARY KEY(collection_id, profile_id)
+                );
+                """;
+            audienceTable.ExecuteNonQuery();
+        }
+
         AddColumnIfMissing(conn, "collections", "background_artwork_path",
             "ALTER TABLE collections ADD COLUMN background_artwork_path TEXT;");
         AddColumnIfMissing(conn, "collections", "background_artwork_mime_type",
@@ -367,6 +408,8 @@ internal sealed class SchemaMigrator
             "ALTER TABLE collections ADD COLUMN secondary_sort_field TEXT;");
         AddColumnIfMissing(conn, "collections", "secondary_sort_direction",
             "ALTER TABLE collections ADD COLUMN secondary_sort_direction TEXT;");
+        AddColumnIfMissing(conn, "view_galleries", "soundtrack_playlist_id",
+            "ALTER TABLE view_galleries ADD COLUMN soundtrack_playlist_id BLOB REFERENCES collections(id) ON DELETE SET NULL;");
         AddColumnIfMissing(
             conn,
             "media_assets",
@@ -689,7 +732,7 @@ internal sealed class SchemaMigrator
         cmd.ExecuteNonQuery();
     }
 
-    private static void AddColumnIfMissing(
+    private static bool AddColumnIfMissing(
         SqliteConnection conn,
         string table,
         string column,
@@ -702,12 +745,13 @@ internal sealed class SchemaMigrator
         {
             if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
             {
-                return;
+                return false;
             }
         }
 
         using var alter = conn.CreateCommand();
         alter.CommandText = alterSql;
         alter.ExecuteNonQuery();
+        return true;
     }
 }

@@ -374,7 +374,7 @@
                 {
                     EditingCollection = collection,
                     ActiveProfileId = activeProfile?.Id ?? collection.ProfileId,
-                    Mode = CollectionEditorMode.CuratedCollection,
+                    Kind = ContainerEditorKind.Collection,
                 });
 
                 if (collectionApplied)
@@ -512,6 +512,10 @@
             Scope = collection.Scope,
             ProfileId = collection.ProfileId,
             Visibility = collection.Visibility,
+            MembershipMode = collection.MembershipMode,
+            PrimaryArea = collection.PrimaryArea,
+            OwnerKind = collection.OwnerKind,
+            Audience = collection.Audience,
             IsEnabled = collection.IsEnabled,
             IsFeatured = collection.IsFeatured,
             ItemCount = collection.ItemCount,

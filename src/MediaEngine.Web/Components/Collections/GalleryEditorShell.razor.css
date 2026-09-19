@@ -381,16 +381,6 @@
     align-items: flex-start;
     gap: 12px;
 }
-
-.collection-editor-profile-picker {
-    display: grid;
-    gap: 0.35rem;
-    margin-top: 0.65rem;
-    padding: 0.7rem 0.8rem;
-    border: 1px solid color-mix(in srgb, var(--tl-border-subtle) 78%, transparent);
-    border-radius: var(--tl-radius-md);
-    background: color-mix(in srgb, var(--tl-bg-surface-raised) 72%, transparent);
-}
 .collection-editor-membership-summary strong { font-size: 1.45rem; }
 
 .collection-editor-membership-summary span,

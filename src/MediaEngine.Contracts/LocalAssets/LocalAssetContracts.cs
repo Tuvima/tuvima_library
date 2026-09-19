@@ -99,7 +99,8 @@ public sealed record ViewGalleryRequest(
     [property: JsonPropertyName("description")] string? Description = null,
     [property: JsonPropertyName("smart_rule_json")] string? SmartRuleJson = null,
     [property: JsonPropertyName("cover_item_id")] Guid? CoverItemId = null,
-    [property: JsonPropertyName("sort_order")] int SortOrder = 0);
+    [property: JsonPropertyName("sort_order")] int SortOrder = 0,
+    [property: JsonPropertyName("soundtrack_playlist_id")] Guid? SoundtrackPlaylistId = null);
 
 public sealed record ViewGalleryListResponse(
     [property: JsonPropertyName("owned")] IReadOnlyList<ViewGalleryDto> Owned,
@@ -117,7 +118,8 @@ public sealed record ViewGalleryDto(
     [property: JsonPropertyName("sort_order")] int SortOrder,
     [property: JsonPropertyName("item_count")] int ItemCount,
     [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
-    [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt);
+    [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
+    [property: JsonPropertyName("soundtrack_playlist_id")] Guid? SoundtrackPlaylistId = null);
 
 public sealed record ViewGalleryItemDto(
     [property: JsonPropertyName("gallery_id")] Guid GalleryId,

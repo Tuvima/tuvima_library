@@ -2329,19 +2329,24 @@ public static class CollectionEndpoints
                 return ApiErrors.BadRequest("Collection name is required.");
             }
 
-            if (!CollectionAccessPolicy.IsManagedCollectionType(body.CollectionType))
+            var normalizedCollectionType = string.Equals(body.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
+                ? CollectionTypeNames.Playlist
+                : body.CollectionType;
+            if (!CollectionAccessPolicy.IsManagedCollectionType(normalizedCollectionType))
             {
                 return ApiErrors.BadRequest($"Collection type '{body.CollectionType}' is reserved for browse-only system data.");
             }
 
             var isCuratedCollection = string.Equals(
-                body.CollectionType,
+                normalizedCollectionType,
                 CollectionTypeNames.Custom,
                 StringComparison.OrdinalIgnoreCase);
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
-            if (activeProfile is null && !isCuratedCollection)
+            var requestedOwnerKind = AggregateStateSerializer.ParseContainerOwnerKind(body.OwnerKind);
+            var requestedAudience = AggregateStateSerializer.ParseContainerAudience(body.Audience);
+            if (activeProfile is null && requestedOwnerKind == ContainerOwnerKind.Profile)
             {
-                return ApiErrors.BadRequest("An active profile is required to create a private collection.");
+                return ApiErrors.BadRequest("An active profile is required to create a profile-owned collection.");
             }
             if (isCuratedCollection && !CollectionAccessPolicy.CanManageCuratedCollections(hasCollectionsWrite: true))
             {
@@ -2366,9 +2371,16 @@ public static class CollectionEndpoints
                 ? CollectionRuleEvaluator.ComputeRuleHash(definition)
                 : null;
 
-            var resolution = body.CollectionType is "Playlist" || definition.AllConditions.Count == 0
-                ? CollectionResolution.Materialized
-                : CollectionResolution.Query;
+            var membershipMode = string.Equals(body.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
+                ? ContainerMembershipMode.Smart
+                : AggregateStateSerializer.ParseContainerMembershipMode(body.MembershipMode);
+            if (membershipMode == ContainerMembershipMode.Smart && definition.AllConditions.Count == 0)
+            {
+                return ApiErrors.BadRequest("Smart membership requires at least one complete rule.");
+            }
+            var resolution = membershipMode == ContainerMembershipMode.Smart
+                ? CollectionResolution.Query
+                : CollectionResolution.Materialized;
 
             if (ruleHash is not null)
             {
@@ -2416,15 +2428,33 @@ public static class CollectionEndpoints
                     ? null
                     : AggregateStateSerializer.ParseCollectionSortDirection(body.SecondarySortDirection),
                 CreatedAt = DateTimeOffset.UtcNow,
+                MembershipMode = membershipMode,
+                PrimaryArea = string.Equals(normalizedCollectionType, CollectionTypeNames.Playlist, StringComparison.OrdinalIgnoreCase)
+                    ? CollectionPrimaryArea.Listen
+                    : AggregateStateSerializer.ParseCollectionPrimaryArea(body.PrimaryArea),
+                OwnerKind = requestedOwnerKind,
+                Audience = requestedAudience,
             };
             collection.RestoreDefinition(
-                AggregateStateSerializer.ParseCollectionType(body.CollectionType),
+                AggregateStateSerializer.ParseCollectionType(normalizedCollectionType),
                 CollectionScope.Library,
                 resolution,
                 CollectionMatchMode.All,
                 AggregateStateSerializer.ParseCollectionSortDirection(body.SortDirection),
                 CollectionUniverseStatus.Unknown);
-            CollectionAccessPolicy.ApplyVisibility(collection, normalizedVisibility, activeProfile?.Id);
+            CollectionAccessPolicy.ApplyOwnership(collection, activeProfile?.Id);
+            var selectedAudienceProfileIds = collection.OwnerKind == ContainerOwnerKind.Profile
+                && collection.Audience == ContainerAudience.SelectedProfiles
+                    ? body.SelectedProfileIds
+                        .Where(id => id != Guid.Empty && (activeProfile is null || id != activeProfile.Id))
+                        .Distinct()
+                        .ToList()
+                    : [];
+            if (collection.Audience == ContainerAudience.SelectedProfiles && selectedAudienceProfileIds.Count == 0)
+            {
+                return ApiErrors.BadRequest("Choose at least one other profile for the selected-profile audience.");
+            }
+            collection.ReplaceAudienceProfiles(selectedAudienceProfileIds);
 
             var initialItems = resolvedWorkIds
                 .Select((workId, index) => new CollectionItem
@@ -2438,6 +2468,7 @@ public static class CollectionEndpoints
                 .ToList();
 
             await collectionRepo.CreateManagedCollectionAsync(collection, initialItems, ct);
+            await collectionRepo.ReplaceAudienceProfileIdsAsync(collection.Id, selectedAudienceProfileIds, ct);
 
             // Create placements
             if (body.Placements is { Count: > 0 })
@@ -2507,6 +2538,28 @@ public static class CollectionEndpoints
                 collection.IconName = body.IconName;
             }
 
+            if (!string.IsNullOrWhiteSpace(body.MembershipMode))
+            {
+                collection.MembershipMode = AggregateStateSerializer.ParseContainerMembershipMode(body.MembershipMode);
+            }
+            if (!string.IsNullOrWhiteSpace(body.PrimaryArea) && collection.CollectionType != CollectionType.Playlist)
+            {
+                collection.PrimaryArea = AggregateStateSerializer.ParseCollectionPrimaryArea(body.PrimaryArea);
+            }
+            if (!string.IsNullOrWhiteSpace(body.OwnerKind))
+            {
+                collection.OwnerKind = AggregateStateSerializer.ParseContainerOwnerKind(body.OwnerKind);
+            }
+            if (!string.IsNullOrWhiteSpace(body.Audience))
+            {
+                collection.Audience = AggregateStateSerializer.ParseContainerAudience(body.Audience);
+            }
+
+            if (collection.OwnerKind == ContainerOwnerKind.Profile && activeProfile is null)
+            {
+                return ApiErrors.BadRequest("An active profile is required to own this collection.");
+            }
+
             if (body.SortField is not null)
             {
                 collection.SortField = body.SortField;
@@ -2570,17 +2623,40 @@ public static class CollectionEndpoints
                     }
 
                     collection.ChangeResolution(CollectionResolution.Query);
+                    collection.MembershipMode = ContainerMembershipMode.Smart;
                 }
                 else
                 {
                     collection.RuleJson = null;
                     collection.RuleHash = null;
                     collection.ChangeResolution(CollectionResolution.Materialized);
+                    collection.MembershipMode = ContainerMembershipMode.Manual;
                 }
             }
 
+            if (collection.MembershipMode == ContainerMembershipMode.Smart && string.IsNullOrWhiteSpace(collection.RuleJson))
+            {
+                return ApiErrors.BadRequest("Smart membership requires at least one complete rule.");
+            }
+
+            CollectionAccessPolicy.ApplyOwnership(collection, activeProfile?.Id);
+
+            var selectedAudienceProfileIds = collection.OwnerKind == ContainerOwnerKind.Profile
+                && collection.Audience == ContainerAudience.SelectedProfiles
+                    ? (body.SelectedProfileIds ?? collection.AudienceProfileIds)
+                        .Where(id => id != Guid.Empty && (activeProfile is null || id != activeProfile.Id))
+                        .Distinct()
+                        .ToList()
+                    : [];
+            if (collection.Audience == ContainerAudience.SelectedProfiles && selectedAudienceProfileIds.Count == 0)
+            {
+                return ApiErrors.BadRequest("Choose at least one other profile for the selected-profile audience.");
+            }
+            collection.ReplaceAudienceProfiles(selectedAudienceProfileIds);
+
             collection.ModifiedAt = DateTimeOffset.UtcNow;
             await collectionRepo.UpsertAsync(collection, ct);
+            await collectionRepo.ReplaceAudienceProfileIdsAsync(collection.Id, selectedAudienceProfileIds, ct);
             return Results.Ok();
         })
         .WithName("UpdateCollection")

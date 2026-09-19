@@ -1,0 +1,201 @@
+@namespace MediaEngine.Web.Components.Collections
+@using System.Text.Json
+@using MediaEngine.Contracts.Collections
+@using MediaEngine.Contracts.LocalAssets
+@using MediaEngine.Domain.PersonalMedia
+@using MediaEngine.Web.Components.MediaEditor
+@using MediaEngine.Web.Components.Rules
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Editing
+@inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+
+<MediaEditorSurface>
+    <div class="sme-shell collection-editor-workspace">
+        <header class="sme-header collection-editor-header">
+            <div class="collection-editor-header-icon"><MudIcon Icon="@Icons.Material.Outlined.PhotoAlbum" /></div>
+            <div class="sme-header-copy">
+                <div class="sme-kicker">Gallery editor</div>
+                <h2 class="sme-title">@(string.IsNullOrWhiteSpace(_name) ? (IsEditing ? "Edit Gallery" : "New Gallery") : _name)</h2>
+                <div class="sme-subtitle">Organize photos and videos with the same manual or smart membership model.</div>
+            </div>
+            <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Close editor" AriaLabel="Close editor" OnClick="Cancel" />
+        </header>
+        <div class="sme-workspace collection-editor-layout">
+            <nav class="sme-section-nav collection-editor-rail" aria-label="Gallery editor sections">
+                @foreach (var tab in VisibleTabs)
+                {
+                    <AppButton ButtonStyle="AppButtonStyle.Text" Class="@TabClass(tab.Id)" OnClick="@(() => _activeTab = tab.Id)">
+                        <MudIcon Icon="@tab.Icon" Size="Size.Small" /><span>@tab.Label</span>
+                    </AppButton>
+                }
+                @if (IsEditing)
+                {
+                    <div class="collection-editor-rail-footer">
+                        <AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Error" StartIcon="@Icons.Material.Outlined.DeleteOutline" OnClick="DeleteAsync">Delete gallery</AppButton>
+                        <small>Original photos and videos are kept.</small>
+                    </div>
+                }
+            </nav>
+            <main class="sme-main-pane collection-editor-main">
+                <div class="sme-body collection-editor-body">
+                    @if (_activeTab == "details")
+                    {
+                        <div class="collection-editor-pane"><MediaEditorPanel Title="Details" Description="Name and describe this Gallery.">
+                            <AppTextField T="string" @bind-Value="_name" Label="Name" Variant="Variant.Outlined" Immediate="true" />
+                            <AppTextarea @bind-Value="_description" Label="Description (optional)" Lines="5" Immediate="true" />
+                        </MediaEditorPanel></div>
+                    }
+                    else if (_activeTab == "artwork")
+                    {
+                        <div class="collection-editor-pane"><MediaEditorPanel Title="Artwork" Description="Gallery artwork follows its selected cover item.">
+                            <div class="collection-editor-empty"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesomeMotion" /><strong>Automatic cover</strong><span>The Gallery uses its cover item and falls back to the newest matching photo.</span></div>
+                        </MediaEditorPanel></div>
+                    }
+                    else if (_activeTab == "membership")
+                    {
+                        <div class="collection-editor-pane"><MediaEditorPanel Title="Membership" Description="Choose how photos and videos enter this Gallery.">
+                            <div class="collection-editor-membership-mode"><div class="collection-editor-membership-mode__options">
+                                <AppNativeButton Type="button" Class="@(!_smart ? "is-selected" : null)" OnClick="@(() => SetSmart(false))">Manual</AppNativeButton>
+                                <AppNativeButton Type="button" Class="@(_smart ? "is-selected" : null)" OnClick="@(() => SetSmart(true))">Smart</AppNativeButton>
+                            </div></div>
+                        </MediaEditorPanel>
+                        @if (_smart)
+                        {
+                            <ViewRuleBuilder Definition="@_rules" DefinitionChanged="RulesChanged" />
+                        }
+                        else
+                        {
+                            <MediaEditorPanel Title="Manual items" Description="Use Add to Gallery from View to add or remove selected photos and videos.">
+                                <div class="collection-editor-empty"><MudIcon Icon="@Icons.Material.Outlined.AddPhotoAlternate" /><span>Manual membership stays available as a quick action throughout View.</span></div>
+                            </MediaEditorPanel>
+                        }
+                        </div>
+                    }
+                    else if (_activeTab == "soundtrack")
+                    {
+                        <div class="collection-editor-pane"><MediaEditorPanel Title="Soundtrack" Description="Optional music can enrich this Gallery without becoming a Gallery item.">
+                            <AppSelect T="string" Value="@_soundtrackPlaylistValue" ValueChanged="SoundtrackChanged" Label="Playlist" Variant="Variant.Outlined">
+                                <MudSelectItem T="string" Value="@(string.Empty)">No soundtrack</MudSelectItem>
+                                @foreach (var playlist in _playlists)
+                                {
+                                    <MudSelectItem T="string" Value="@(playlist.Id.ToString("D"))">@playlist.Name</MudSelectItem>
+                                }
+                            </AppSelect>
+                            @if (_playlists.Count == 0)
+                            {
+                                <AppAlert Tone="AppUiTone.Info">Create a playlist in Listen before linking a Gallery soundtrack.</AppAlert>
+                            }
+                            else
+                            {
+                                <small>The linked playlist remains managed in Listen and does not count toward Gallery membership.</small>
+                            }
+                        </MediaEditorPanel></div>
+                    }
+                    else
+                    {
+                        <div class="collection-editor-pane"><MediaEditorPanel Title="History" Description="Gallery changes and system activity.">
+                            <div class="collection-editor-history-entry"><MudIcon Icon="@Icons.Material.Outlined.AddCircleOutline" /><div><strong>Gallery created</strong><span>@Request.EditingGallery?.CreatedAt.ToLocalTime().ToString("f")</span></div></div>
+                        </MediaEditorPanel></div>
+                    }
+                </div>
+                <footer class="sme-footer collection-editor-footer">
+                    <div></div><div class="collection-editor-footer-actions"><AppButton ButtonStyle="AppButtonStyle.Text" OnClick="Cancel">Cancel</AppButton><AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@_saving" OnClick="SaveAsync">@(IsEditing ? "Save" : "Create Gallery")</AppButton></div>
+                </footer>
+            </main>
+        </div>
+    </div>
+</MediaEditorSurface>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
+    [Parameter] public GalleryEditorLaunchRequest Request { get; set; } = new();
+    private static readonly (string Id, string Label, string Icon)[] Tabs =
+    [
+        ("details", "Details", Icons.Material.Outlined.Article),
+        ("artwork", "Artwork", Icons.Material.Outlined.PhotoLibrary),
+        ("membership", "Membership", Icons.Material.Outlined.Inventory2),
+        ("soundtrack", "Soundtrack", Icons.Material.Outlined.MusicNote),
+        ("history", "History", Icons.Material.Outlined.History),
+    ];
+    private IEnumerable<(string Id, string Label, string Icon)> VisibleTabs => Tabs.Where(tab => IsEditing || tab.Id != "history");
+    private bool IsEditing => Request.EditingGallery is not null;
+    private string _activeTab = "details";
+    private string _name = string.Empty;
+    private string? _description;
+    private bool _smart;
+    private bool _saving;
+    private string _soundtrackPlaylistValue = string.Empty;
+    private List<ManagedCollectionViewModel> _playlists = [];
+    private CollectionRuleDefinitionViewModel _rules = EmptyRules();
+
+    protected override void OnInitialized()
+    {
+        _name = Request.EditingGallery?.Name ?? string.Empty;
+        _description = Request.EditingGallery?.Description;
+        _smart = Request.EditingGallery?.Kind == ViewGalleryKind.Smart || string.Equals(Request.InitialMembershipMode, "Smart", StringComparison.OrdinalIgnoreCase);
+        _soundtrackPlaylistValue = Request.EditingGallery?.SoundtrackPlaylistId?.ToString("D") ?? string.Empty;
+        if (_smart && Request.EditingGallery is not null)
+            _rules = ParseRules(Request.EditingGallery.SmartRuleJson);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var activeProfile = await Orchestrator.GetActiveProfileAsync();
+        _playlists = (await ApiClient.GetManagedCollectionsAsync(activeProfile?.Id))
+            .Where(collection => collection.IsEnabled
+                && (string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(collection => collection.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private string TabClass(string id) => id == _activeTab ? "app-selection-nav__item sme-section-nav__item is-active" : "app-selection-nav__item sme-section-nav__item";
+    private void SetSmart(bool value) => _smart = value;
+    private Task SoundtrackChanged(string value) { _soundtrackPlaylistValue = value; return Task.CompletedTask; }
+    private Task RulesChanged(CollectionRuleDefinitionViewModel value) { _rules = value; return Task.CompletedTask; }
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_name)) { Snackbar.Add("Enter a Gallery name.", Severity.Warning); _activeTab = "details"; return; }
+        var ruleJson = _smart ? SerializeRules(_rules) : null;
+        if (_smart && ruleJson is null) { Snackbar.Add("A Smart Gallery needs at least one complete rule.", Severity.Warning); _activeTab = "membership"; return; }
+        _saving = true;
+        var soundtrackPlaylistId = Guid.TryParse(_soundtrackPlaylistValue, out var parsedPlaylistId) ? parsedPlaylistId : (Guid?)null;
+        var request = new ViewGalleryRequest(_name.Trim(), _smart ? ViewGalleryKind.Smart : ViewGalleryKind.Manual,
+            _description, ruleJson, Request.EditingGallery?.CoverItemId,
+            Request.EditingGallery?.SortOrder ?? 0, soundtrackPlaylistId);
+        var saved = IsEditing ? await ApiClient.UpdateViewGalleryAsync(Request.EditingGallery!.Id, request) : await ApiClient.CreateViewGalleryAsync(request);
+        _saving = false;
+        if (saved is null) { Snackbar.Add("The Gallery could not be saved.", Severity.Error); return; }
+        Snackbar.Add(IsEditing ? "Gallery updated." : "Gallery created.", Severity.Success);
+        MudDialog?.Close(DialogResult.Ok(true));
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (!IsEditing || !await ApiClient.DeleteViewGalleryAsync(Request.EditingGallery!.Id)) { Snackbar.Add("The Gallery could not be deleted.", Severity.Error); return; }
+        Snackbar.Add("Gallery deleted. Original media was kept.", Severity.Success);
+        MudDialog?.Close(DialogResult.Ok(true));
+    }
+
+    private static bool Complete(CollectionRulePredicateViewModel rule) => !string.IsNullOrWhiteSpace(rule.Field) && (rule.Op is "known" or "unknown" or "has_any_value" or "has_no_known_value" || !string.IsNullOrWhiteSpace(rule.Value) || rule.Values is { Length: > 0 });
+    private static string? SerializeRules(CollectionRuleDefinitionViewModel source)
+    {
+        var groups = source.Groups.Select(group => new CollectionRuleGroupDto { Id = group.Id, JoinWithPrevious = group.JoinWithPrevious, MatchMode = group.MatchMode, Conditions = group.Conditions.Where(Complete).Select(condition => new CollectionRulePredicateDto { Field = condition.Field, Op = condition.Op, Value = condition.Value, DisplayValue = condition.DisplayValue, Values = condition.Values, DisplayValues = condition.DisplayValues }).ToList() }).Where(group => group.Conditions.Count > 0).ToList();
+        return groups.Count == 0 ? null : JsonSerializer.Serialize(new CollectionRuleDefinitionDto { Version = 1, Groups = groups });
+    }
+    private static CollectionRuleDefinitionViewModel ParseRules(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return EmptyRules();
+        try
+        {
+            var dto = JsonSerializer.Deserialize<CollectionRuleDefinitionDto>(json, MediaEngineJson.CaseInsensitive);
+            return dto is null ? EmptyRules() : new CollectionRuleDefinitionViewModel { Version = dto.Version, Groups = dto.Groups.Select(group => new CollectionRuleGroupViewModel { Id = group.Id, JoinWithPrevious = group.JoinWithPrevious, MatchMode = group.MatchMode, Conditions = group.Conditions.Select(rule => new CollectionRulePredicateViewModel { Field = rule.Field, Op = rule.Op, Value = rule.Value, DisplayValue = rule.DisplayValue, Values = rule.Values, DisplayValues = rule.DisplayValues }).ToList() }).ToList() };
+        }
+        catch (JsonException) { return EmptyRules(); }
+    }
+    private static CollectionRuleDefinitionViewModel EmptyRules() => new() { Groups = [new CollectionRuleGroupViewModel { Conditions = [new CollectionRulePredicateViewModel()] }] };
+}

@@ -132,6 +132,10 @@ CREATE TABLE IF NOT EXISTS collections (
     icon_name         TEXT,
     scope             TEXT NOT NULL DEFAULT 'library',
     profile_id        BLOB REFERENCES profiles(id) ON DELETE CASCADE,
+    membership_mode   TEXT NOT NULL DEFAULT 'Smart' CHECK(membership_mode IN ('Manual','Smart')),
+    primary_area      TEXT NOT NULL DEFAULT 'Mixed' CHECK(primary_area IN ('Read','Watch','Listen','Mixed')),
+    owner_kind        TEXT NOT NULL DEFAULT 'Library' CHECK(owner_kind IN ('Profile','Library')),
+    audience          TEXT NOT NULL DEFAULT 'Everyone' CHECK(audience IN ('Private','SelectedProfiles','Everyone')),
     is_enabled        INTEGER NOT NULL DEFAULT 1,
     is_featured       INTEGER NOT NULL DEFAULT 0,
     min_items         INTEGER NOT NULL DEFAULT 0,
@@ -143,6 +147,13 @@ CREATE TABLE IF NOT EXISTS collections (
     universe_status   TEXT NOT NULL DEFAULT 'Unknown',
     created_at        TEXT NOT NULL DEFAULT (datetime('now'))
 , resolution TEXT NOT NULL DEFAULT 'query', rule_hash TEXT, group_by_field TEXT, match_mode TEXT NOT NULL DEFAULT 'all', sort_field TEXT, sort_direction TEXT NOT NULL DEFAULT 'desc', secondary_sort_field TEXT, secondary_sort_direction TEXT, cover_artwork_path TEXT, cover_artwork_mime_type TEXT, background_artwork_path TEXT, background_artwork_mime_type TEXT, banner_artwork_path TEXT, banner_artwork_mime_type TEXT, logo_artwork_path TEXT, logo_artwork_mime_type TEXT);
+
+CREATE TABLE IF NOT EXISTS collection_profile_audience (
+    collection_id BLOB NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    profile_id    BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY(collection_id, profile_id)
+);
 
 CREATE TABLE IF NOT EXISTS deferred_enrichment_queue (
     id           BLOB NOT NULL PRIMARY KEY,
@@ -856,6 +867,7 @@ CREATE TABLE IF NOT EXISTS view_galleries (
     gallery_kind        TEXT NOT NULL CHECK (gallery_kind IN ('manual', 'smart')),
     smart_rule_json     TEXT CHECK (smart_rule_json IS NULL OR json_valid(smart_rule_json)),
     cover_item_id       BLOB REFERENCES local_items(id) ON DELETE SET NULL,
+    soundtrack_playlist_id BLOB REFERENCES collections(id) ON DELETE SET NULL,
     sort_order          INTEGER NOT NULL DEFAULT 0,
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL,

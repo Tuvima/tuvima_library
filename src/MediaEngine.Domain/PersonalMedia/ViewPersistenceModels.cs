@@ -124,7 +124,8 @@ public sealed record ViewGallery(
     int SortOrder,
     int ItemCount,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    Guid? SoundtrackPlaylistId = null);
 
 public sealed record CreateViewGalleryCommand(
     Guid OwnerProfileId,
@@ -134,7 +135,8 @@ public sealed record CreateViewGalleryCommand(
     string? Description = null,
     string? SmartRuleJson = null,
     Guid? CoverItemId = null,
-    int SortOrder = 0);
+    int SortOrder = 0,
+    Guid? SoundtrackPlaylistId = null);
 
 public sealed record UpdateViewGalleryCommand(
     Guid GalleryId,
@@ -143,7 +145,8 @@ public sealed record UpdateViewGalleryCommand(
     ViewGalleryKind Kind,
     string? SmartRuleJson,
     Guid? CoverItemId,
-    int SortOrder);
+    int SortOrder,
+    Guid? SoundtrackPlaylistId = null);
 
 public sealed record ViewGalleryItem(
     Guid GalleryId,

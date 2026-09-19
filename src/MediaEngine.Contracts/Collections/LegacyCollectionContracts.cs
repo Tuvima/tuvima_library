@@ -144,6 +144,11 @@ public sealed class CollectionCreateRequest
     [JsonPropertyName("visibility")] public string Visibility { get; init; } = "private";
     [JsonPropertyName("icon_name")] public string? IconName { get; init; }
     [JsonPropertyName("collection_type")] public string CollectionType { get; init; } = "Custom";
+    [JsonPropertyName("membership_mode")] public string MembershipMode { get; init; } = "Manual";
+    [JsonPropertyName("primary_area")] public string PrimaryArea { get; init; } = "Mixed";
+    [JsonPropertyName("owner_kind")] public string OwnerKind { get; init; } = "Profile";
+    [JsonPropertyName("audience")] public string Audience { get; init; } = "Private";
+    [JsonPropertyName("selected_profile_ids")] public List<Guid> SelectedProfileIds { get; init; } = [];
     [JsonPropertyName("rule_definition")] public CollectionRuleDefinitionDto RuleDefinition { get; init; } = new();
     [JsonPropertyName("sort_field")] public string? SortField { get; init; }
     [JsonPropertyName("sort_direction")] public string SortDirection { get; init; } = "desc";
@@ -168,6 +173,11 @@ public sealed class CollectionUpdateRequest
     [JsonPropertyName("description")] public string? Description { get; init; }
     [JsonPropertyName("visibility")] public string? Visibility { get; init; }
     [JsonPropertyName("icon_name")] public string? IconName { get; init; }
+    [JsonPropertyName("membership_mode")] public string? MembershipMode { get; init; }
+    [JsonPropertyName("primary_area")] public string? PrimaryArea { get; init; }
+    [JsonPropertyName("owner_kind")] public string? OwnerKind { get; init; }
+    [JsonPropertyName("audience")] public string? Audience { get; init; }
+    [JsonPropertyName("selected_profile_ids")] public List<Guid>? SelectedProfileIds { get; init; }
     [JsonPropertyName("rule_definition")] public CollectionRuleDefinitionDto? RuleDefinition { get; init; }
     [JsonPropertyName("sort_field")] public string? SortField { get; init; }
     [JsonPropertyName("sort_direction")] public string? SortDirection { get; init; }

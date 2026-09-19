@@ -48,6 +48,37 @@ public enum CollectionScope
     User,
 }
 
+/// <summary>How membership in a user-authored container is maintained.</summary>
+public enum ContainerMembershipMode
+{
+    Manual,
+    Smart,
+}
+
+/// <summary>The product surface where a curated Collection primarily appears.</summary>
+public enum CollectionPrimaryArea
+{
+    Read,
+    Watch,
+    Listen,
+    Mixed,
+}
+
+/// <summary>The durable owner boundary for a user-authored container.</summary>
+public enum ContainerOwnerKind
+{
+    Profile,
+    Library,
+}
+
+/// <summary>The audience allowed to discover a user-authored container.</summary>
+public enum ContainerAudience
+{
+    Private,
+    SelectedProfiles,
+    Everyone,
+}
+
 /// <summary>How multiple collection rules are combined.</summary>
 public enum CollectionMatchMode
 {

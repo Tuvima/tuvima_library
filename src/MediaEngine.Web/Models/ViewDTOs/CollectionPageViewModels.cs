@@ -7,11 +7,16 @@ public sealed class CollectionListItemViewModel
     public string Name { get; init; } = "";
     public string? Description { get; init; }
     public string? IconName { get; init; }
-    public string CollectionType { get; init; } = "Smart";
+    public string CollectionType { get; init; } = "Custom";
     public string Resolution { get; init; } = "query";
     public string Scope { get; init; } = "library";
     public Guid? ProfileId { get; init; }
     public string Visibility { get; init; } = "private";
+    public string MembershipMode { get; init; } = "Manual";
+    public string PrimaryArea { get; init; } = "Mixed";
+    public string OwnerKind { get; init; } = "Profile";
+    public string Audience { get; init; } = "Private";
+    public IReadOnlyList<Guid> SelectedProfileIds { get; init; } = [];
     public bool IsEnabled { get; init; } = true;
     public bool IsFeatured { get; init; }
     public int ItemCount { get; init; }

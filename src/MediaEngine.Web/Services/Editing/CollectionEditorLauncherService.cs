@@ -29,20 +29,14 @@ public sealed class CollectionEditorLauncherService
     public async Task<bool> OpenAsync(CollectionEditorLaunchRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var isManualPlaylist = request.Mode == CollectionEditorMode.ManualPlaylist;
-        var isSmartPlaylist = request.Mode == CollectionEditorMode.SmartPlaylist;
+        var isPlaylist = request.Kind == ContainerEditorKind.Playlist;
 
-        if (!isManualPlaylist && !isSmartPlaylist && _administratorAccess is not null && !await _administratorAccess.EnsureUnlockedAsync())
+        if (!isPlaylist && _administratorAccess is not null && !await _administratorAccess.EnsureUnlockedAsync())
         {
             return false;
         }
 
-        if (request.EditingCollection is null && request.Mode == CollectionEditorMode.CuratedCollection)
-        {
-            return await OpenGuidedSetupAsync(request);
-        }
-
-        var isCollectionEditor = !isManualPlaylist && !isSmartPlaylist;
+        var isCollectionEditor = !isPlaylist;
         var dialog = await _dialogService.ShowAsync<CollectionEditorShell>(
             EditDialogTitleFor(request),
             new DialogParameters
@@ -53,35 +47,8 @@ public sealed class CollectionEditorLauncherService
             {
                 CloseButton = false,
                 NoHeader = true,
-                MaxWidth = isCollectionEditor ? MaxWidth.ExtraLarge : isManualPlaylist ? MaxWidth.Small : MaxWidth.Medium,
-                FullWidth = isCollectionEditor,
-                BackdropClick = false,
-                CloseOnEscapeKey = true,
-            });
-
-        if (dialog is null)
-        {
-            return false;
-        }
-
-        var result = await dialog.Result;
-        return result is not null && !result.Canceled;
-    }
-
-    private async Task<bool> OpenGuidedSetupAsync(CollectionEditorLaunchRequest request)
-    {
-        var dialog = await _dialogService.ShowAsync<CollectionWizard>(
-            DialogTitleFor(request),
-            new DialogParameters
-            {
-                { nameof(CollectionWizard.Request), request },
-            },
-            new DialogOptions
-            {
-                CloseButton = false,
-                NoHeader = true,
-                MaxWidth = request.Mode == CollectionEditorMode.CuratedCollection ? MaxWidth.ExtraLarge : MaxWidth.Medium,
-                FullWidth = request.Mode == CollectionEditorMode.CuratedCollection,
+                MaxWidth = MaxWidth.ExtraLarge,
+                FullWidth = true,
                 BackdropClick = false,
                 CloseOnEscapeKey = true,
             });
@@ -96,18 +63,18 @@ public sealed class CollectionEditorLauncherService
     }
 
     private static string DialogTitleFor(CollectionEditorLaunchRequest request) =>
-        request.Mode switch
+        request.Kind switch
         {
-            CollectionEditorMode.ManualPlaylist => "New Playlist",
-            CollectionEditorMode.SmartPlaylist => "New Smart Playlist",
+            ContainerEditorKind.Playlist => "New Playlist",
+            ContainerEditorKind.Gallery => "New Gallery",
             _ => "New Collection",
         };
 
     private static string EditDialogTitleFor(CollectionEditorLaunchRequest request) =>
-        request.Mode switch
+        request.Kind switch
         {
-            CollectionEditorMode.ManualPlaylist => "Playlist",
-            CollectionEditorMode.SmartPlaylist => "Edit Smart Playlist",
+            ContainerEditorKind.Playlist => "Edit Playlist",
+            ContainerEditorKind.Gallery => "Edit Gallery",
             _ => "Edit Collection",
         };
 }

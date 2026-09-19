@@ -323,9 +323,8 @@
         var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
         {
             ActiveProfileId = _activeProfileId,
-            Mode = CollectionEditorMode.SmartPlaylist,
-            InitialCollectionType = "Smart",
-            InitialRulesEnabled = true,
+            Kind = ContainerEditorKind.Playlist,
+            InitialMembershipMode = "Smart",
         });
         if (changed)
             await ReloadPlaylistsAsync();
@@ -407,9 +406,11 @@
     }
 
     private static bool IsManualPlaylist(ManagedCollectionViewModel playlist) =>
-        string.Equals(playlist.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
+        string.Equals(playlist.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(playlist.MembershipMode, "Smart", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSmartPlaylist(ManagedCollectionViewModel playlist) =>
-        string.Equals(playlist.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase);
+        string.Equals(playlist.MembershipMode, "Smart", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(playlist.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase);
 
 }

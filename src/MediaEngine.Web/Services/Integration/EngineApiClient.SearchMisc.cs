@@ -612,8 +612,51 @@ public sealed partial class EngineApiClient
         Guid? profileId = null,
         CancellationToken ct = default,
         string? secondarySortField = null,
-        string? secondarySortDirection = null)
-        => await CreateCollectionWithItemsAsync(name, description, iconName, collectionType, definition, sortField, sortDirection, visibility, [], profileId, ct, secondarySortField, secondarySortDirection);
+        string? secondarySortDirection = null,
+        string membershipMode = "Manual",
+        string primaryArea = "Mixed",
+        string ownerKind = "Profile",
+        string audience = "Private",
+        IReadOnlyList<Guid>? selectedProfileIds = null)
+    {
+        try
+        {
+            var body = new CollectionCreateRequest
+            {
+                Name = name,
+                Description = description,
+                IconName = iconName,
+                Visibility = visibility,
+                CollectionType = collectionType,
+                MembershipMode = membershipMode,
+                PrimaryArea = primaryArea,
+                OwnerKind = ownerKind,
+                Audience = audience,
+                SelectedProfileIds = selectedProfileIds?.Where(id => id != Guid.Empty).Distinct().ToList() ?? [],
+                RuleDefinition = ToContract(definition),
+                SortField = sortField,
+                SortDirection = sortDirection,
+                SecondarySortField = secondarySortField,
+                SecondarySortDirection = secondarySortDirection,
+            };
+            var response = await _http.PostAsJsonAsync(AppendCollectionProfileQuery("/collections", profileId), body, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                LastError = await ReadCollectionFailureAsync(response, ct);
+                return null;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<CollectionCreatedResponse>(cancellationToken: ct);
+            LastError = result is null ? "The Engine returned an empty response after creating the collection." : null;
+            return result?.id;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /collections failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
 
     public async Task<Guid?> CreateCollectionWithItemsAsync(
         string name,
@@ -709,7 +752,12 @@ public sealed partial class EngineApiClient
         Guid? profileId = null,
         CancellationToken ct = default,
         string? secondarySortField = null,
-        string? secondarySortDirection = null)
+        string? secondarySortDirection = null,
+        string? membershipMode = null,
+        string? primaryArea = null,
+        string? ownerKind = null,
+        string? audience = null,
+        IReadOnlyList<Guid>? selectedProfileIds = null)
     {
         try
         {
@@ -719,6 +767,11 @@ public sealed partial class EngineApiClient
                 Description = description,
                 IconName = iconName,
                 Visibility = visibility,
+                MembershipMode = membershipMode,
+                PrimaryArea = primaryArea,
+                OwnerKind = ownerKind,
+                Audience = audience,
+                SelectedProfileIds = selectedProfileIds?.Where(id => id != Guid.Empty).Distinct().ToList(),
                 RuleDefinition = definition is null ? null : ToContract(definition),
                 SortField = sortField,
                 SortDirection = sortDirection,

@@ -14,7 +14,7 @@ public static class CollectionAccessPolicy
             : PrivateVisibility;
 
     public static string ResolveVisibility(Collection collection) =>
-        collection.Scope == CollectionScope.Library
+        collection.OwnerKind == ContainerOwnerKind.Library || collection.Audience == ContainerAudience.Everyone
             ? SharedVisibility
             : PrivateVisibility;
 
@@ -26,14 +26,19 @@ public static class CollectionAccessPolicy
 
     public static bool CanAccess(Collection collection, Profile? activeProfile)
     {
-        if (collection.Scope == CollectionScope.Library)
+        if (collection.OwnerKind == ContainerOwnerKind.Library || collection.Audience == ContainerAudience.Everyone)
         {
             return true;
         }
 
-        return activeProfile is not null
-            && collection.Scope == CollectionScope.User
-            && collection.ProfileId == activeProfile.Id;
+        if (activeProfile is null || collection.Scope != CollectionScope.User)
+        {
+            return false;
+        }
+
+        return collection.ProfileId == activeProfile.Id
+            || collection.Audience == ContainerAudience.SelectedProfiles
+               && collection.AudienceProfileIds.Contains(activeProfile.Id);
     }
 
     public static bool CanEdit(
@@ -46,7 +51,7 @@ public static class CollectionAccessPolicy
             return false;
         }
 
-        if (collection.CollectionType == CollectionType.Custom)
+        if (collection.OwnerKind == ContainerOwnerKind.Library)
         {
             return CanManageCuratedCollections(hasCollectionsWrite);
         }
@@ -64,7 +69,7 @@ public static class CollectionAccessPolicy
     public static bool IsManagedCollectionType(CollectionType collectionType) =>
         collectionType is CollectionType.Custom
             or CollectionType.Playlist
-            or CollectionType.Smart
+            or CollectionType.Smart // Legacy rows remain editable and are normalized by the editor/API.
             or CollectionType.PlaylistFolder;
 
     public static bool IsManagedCollectionType(string collectionType) =>
@@ -72,6 +77,22 @@ public static class CollectionAccessPolicy
         || string.Equals(collectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
         || string.Equals(collectionType, "Smart", StringComparison.OrdinalIgnoreCase)
         || string.Equals(collectionType, "PlaylistFolder", StringComparison.OrdinalIgnoreCase);
+
+    public static void ApplyOwnership(Collection collection, Guid? activeProfileId)
+    {
+        if (collection.OwnerKind == ContainerOwnerKind.Library)
+        {
+            collection.Audience = ContainerAudience.Everyone;
+            collection.SetVisibility(CollectionScope.Library, profileId: null);
+            return;
+        }
+
+        collection.SetVisibility(CollectionScope.User, activeProfileId);
+        if (collection.Audience == ContainerAudience.Everyone)
+        {
+            collection.Audience = ContainerAudience.Private;
+        }
+    }
 
     public static void ApplyVisibility(Collection collection, string visibility, Guid? activeProfileId)
     {

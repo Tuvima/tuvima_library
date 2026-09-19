@@ -34,7 +34,7 @@ public class ManagedCollectionDto
     public string? LogoArtworkUrl { get; set; }
 
     [JsonPropertyName("collection_type")]
-    public string CollectionType { get; init; } = "Smart";
+    public string CollectionType { get; init; } = "Custom";
 
     [JsonPropertyName("scope")]
     public string Scope { get; init; } = "library";
@@ -44,6 +44,21 @@ public class ManagedCollectionDto
 
     [JsonPropertyName("visibility")]
     public string Visibility { get; init; } = "private";
+
+    [JsonPropertyName("membership_mode")]
+    public string MembershipMode { get; init; } = "Manual";
+
+    [JsonPropertyName("primary_area")]
+    public string PrimaryArea { get; init; } = "Mixed";
+
+    [JsonPropertyName("owner_kind")]
+    public string OwnerKind { get; init; } = "Profile";
+
+    [JsonPropertyName("audience")]
+    public string Audience { get; init; } = "Private";
+
+    [JsonPropertyName("selected_profile_ids")]
+    public IReadOnlyList<Guid> SelectedProfileIds { get; init; } = [];
 
     [JsonPropertyName("is_enabled")]
     public bool IsEnabled { get; init; } = true;

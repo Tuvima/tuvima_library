@@ -97,13 +97,10 @@
                         case "artwork-logo":
                             @RenderArtworkTab()
                             break;
-                        case "rules":
-                            @RenderRulesTab()
+                        case "membership":
+                            @RenderMembershipTab()
                             break;
-                        case "items":
-                            @RenderItemsTab()
-                            break;
-                        case "personal-media":
+                        case "companions":
                             break;
                         case "history":
                             @RenderHistoryTab()
@@ -115,7 +112,7 @@
 
                     @if (!IsPlaylistDialog)
                     {
-                        <div hidden="@(!string.Equals(_activeTab, "personal-media", StringComparison.OrdinalIgnoreCase))">
+                        <div hidden="@(!string.Equals(_activeTab, "companions", StringComparison.OrdinalIgnoreCase))">
                             <CollectionPersonalMediaSection @ref="_personalMediaSection"
                                                             CollectionId="@(EditingCollection?.Id ?? _createdCollectionId)"
                                                             Changed="MarkDirtyAsync" />
@@ -160,9 +157,8 @@
     [
         ("details", "Details", Icons.Material.Outlined.Article),
         ("artwork", "Artwork", Icons.Material.Outlined.PhotoLibrary),
-        ("items", "Contents", Icons.Material.Outlined.Inventory2),
-        ("rules", "Rules", Icons.Material.Outlined.FilterAlt),
-        ("personal-media", "Personal media", Icons.Material.Outlined.PhotoLibrary),
+        ("membership", "Membership", Icons.Material.Outlined.Inventory2),
+        ("companions", "Companions", Icons.Material.Outlined.Link),
         ("history", "History", Icons.Material.Outlined.History),
     ];
     private static readonly (string Id, string Slot, string Label, string Icon)[] ArtworkTabs =
@@ -171,8 +167,13 @@
         ("artwork-background", "background", "Background", Icons.Material.Outlined.Panorama),
         ("artwork-logo", "logo", "Logo", Icons.Material.Outlined.BrandingWatermark),
     ];
-    private static readonly (string Id, string Label, string Icon)[] PlaylistTabs = [("details", "Details", Icons.Material.Outlined.Article)];
-    private static readonly (string Id, string Label, string Icon)[] SmartPlaylistTabs = [("details", "Details", Icons.Material.Outlined.Article)];
+    private static readonly (string Id, string Label, string Icon)[] PlaylistTabs =
+    [
+        ("details", "Details", Icons.Material.Outlined.Article),
+        ("artwork", "Artwork", Icons.Material.Outlined.PhotoLibrary),
+        ("membership", "Membership", Icons.Material.Outlined.Inventory2),
+        ("history", "History", Icons.Material.Outlined.History),
+    ];
     private static readonly (string Label, string Icon)[] IconChoices =
     [
         ("Playlist", Icons.Material.Outlined.QueueMusic),
@@ -186,10 +187,11 @@
     ];
 
     private CollectionListItemViewModel? EditingCollection => Request.EditingCollection;
-    private bool IsPlaylistLaunch => Request.Mode == CollectionEditorMode.ManualPlaylist;
-    private bool IsSmartPlaylistLaunch => Request.Mode == CollectionEditorMode.SmartPlaylist;
-    private bool IsPlaylistDialog => IsPlaylistLaunch || IsSmartPlaylistLaunch;
-    private (string Id, string Label, string Icon)[] VisibleTabs => IsPlaylistLaunch ? PlaylistTabs : IsSmartPlaylistLaunch ? SmartPlaylistTabs : Tabs;
+    private bool IsPlaylistDialog => Request.Kind == ContainerEditorKind.Playlist;
+    private (string Id, string Label, string Icon)[] VisibleTabs =>
+        (IsPlaylistDialog ? PlaylistTabs : Tabs)
+            .Where(tab => EditingCollection is not null || tab.Id != "history")
+            .ToArray();
 
     private string _activeTab = "details";
     private string _activeArtworkSlot = "poster";
@@ -201,6 +203,11 @@
     private readonly HashSet<string> _removedArtworkSlots = new(StringComparer.OrdinalIgnoreCase);
     private string _collectionType = "Custom";
     private bool _rulesEnabled = true;
+    private string _primaryArea = "Mixed";
+    private string _ownerKind = "Profile";
+    private string _audience = "Private";
+    private List<ProfileViewModel> _availableAudienceProfiles = [];
+    private readonly HashSet<Guid> _selectedProfileIds = [];
     private CollectionRuleDefinitionViewModel _ruleDefinition = new()
     {
         Groups = [new CollectionRuleGroupViewModel { Conditions = [new CollectionRulePredicateViewModel()] }],
@@ -222,9 +229,8 @@
     private Guid? _createdCollectionId;
 
     private bool IsPlaylist => string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
-    private bool IsSmartPlaylist => string.Equals(_collectionType, "Smart", StringComparison.OrdinalIgnoreCase);
-    private string PersistenceVisibility => IsPlaylistDialog || IsPlaylist || IsSmartPlaylist ? "private" : "shared";
-    private bool SupportsManualItems => IsPlaylist || !_rulesEnabled;
+    private string PersistenceVisibility => string.Equals(_audience, "Everyone", StringComparison.OrdinalIgnoreCase) ? "shared" : "private";
+    private bool SupportsManualItems => !_rulesEnabled;
     private bool CanDeleteCollection => EditingCollection is not null
         && EditingCollection.CollectionType is "Custom" or "Playlist" or "Smart";
     private string CollectionTypeIcon => !string.IsNullOrWhiteSpace(_iconName)
@@ -252,19 +258,15 @@
     }
     private string DialogEyebrow => IsPlaylistDialog ? "Playlist editor" : "Collection editor";
     private string DialogTitle => EditingCollection is not null
-        ? "Edit Collection"
-        : IsSmartPlaylistLaunch
-            ? "Smart Playlist"
-            : IsPlaylistLaunch
+        ? (IsPlaylistDialog ? "Edit Playlist" : "Edit Collection")
+        : IsPlaylistDialog
                 ? "New Playlist"
                 : "New Collection";
     private string EditorIdentityTitle => string.IsNullOrWhiteSpace(_name) ? DialogTitle : _name;
 
     private string HeaderSubtitle =>
-        IsSmartPlaylistLaunch
-            ? "Name it, then add the rules that keep it updated."
-            : IsPlaylistLaunch
-                ? "Name a playlist for this profile."
+        IsPlaylistDialog
+                ? "Create a playlist, then choose manual or smart membership."
                 : EditingCollection is null
                     ? "Create a saved collection using either live rules or manual membership."
                     : "Update the collection settings, rules, and saved items.";
@@ -279,9 +281,7 @@
                     : FormatMatchSummary(_previewResult);
     private string SaveButtonText => EditingCollection is not null
         ? "Save"
-        : IsSmartPlaylistLaunch
-            ? "Create Smart Playlist"
-            : IsPlaylistLaunch
+        : IsPlaylistDialog
                 ? "Create Playlist"
                 : "Create Collection";
 
@@ -298,8 +298,11 @@
         if (EditingCollection is null)
         {
             _name = Request.InitialTitle ?? string.Empty;
-            _collectionType = Request.InitialCollectionType ?? "Custom";
-            _rulesEnabled = Request.InitialRulesEnabled ?? !IsPlaylist;
+            _collectionType = IsPlaylistDialog ? "Playlist" : "Custom";
+            _rulesEnabled = string.Equals(Request.InitialMembershipMode, "Smart", StringComparison.OrdinalIgnoreCase);
+            _primaryArea = IsPlaylistDialog ? "Listen" : Request.InitialPrimaryArea;
+            _ownerKind = Request.InitialOwnerKind;
+            _audience = Request.InitialAudience;
             _iconName = DefaultIconForCollectionType(_collectionType);
             return;
         }
@@ -310,12 +313,17 @@
         _name = EditingCollection.Name;
         _description = EditingCollection.Description;
         _iconName = EditingCollection.IconName;
-        _collectionType = EditingCollection.CollectionType;
+        _collectionType = string.Equals(EditingCollection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase) ? "Playlist" : EditingCollection.CollectionType;
+        _primaryArea = EditingCollection.PrimaryArea;
+        _ownerKind = EditingCollection.OwnerKind;
+        _audience = EditingCollection.Audience;
+        _selectedProfileIds.UnionWith(EditingCollection.SelectedProfileIds);
         _sortField = EditingCollection.SortField ?? "title";
         _sortDirection = string.IsNullOrWhiteSpace(EditingCollection.SortDirection) ? "asc" : EditingCollection.SortDirection;
         _secondarySortField = EditingCollection.SecondarySortField;
         _secondarySortDirection = EditingCollection.SecondarySortDirection;
-        _rulesEnabled = !string.Equals(EditingCollection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase);
+        _rulesEnabled = string.Equals(EditingCollection.MembershipMode, "Smart", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(EditingCollection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase);
 
         if (string.IsNullOrWhiteSpace(EditingCollection.RuleJson))
             return;
@@ -356,8 +364,22 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (SupportsManualItems && !IsPlaylistDialog)
+        _availableAudienceProfiles = (await Orchestrator.GetProfilesAsync())
+            .Where(profile => profile.Id != Request.ActiveProfileId)
+            .OrderBy(profile => profile.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (SupportsManualItems)
             await LoadManualItemsAsync();
+    }
+
+    private Task SetAudienceProfileAsync(Guid profileId, bool selected)
+    {
+        if (selected)
+            _selectedProfileIds.Add(profileId);
+        else
+            _selectedProfileIds.Remove(profileId);
+        MarkDirty();
+        return Task.CompletedTask;
     }
 
     private Task OnTabChanged(int index)
@@ -744,14 +766,21 @@
         if (_rulesEnabled && !_ruleDefinition.AllConditions.Any(IsCompleteRule))
         {
             Snackbar.Add("Add at least one complete rule before saving a dynamic collection.", Severity.Warning);
-            _activeTab = "rules";
+            _activeTab = "membership";
+            return;
+        }
+
+        if (_ownerKind == "Profile" && _audience == "SelectedProfiles" && _selectedProfileIds.Count == 0)
+        {
+            Snackbar.Add("Choose at least one other profile to share this collection with.", Severity.Warning);
+            _activeTab = "details";
             return;
         }
 
         if (_personalMediaSection is not null && !_personalMediaSection.Validate(out var personalMediaError))
         {
-            Snackbar.Add(personalMediaError ?? "Complete the personal-media source before saving.", Severity.Warning);
-            _activeTab = "personal-media";
+            Snackbar.Add(personalMediaError ?? "Complete the companion source before saving.", Severity.Warning);
+            _activeTab = "companions";
             return;
         }
 
@@ -781,7 +810,12 @@
                     null,
                     Request.ActiveProfileId,
                     secondarySortField: _secondarySortField,
-                    secondarySortDirection: _secondarySortDirection);
+                    secondarySortDirection: _secondarySortDirection,
+                    membershipMode: _rulesEnabled ? "Smart" : "Manual",
+                    primaryArea: _primaryArea,
+                    ownerKind: _ownerKind,
+                    audience: _ownerKind == "Library" ? "Everyone" : _audience,
+                    selectedProfileIds: _selectedProfileIds.ToList());
             }
             else
             {
@@ -796,7 +830,12 @@
                     PersistenceVisibility,
                     Request.ActiveProfileId,
                     secondarySortField: _secondarySortField,
-                    secondarySortDirection: _secondarySortDirection);
+                    secondarySortDirection: _secondarySortDirection,
+                    membershipMode: _rulesEnabled ? "Smart" : "Manual",
+                    primaryArea: _primaryArea,
+                    ownerKind: _ownerKind,
+                    audience: _ownerKind == "Library" ? "Everyone" : _audience,
+                    selectedProfileIds: _selectedProfileIds.ToList());
                 _createdCollectionId = savedCollectionId;
                 ok = savedCollectionId.HasValue;
             }
@@ -821,7 +860,7 @@
                             ? "The Collection was saved, but its personal-media sources could not be saved. Try again."
                             : _personalMediaSection.LastError,
                         Severity.Error);
-                    _activeTab = "personal-media";
+                    _activeTab = "companions";
                     return;
                 }
 
@@ -1132,16 +1171,13 @@
                                   Immediate="true"
                                   Class="collection-editor-field" />
 
-                    @if (!IsSmartPlaylistLaunch)
-                    {
-                        <AppTextarea Value="@_description"
+                    <AppTextarea Value="@_description"
                                      ValueChanged="OnDescriptionChanged"
                                      Label="Description (optional)"
                                      Placeholder="Describe what belongs here"
                                      Lines="5"
                                      Immediate="true"
                                      Class="collection-editor-field collection-editor-field--multiline" />
-                    }
                 </MediaEditorPanel>
 
                 @if (!IsPlaylistDialog)
@@ -1190,11 +1226,57 @@
                         </AppSelect>
                     </MediaEditorPanel>
 
+                    <MediaEditorPanel Title="Ownership and visibility" Description="Keep this personal or publish it for the library.">
+                        <AppSelect T="string" @bind-Value="_ownerKind" Label="Owner" Variant="Variant.Outlined">
+                            <MudSelectItem T="string" Value="@("Profile")">My profile</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("Library")">Library</MudSelectItem>
+                        </AppSelect>
+                        @if (_ownerKind == "Profile")
+                        {
+                            <AppSelect T="string" @bind-Value="_audience" Label="Who can see this?" Variant="Variant.Outlined">
+                                <MudSelectItem T="string" Value="@("Private")">Only me</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("SelectedProfiles")">Selected profiles</MudSelectItem>
+                            </AppSelect>
+                            @if (_audience == "SelectedProfiles")
+                            {
+                                <div class="collection-editor-profile-picker" aria-label="Profiles who can see this collection">
+                                    @if (_availableAudienceProfiles.Count == 0)
+                                    {
+                                        <small>No other enabled profiles are available.</small>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var profile in _availableAudienceProfiles)
+                                        {
+                                            <AppCheckbox Value="@_selectedProfileIds.Contains(profile.Id)"
+                                                         ValueChanged="@(selected => SetAudienceProfileAsync(profile.Id, selected))"
+                                                         Label="@profile.DisplayName" />
+                                        }
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p>Library-owned collections are available to everyone.</p>
+                        }
+                    </MediaEditorPanel>
+
+                    @if (!IsPlaylistDialog)
+                    {
+                        <MediaEditorPanel Title="Primary area" Description="Choose where this collection is primarily discovered.">
+                            <AppSelect T="string" @bind-Value="_primaryArea" Label="Primary area" Variant="Variant.Outlined">
+                                <MudSelectItem T="string" Value="@("Watch")">Watch</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("Read")">Read</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("Listen")">Listen</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("Mixed")">Mixed</MudSelectItem>
+                            </AppSelect>
+                        </MediaEditorPanel>
+                    }
+
                 }
             </div>
 
-            @if (!IsSmartPlaylistLaunch || EditingCollection is not null)
-            {
             <div class="collection-editor-panel-stack">
                 <MediaEditorPanel Title="Membership summary" Description="A live view of what belongs to this collection.">
                     <div class="collection-editor-membership-summary">
@@ -1205,8 +1287,8 @@
                         <AppButton ButtonStyle="AppButtonStyle.Outlined"
                                    Tone="AppUiTone.Primary"
                                    StartIcon="@(SupportsManualItems ? Icons.Material.Outlined.Inventory2 : Icons.Material.Outlined.FilterAlt)"
-                                   OnClick="@(() => SetActiveTab(SupportsManualItems ? "items" : "rules"))">
-                            @(SupportsManualItems ? "Manage contents" : "Edit rules")
+                                   OnClick='@(() => SetActiveTab("membership"))'>
+                            Manage membership
                         </AppButton>
                     </div>
                 </MediaEditorPanel>
@@ -1222,13 +1304,8 @@
                     </MediaEditorPanel>
                 }
             </div>
-            }
         </div>
 
-        @if (IsSmartPlaylistLaunch)
-        {
-            @RenderRulesSection()
-        }
     </div>;
 
     private RenderFragment RenderArtworkTab() => @<div class="collection-editor-pane collection-editor-artwork-page">
@@ -1316,6 +1393,26 @@
 
     private RenderFragment RenderRulesTab() => @<div class="collection-editor-pane">
         @RenderRulesSection()
+    </div>;
+
+    private RenderFragment RenderMembershipTab() => @<div class="collection-editor-pane">
+        <MediaEditorPanel Title="Membership" Description="Choose whether you select items or let rules keep this up to date.">
+            <div class="collection-editor-membership-mode">
+                <div class="collection-editor-membership-mode__options" role="group" aria-label="Membership mode">
+                    <AppNativeButton Type="button" Class="@(!_rulesEnabled ? "is-selected" : null)" OnClick="@(() => SetMembershipModeAsync(false))">Manual</AppNativeButton>
+                    <AppNativeButton Type="button" Class="@(_rulesEnabled ? "is-selected" : null)" OnClick="@(() => SetMembershipModeAsync(true))">Smart</AppNativeButton>
+                </div>
+                <small>@(_rulesEnabled ? "Rules automatically include matching items." : "You choose and order every item.")</small>
+            </div>
+        </MediaEditorPanel>
+        @if (_rulesEnabled)
+        {
+            @RenderRulesSection()
+        }
+        else
+        {
+            @RenderItemsTab()
+        }
     </div>;
 
     private RenderFragment RenderRulesSection() => @<section class="collection-editor-section collection-editor-section--rules">

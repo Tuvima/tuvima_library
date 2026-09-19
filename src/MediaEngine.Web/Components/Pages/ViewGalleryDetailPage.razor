@@ -1,15 +1,14 @@
 @page "/view/galleries/{GalleryId:guid}"
-@using System.Text.Json
-@using MediaEngine.Contracts.Collections
 @using MediaEngine.Contracts.LocalAssets
 @using MediaEngine.Domain.PersonalMedia
-@using MediaEngine.Web.Components.Rules
+@using MediaEngine.Web.Services.Editing
 @inject IEngineApiClient ApiClient
 @inject ViewWorkspaceService Workspace
 @inject ISnackbar Snackbar
 @inject UIOrchestratorService Orchestrator
 @inject ViewMediaGrantService MediaGrants
 @inject NavigationManager Nav
+@inject GalleryEditorLauncherService GalleryEditorLauncher
 @namespace MediaEngine.Web.Components.Pages
 
 <PageTitle>@(_gallery is null ? "Gallery" : _gallery.Name) - Tuvima</PageTitle>
@@ -49,7 +48,7 @@
                     <div class="view-feature-page__actions" role="group" aria-label="Gallery management">
                         @if (_gallery.Kind == ViewGalleryKind.Smart)
                         {
-                            <AppButton Label="Rules" ButtonStyle="AppButtonStyle.Outlined" OnClick="OpenEdit" />
+                            <AppButton Label="Edit Gallery" ButtonStyle="AppButtonStyle.Outlined" OnClick="OpenEdit" />
                         }
                         @if (_shareTargets is not null)
                         {
@@ -100,35 +99,6 @@
                          ManualGalleries="@Workspace.OwnedGalleries.Where(gallery => gallery.Kind == ViewGalleryKind.Manual).ToList()"
                          OnAddToGallery="AddToGalleryAsync" />
 }
-
-<AppDialog @bind-Visible="_editOpen"
-           Title="Smart Gallery Rules"
-           Subtitle="Update the rules that keep this Gallery current."
-           Icon="@Icons.Material.Outlined.AutoAwesome"
-           Size="Large">
-    <ChildContent>
-        <AppForm>
-            <AppAlert Tone="AppUiTone.Info">
-                Smart Gallery membership remains rule-driven. Items cannot be added or removed manually.
-            </AppAlert>
-            <ViewRuleBuilder Definition="@_editRules" DefinitionChanged="EditRulesChanged" />
-            @if (!string.IsNullOrWhiteSpace(_editError))
-            {
-                <AppAlert Tone="AppUiTone.Error">@_editError</AppAlert>
-            }
-        </AppForm>
-    </ChildContent>
-    <FooterContent>
-        <AppActionBar>
-            <AppButton Label="Cancel" OnClick="@(() => _editOpen = false)" />
-            <AppButton Label="@(_savingEdit ? "Saving…" : "Save changes")"
-                       ButtonStyle="AppButtonStyle.Filled"
-                       Tone="AppUiTone.Primary"
-                       Disabled="@_savingEdit"
-                       OnClick="SaveEditAsync" />
-        </AppActionBar>
-    </FooterContent>
-</AppDialog>
 
 <AppDialog @bind-Visible="_shareOpen"
            Title="Share Gallery"
@@ -195,11 +165,6 @@
     private readonly HashSet<Guid> _selected = [];
     private Guid? _profileId;
     private bool _loading = true;
-
-    private bool _editOpen;
-    private bool _savingEdit;
-    private string? _editError;
-    private CollectionRuleDefinitionViewModel _editRules = EmptyRules();
 
     private bool _shareOpen;
     private bool _loadingShares;
@@ -290,62 +255,11 @@
         if (_active is not null) await ApiClient.AddViewGalleryItemsAsync(galleryId, [_active.Id]);
     }
 
-    private void OpenEdit()
+    private async Task OpenEdit()
     {
         if (!IsOwner || _gallery is null) return;
-        _editRules = _gallery.Kind == ViewGalleryKind.Smart
-            ? ParseRules(_gallery.SmartRuleJson)
-            : EmptyRules();
-        _editError = null;
-        _editOpen = true;
-    }
-
-    private Task EditRulesChanged(CollectionRuleDefinitionViewModel value)
-    {
-        _editRules = value;
-        return Task.CompletedTask;
-    }
-
-    private async Task SaveEditAsync()
-    {
-        if (!IsOwner || _gallery is null || _savingEdit) return;
-        var ruleJson = _gallery.Kind == ViewGalleryKind.Smart
-            ? SerializeRules(_editRules)
-            : null;
-        if (_gallery.Kind == ViewGalleryKind.Smart && ruleJson is null)
-        {
-            _editError = "A Smart Gallery needs at least one complete rule.";
-            return;
-        }
-
-        _savingEdit = true;
-        _editError = null;
-        try
-        {
-            var updated = await ApiClient.UpdateViewGalleryAsync(
-                GalleryId,
-                new ViewGalleryRequest(
-                    _gallery.Name,
-                    _gallery.Kind,
-                    _gallery.Description,
-                    ruleJson,
-                    _gallery.CoverItemId,
-                    _gallery.SortOrder));
-            if (updated is null)
-            {
-                _editError = "The Gallery could not be updated.";
-                return;
-            }
-
-            _gallery = updated;
-            _editOpen = false;
-            await Workspace.LoadGalleriesAsync(force: true);
-            Snackbar.Add("Gallery updated.", Severity.Success);
-        }
-        finally
-        {
-            _savingEdit = false;
-        }
+        if (await GalleryEditorLauncher.OpenAsync(new GalleryEditorLaunchRequest { EditingGallery = _gallery }))
+            await OnParametersSetAsync();
     }
 
     private async Task OpenShareAsync()
@@ -423,75 +337,6 @@
             _savingShares = false;
         }
     }
-
-    private static CollectionRuleDefinitionViewModel ParseRules(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return EmptyRules();
-        try
-        {
-            var source = JsonSerializer.Deserialize<CollectionRuleDefinitionDto>(json);
-            if (source is null) return EmptyRules();
-            return new CollectionRuleDefinitionViewModel
-            {
-                Version = source.Version,
-                Groups = source.Groups.Select(group => new CollectionRuleGroupViewModel
-                {
-                    Id = group.Id,
-                    JoinWithPrevious = group.JoinWithPrevious,
-                    MatchMode = group.MatchMode,
-                    Conditions = group.Conditions.Select(condition => new CollectionRulePredicateViewModel
-                    {
-                        Field = condition.Field,
-                        Op = condition.Op,
-                        Value = condition.Value,
-                        DisplayValue = condition.DisplayValue,
-                        Values = condition.Values,
-                        DisplayValues = condition.DisplayValues,
-                    }).ToList(),
-                }).ToList(),
-            };
-        }
-        catch (JsonException)
-        {
-            return EmptyRules();
-        }
-    }
-
-    private static string? SerializeRules(CollectionRuleDefinitionViewModel source)
-    {
-        var contract = new CollectionRuleDefinitionDto
-        {
-            Version = 1,
-            Groups = source.Groups.Select(group => new CollectionRuleGroupDto
-            {
-                Id = group.Id,
-                JoinWithPrevious = group.JoinWithPrevious,
-                MatchMode = group.MatchMode,
-                Conditions = group.Conditions.Where(IsCompleteRule).Select(condition => new CollectionRulePredicateDto
-                {
-                    Field = condition.Field,
-                    Op = condition.Op,
-                    Value = condition.Value,
-                    DisplayValue = condition.DisplayValue,
-                    Values = condition.Values,
-                    DisplayValues = condition.DisplayValues,
-                }).ToList(),
-            }).Where(group => group.Conditions.Count > 0).ToList(),
-        };
-        return contract.Groups.Count == 0 ? null : JsonSerializer.Serialize(contract);
-    }
-
-    private static bool IsCompleteRule(CollectionRulePredicateViewModel rule) =>
-        !string.IsNullOrWhiteSpace(rule.Field)
-        && (rule.Op is "known" or "unknown" or "has_any_value" or "has_no_known_value"
-            || !string.IsNullOrWhiteSpace(rule.Value)
-            || rule.Values is { Length: > 0 });
-
-    private static CollectionRuleDefinitionViewModel EmptyRules() => new()
-    {
-        Version = 1,
-        Groups = [new CollectionRuleGroupViewModel { Conditions = [new CollectionRulePredicateViewModel()] }],
-    };
 
     private string Thumbnail(LocalAssetDto item) => Resource(item, ViewMediaResourceKind.Thumbnail);
     private string Resource(LocalAssetDto item, ViewMediaResourceKind kind) =>

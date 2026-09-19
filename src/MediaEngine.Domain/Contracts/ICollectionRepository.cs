@@ -45,6 +45,13 @@ public interface ICollectionRepository
         CancellationToken ct = default) =>
         throw new NotSupportedException("This collection repository does not support atomic managed-collection creation.");
 
+    /// <summary>Replaces the selected-profile audience for one managed collection.</summary>
+    Task ReplaceAudienceProfileIdsAsync(
+        Guid collectionId,
+        IReadOnlyCollection<Guid> profileIds,
+        CancellationToken ct = default) =>
+        throw new NotSupportedException("This collection repository does not support selected-profile audiences.");
+
     /// <summary>
     /// Bulk-inserts collection relationship rows. Idempotent — duplicates are ignored.
     /// </summary>

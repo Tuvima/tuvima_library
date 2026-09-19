@@ -842,7 +842,8 @@ public static class ViewEndpoints
             {
                 var gallery = await repository.CreateAsync(new CreateViewGalleryCommand(
                     profileId, space.Id, request.Name, request.Kind,
-                    request.Description, request.SmartRuleJson, request.CoverItemId, request.SortOrder), ct);
+                    request.Description, request.SmartRuleJson, request.CoverItemId,
+                    request.SortOrder, request.SoundtrackPlaylistId), ct);
                 return Results.Created($"/view/galleries/{gallery.Id:D}", ToContract(gallery));
             }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
@@ -871,7 +872,8 @@ public static class ViewEndpoints
             {
                 var gallery = await repository.UpdateAsync(new UpdateViewGalleryCommand(
                     id, request.Name, request.Description, request.Kind,
-                    request.SmartRuleJson, request.CoverItemId, request.SortOrder), ct);
+                    request.SmartRuleJson, request.CoverItemId,
+                    request.SortOrder, request.SoundtrackPlaylistId), ct);
                 return gallery is null ? Missing() : Results.Ok(ToContract(gallery));
             }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
@@ -1173,7 +1175,7 @@ public static class ViewEndpoints
     private static ViewGalleryDto ToContract(ViewGallery value) =>
         new(value.Id, value.OwnerProfileId, value.PersonalSpaceId, value.Name,
             value.Description, value.Kind, value.SmartRuleJson, value.CoverItemId,
-            value.SortOrder, value.ItemCount, value.CreatedAt, value.UpdatedAt);
+            value.SortOrder, value.ItemCount, value.CreatedAt, value.UpdatedAt, value.SoundtrackPlaylistId);
 
     private static ViewGalleryItemPageDto ToContract(ViewGalleryItemPage value) =>
         new(value.Items.Select(item => new ViewGalleryItemDto(

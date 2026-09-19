@@ -1,4 +1,6 @@
 using Dapper;
+using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Storage.Contracts;
 
@@ -121,10 +123,25 @@ public sealed class ViewPersistenceRepositoryTests : IDisposable
         var first = await AddImageAsync(owner, '1', "first.jpg", new DateTimeOffset(2026, 8, 22, 12, 0, 0, TimeSpan.Zero));
         var second = await AddImageAsync(owner, '2', "second.jpg", new DateTimeOffset(2026, 8, 21, 12, 0, 0, TimeSpan.Zero));
         var foreign = await AddImageAsync(other, '3', "foreign.jpg", new DateTimeOffset(2026, 8, 20, 12, 0, 0, TimeSpan.Zero));
+        var soundtrack = new Collection
+        {
+            Id = Guid.NewGuid(),
+            DisplayName = "Family soundtrack",
+            CreatedAt = DateTimeOffset.UtcNow,
+            MembershipMode = ContainerMembershipMode.Manual,
+            OwnerKind = ContainerOwnerKind.Profile,
+            Audience = ContainerAudience.Private,
+        };
+        soundtrack.RestoreDefinition(CollectionType.Playlist, CollectionScope.User,
+            CollectionResolution.Materialized, CollectionMatchMode.All,
+            CollectionSortDirection.Asc, CollectionUniverseStatus.Unknown);
+        soundtrack.SetVisibility(CollectionScope.User, owner.ProfileId);
+        await new CollectionRepository(_database).CreateManagedCollectionAsync(soundtrack, []);
 
         var manual = await _galleries.CreateAsync(new CreateViewGalleryCommand(
             owner.ProfileId, owner.SpaceId, "Family", ViewGalleryKind.Manual,
-            CoverItemId: first.ItemId, SortOrder: 4));
+            CoverItemId: first.ItemId, SortOrder: 4, SoundtrackPlaylistId: soundtrack.Id));
+        Assert.Equal(soundtrack.Id, manual.SoundtrackPlaylistId);
         var firstAdd = await _galleries.AddItemsAsync(manual.Id, [first.ItemId, second.ItemId, first.ItemId]);
         Assert.Equal(2, firstAdd.Added);
         Assert.Equal(0, firstAdd.AlreadyPresent);
@@ -145,9 +162,11 @@ public sealed class ViewPersistenceRepositoryTests : IDisposable
         Assert.Equal(1, await _galleries.RemoveItemsAsync(manual.Id, [second.ItemId]));
         var updated = Assert.IsType<ViewGallery>(await _galleries.UpdateAsync(new UpdateViewGalleryCommand(
             manual.Id, "Family trips", "Updated", ViewGalleryKind.Manual, null,
-            first.ItemId, SortOrder: 2)));
+            first.ItemId, SortOrder: 2, SoundtrackPlaylistId: soundtrack.Id)));
         Assert.Equal("Family trips", updated.Name);
         Assert.Equal(2, updated.SortOrder);
+        Assert.Equal(soundtrack.Id, updated.SoundtrackPlaylistId);
+        Assert.Equal(soundtrack.Id, (await _galleries.GetAsync(manual.Id))!.SoundtrackPlaylistId);
 
         await _galleries.ReplaceSharesAsync(manual.Id,
             [(sharedProfileId, ViewGallerySharePermission.View)]);

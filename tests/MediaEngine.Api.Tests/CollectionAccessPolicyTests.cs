@@ -37,6 +37,17 @@ public sealed class CollectionAccessPolicyTests
     }
 
     [Fact]
+    public void CanAccess_AllowsProfilesIncludedInSelectedAudience()
+    {
+        var collection = CreateCollection(CollectionScope.User, OtherProfileId);
+        collection.Audience = ContainerAudience.SelectedProfiles;
+        collection.ReplaceAudienceProfiles([OwnerProfileId]);
+
+        Assert.True(CollectionAccessPolicy.CanAccess(collection, new Profile { Id = OwnerProfileId }));
+        Assert.False(CollectionAccessPolicy.CanAccess(collection, new Profile { Id = Guid.NewGuid() }));
+    }
+
+    [Fact]
     public void CanEdit_SharedCollectionsRequiresExplicitWriteDecision()
     {
         var sharedCollection = CreateCollection(CollectionScope.Library);
@@ -87,6 +98,12 @@ public sealed class CollectionAccessPolicyTests
         var collection = new Collection();
         collection.ClassifyAs(collectionType);
         collection.SetVisibility(scope, profileId);
+        collection.OwnerKind = scope == CollectionScope.Library
+            ? ContainerOwnerKind.Library
+            : ContainerOwnerKind.Profile;
+        collection.Audience = scope == CollectionScope.Library
+            ? ContainerAudience.Everyone
+            : ContainerAudience.Private;
         return collection;
     }
 }

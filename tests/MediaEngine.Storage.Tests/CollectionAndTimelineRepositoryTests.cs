@@ -98,6 +98,26 @@ public sealed class CollectionAndTimelineRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task SelectedProfileAudience_RoundTripsWithManagedCollections()
+    {
+        var repository = new CollectionRepository(_db);
+        var collection = CreateCollection("Family picks");
+        collection.ClassifyAs(CollectionType.Custom);
+        collection.OwnerKind = ContainerOwnerKind.Profile;
+        collection.Audience = ContainerAudience.SelectedProfiles;
+        var profileId = InsertProfile("Family member");
+
+        await repository.CreateManagedCollectionAsync(collection, []);
+        await repository.ReplaceAudienceProfileIdsAsync(collection.Id, [profileId]);
+
+        var saved = await repository.GetByIdAsync(collection.Id);
+        var listed = Assert.Single(await repository.GetManagedCollectionsAsync());
+
+        Assert.Equal(profileId, Assert.Single(saved!.AudienceProfileIds));
+        Assert.Equal(profileId, Assert.Single(listed.AudienceProfileIds));
+    }
+
+    [Fact]
     public async Task EntityTimelineRepository_RoundTripsEventsAndFieldChanges()
     {
         var repository = new EntityTimelineRepository(_db);
@@ -188,6 +208,22 @@ public sealed class CollectionAndTimelineRepositoryTests : IDisposable
         cmd.Parameters.AddWithValue("@ordinal", ordinal);
         cmd.ExecuteNonQuery();
         return workId;
+    }
+
+    private Guid InsertProfile(string displayName)
+    {
+        var profileId = Guid.NewGuid();
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO profiles (id, display_name, created_at)
+            VALUES (@id, @displayName, @createdAt);
+            """;
+        cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(profileId);
+        cmd.Parameters.AddWithValue("@displayName", displayName);
+        cmd.Parameters.AddWithValue("@createdAt", DateTimeOffset.UtcNow.ToString("O"));
+        cmd.ExecuteNonQuery();
+        return profileId;
     }
 
     private void InsertCanonicalValue(Guid entityId, string key, string value)

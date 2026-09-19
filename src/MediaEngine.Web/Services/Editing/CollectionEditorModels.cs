@@ -6,15 +6,17 @@ public sealed class CollectionEditorLaunchRequest
 {
     public CollectionListItemViewModel? EditingCollection { get; init; }
     public Guid? ActiveProfileId { get; init; }
-    public CollectionEditorMode Mode { get; init; } = CollectionEditorMode.CuratedCollection;
-    public string? InitialCollectionType { get; init; }
-    public bool? InitialRulesEnabled { get; init; }
+    public ContainerEditorKind Kind { get; init; } = ContainerEditorKind.Collection;
+    public string InitialMembershipMode { get; init; } = "Manual";
+    public string InitialPrimaryArea { get; init; } = "Mixed";
+    public string InitialOwnerKind { get; init; } = "Profile";
+    public string InitialAudience { get; init; } = "Private";
     public string? InitialTitle { get; init; }
 }
 
-public enum CollectionEditorMode
+public enum ContainerEditorKind
 {
-    CuratedCollection,
-    ManualPlaylist,
-    SmartPlaylist,
+    Collection,
+    Playlist,
+    Gallery,
 }

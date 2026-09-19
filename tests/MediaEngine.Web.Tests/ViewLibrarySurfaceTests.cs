@@ -72,11 +72,13 @@ public sealed class ViewLibrarySurfaceTests
     public void ViewCapabilityPages_DoNotPresentSyntheticMedia()
     {
         var galleries = Read("src/MediaEngine.Web/Components/Pages/ViewGalleriesPage.razor");
+        var galleryEditor = Read("src/MediaEngine.Web/Components/Collections/GalleryEditorShell.razor");
         var people = Read("src/MediaEngine.Web/Components/Pages/ViewPeoplePage.razor");
         var places = Read("src/MediaEngine.Web/Components/Pages/ViewPlacesPage.razor");
 
-        Assert.Contains("CreateViewGalleryAsync", galleries, StringComparison.Ordinal);
-        Assert.Contains("ViewRuleBuilder", galleries, StringComparison.Ordinal);
+        Assert.Contains("GalleryEditorLauncher.OpenAsync", galleries, StringComparison.Ordinal);
+        Assert.Contains("CreateViewGalleryAsync", galleryEditor, StringComparison.Ordinal);
+        Assert.Contains("ViewRuleBuilder", galleryEditor, StringComparison.Ordinal);
         Assert.Contains("ViewDiscoveryCapabilityStates", people, StringComparison.Ordinal);
         Assert.Contains("GetViewPeopleAsync", people, StringComparison.Ordinal);
         Assert.Contains("AppPageStateKind.Empty", places, StringComparison.Ordinal);
@@ -90,6 +92,7 @@ public sealed class ViewLibrarySurfaceTests
         var photos = Read("src/MediaEngine.Web/Components/Pages/ViewPage.razor");
         var timeline = Read("src/MediaEngine.Web/Components/Pages/ViewPhotoTimeline.razor");
         var galleries = Read("src/MediaEngine.Web/Components/Pages/ViewGalleriesPage.razor");
+        var galleryEditor = Read("src/MediaEngine.Web/Components/Collections/GalleryEditorShell.razor");
         var shell = Read("src/MediaEngine.Web/Components/Pages/ViewSectionShell.razor");
 
         Assert.Contains("ViewSelectionToolbar", photos, StringComparison.Ordinal);
@@ -101,7 +104,7 @@ public sealed class ViewLibrarySurfaceTests
         Assert.DoesNotContain("<AppCheckbox", timeline, StringComparison.Ordinal);
         Assert.Contains("ViewGalleryKind.Manual", shell, StringComparison.Ordinal);
         Assert.Contains("ViewGalleryKind.Smart", galleries, StringComparison.Ordinal);
-        Assert.Contains("<ViewRuleBuilder", galleries, StringComparison.Ordinal);
+        Assert.Contains("<ViewRuleBuilder", galleryEditor, StringComparison.Ordinal);
         Assert.Contains(".Take(12)", shell, StringComparison.Ordinal);
         Assert.Contains("new ManualGalleryNavigationDropTarget", shell, StringComparison.Ordinal);
         Assert.Contains("new NewGalleryNavigationDropTarget", shell, StringComparison.Ordinal);
@@ -124,19 +127,21 @@ public sealed class ViewLibrarySurfaceTests
     public void GalleryDetail_ProvidesOwnerManagementAndKeepsSmartMembershipRuleOnly()
     {
         var detail = Read("src/MediaEngine.Web/Components/Pages/ViewGalleryDetailPage.razor");
+        var editor = Read("src/MediaEngine.Web/Components/Collections/GalleryEditorShell.razor");
 
         Assert.Contains("private bool IsOwner", detail, StringComparison.Ordinal);
         Assert.Contains("GetViewGalleryShareTargetsAsync", detail, StringComparison.Ordinal);
         Assert.Contains("GetViewGallerySharesAsync", detail, StringComparison.Ordinal);
         Assert.Contains("ReplaceViewGallerySharesAsync", detail, StringComparison.Ordinal);
-        Assert.Contains("UpdateViewGalleryAsync", detail, StringComparison.Ordinal);
-        Assert.DoesNotContain("DeleteViewGalleryAsync", detail, StringComparison.Ordinal);
+        Assert.Contains("GalleryEditorLauncher.OpenAsync", detail, StringComparison.Ordinal);
+        Assert.Contains("UpdateViewGalleryAsync", editor, StringComparison.Ordinal);
+        Assert.Contains("DeleteViewGalleryAsync", editor, StringComparison.Ordinal);
         Assert.Contains("DeleteViewGalleryAsync", Read("src/MediaEngine.Web/Components/Pages/ViewSectionShell.razor"), StringComparison.Ordinal);
         Assert.Contains("<AppDialog", detail, StringComparison.Ordinal);
-        Assert.Contains("<ViewRuleBuilder", detail, StringComparison.Ordinal);
+        Assert.Contains("<ViewRuleBuilder", editor, StringComparison.Ordinal);
         Assert.Contains("_gallery.Kind == ViewGalleryKind.Manual", detail, StringComparison.Ordinal);
-        Assert.Contains("Items cannot be added or removed manually", detail, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Rules\"", detail, StringComparison.Ordinal);
+        Assert.Contains("Manual membership stays available as a quick action", editor, StringComparison.Ordinal);
+        Assert.Contains("(\"membership\", \"Membership\"", editor, StringComparison.Ordinal);
         Assert.DoesNotContain("Label=\"Edit\"", detail, StringComparison.Ordinal);
         Assert.DoesNotContain("Label=\"Delete\"", detail, StringComparison.Ordinal);
     }

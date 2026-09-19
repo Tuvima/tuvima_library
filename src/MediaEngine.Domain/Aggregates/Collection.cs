@@ -112,6 +112,30 @@ public sealed class Collection
     /// <summary>Owner profile. Null = library-scoped (shared).</summary>
     public Guid? ProfileId { get; set; }
 
+    /// <summary>How membership is maintained. This is independent of Collection identity.</summary>
+    public ContainerMembershipMode MembershipMode { get; set; } = ContainerMembershipMode.Smart;
+
+    /// <summary>Primary Read, Watch, Listen, or Mixed projection for curated Collections.</summary>
+    public CollectionPrimaryArea PrimaryArea { get; set; } = CollectionPrimaryArea.Mixed;
+
+    /// <summary>Whether the Collection belongs to one profile or the whole Library.</summary>
+    public ContainerOwnerKind OwnerKind { get; set; } = ContainerOwnerKind.Library;
+
+    /// <summary>Private, selected-profile, or everyone visibility.</summary>
+    public ContainerAudience Audience { get; set; } = ContainerAudience.Everyone;
+
+    /// <summary>Profiles explicitly allowed to view this collection when its audience is selected profiles.</summary>
+    public IReadOnlyList<Guid> AudienceProfileIds => _audienceProfileIds;
+
+    private readonly List<Guid> _audienceProfileIds = [];
+
+    public void ReplaceAudienceProfiles(IEnumerable<Guid> profileIds)
+    {
+        ArgumentNullException.ThrowIfNull(profileIds);
+        _audienceProfileIds.Clear();
+        _audienceProfileIds.AddRange(profileIds.Where(id => id != Guid.Empty).Distinct());
+    }
+
     /// <summary>Whether this collection is visible in browsing. Default true.</summary>
     public bool IsEnabled { get; set; } = true;
 

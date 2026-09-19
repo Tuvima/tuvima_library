@@ -93,6 +93,22 @@ public static class AggregateStateSerializer
             _ => throw Unknown(nameof(CollectionType), value),
         };
 
+    public static string ToStorageValue(this ContainerMembershipMode value) => value.ToString();
+    public static ContainerMembershipMode ParseContainerMembershipMode(string? value) =>
+        Enum.TryParse<ContainerMembershipMode>(value, true, out var parsed) ? parsed : ContainerMembershipMode.Smart;
+
+    public static string ToStorageValue(this CollectionPrimaryArea value) => value.ToString();
+    public static CollectionPrimaryArea ParseCollectionPrimaryArea(string? value) =>
+        Enum.TryParse<CollectionPrimaryArea>(value, true, out var parsed) ? parsed : CollectionPrimaryArea.Mixed;
+
+    public static string ToStorageValue(this ContainerOwnerKind value) => value.ToString();
+    public static ContainerOwnerKind ParseContainerOwnerKind(string? value) =>
+        Enum.TryParse<ContainerOwnerKind>(value, true, out var parsed) ? parsed : ContainerOwnerKind.Library;
+
+    public static string ToStorageValue(this ContainerAudience value) => value.ToString();
+    public static ContainerAudience ParseContainerAudience(string? value) =>
+        Enum.TryParse<ContainerAudience>(value, true, out var parsed) ? parsed : ContainerAudience.Everyone;
+
     public static string ToStorageValue(this CollectionScope value) => value switch
     {
         CollectionScope.Library => "library",

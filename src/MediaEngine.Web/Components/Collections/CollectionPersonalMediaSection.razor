@@ -8,9 +8,9 @@
 <section class="collection-personal-media" aria-labelledby="collection-personal-media-title">
     <header class="collection-personal-media__header">
         <div>
-            <span class="collection-personal-media__eyebrow">View / Personal media</span>
-            <h3 id="collection-personal-media-title">Personal media sources</h3>
-            <p>Reference a whole Gallery or define one Collection-owned smart View rule. Personal files are resolved live and are never copied into Collection membership.</p>
+            <span class="collection-personal-media__eyebrow">Optional companions</span>
+            <h3 id="collection-personal-media-title">Gallery companion</h3>
+            <p>Link a whole Gallery to enrich this Collection. Photos and videos stay in View and never become Collection members.</p>
         </div>
     </header>
 
@@ -31,7 +31,7 @@
             </div>
         }
 
-        <MediaEditorPanel Title="Gallery references" Description="Select Galleries as complete, live sources. Individual photos and videos are intentionally not offered here.">
+        <MediaEditorPanel Title="Gallery" Description="Choose complete, live Galleries. Individual photos and videos are intentionally not offered here.">
             @if (_galleries.Count == 0)
             {
                 <div class="collection-editor-empty collection-editor-empty--compact">
@@ -61,10 +61,10 @@
             }
         </MediaEditorPanel>
 
-        <MediaEditorPanel Title="Smart View rule" Description="Optionally add one dynamic personal-media source using the shared typed View rule builder.">
+        <MediaEditorPanel Title="Dynamic Gallery source" Description="Optionally add one rule-driven View source using the shared rule builder.">
             <div class="collection-personal-media__smart-toggle">
                 <div>
-                    <strong>Collection-owned smart rule</strong>
+                    <strong>Rule-driven Gallery companion</strong>
                     <span>Matches personal media at view time under each viewer’s current authorization.</span>
                 </div>
                 <AppNativeButton Type="button" Class="@(_smartRuleEnabled ? "is-selected" : null)" OnClick="ToggleSmartRuleAsync">

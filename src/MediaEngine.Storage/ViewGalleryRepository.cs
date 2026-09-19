@@ -57,15 +57,16 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
             token.ThrowIfCancellationRequested();
             RequireOwnedSpace(connection, transaction, command.PersonalSpaceId, command.OwnerProfileId, token);
             ValidateCover(connection, transaction, command.PersonalSpaceId, command.CoverItemId, token);
+            ValidateSoundtrack(connection, transaction, command.OwnerProfileId, command.SoundtrackPlaylistId, token);
             var id = Guid.NewGuid();
             var now = DateTimeOffset.UtcNow;
             connection.Execute(new CommandDefinition("""
                 INSERT INTO view_galleries
                     (id, owner_profile_id, personal_space_id, name, description, gallery_kind,
-                     smart_rule_json, cover_item_id, sort_order, created_at, updated_at)
+                     smart_rule_json, cover_item_id, soundtrack_playlist_id, sort_order, created_at, updated_at)
                 VALUES
                     (@id, @OwnerProfileId, @PersonalSpaceId, @Name, @Description, @Kind,
-                     @SmartRuleJson, @CoverItemId, @SortOrder, @now, @now);
+                     @SmartRuleJson, @CoverItemId, @SoundtrackPlaylistId, @SortOrder, @now, @now);
                 """, new
             {
                 id,
@@ -76,13 +77,14 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
                 Kind = ToStorage(command.Kind),
                 SmartRuleJson = NormalizeRule(command.Kind, command.SmartRuleJson),
                 command.CoverItemId,
+                command.SoundtrackPlaylistId,
                 command.SortOrder,
                 now,
             }, transaction, cancellationToken: token));
             return new ViewGallery(id, command.OwnerProfileId, command.PersonalSpaceId,
                 command.Name.Trim(), NullIfWhiteSpace(command.Description), command.Kind,
                 NormalizeRule(command.Kind, command.SmartRuleJson), command.CoverItemId,
-                command.SortOrder, 0, now, now);
+                command.SortOrder, 0, now, now, command.SoundtrackPlaylistId);
         }, ct);
     }
 
@@ -95,8 +97,8 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
         return database.ExecuteWriteAsync((connection, transaction, token) =>
         {
             token.ThrowIfCancellationRequested();
-            var current = connection.QuerySingleOrDefault<(Guid PersonalSpaceId, string Kind)>(new CommandDefinition("""
-                SELECT personal_space_id AS PersonalSpaceId, gallery_kind AS Kind
+            var current = connection.QuerySingleOrDefault<(Guid PersonalSpaceId, Guid OwnerProfileId, string Kind)>(new CommandDefinition("""
+                SELECT personal_space_id AS PersonalSpaceId, owner_profile_id AS OwnerProfileId, gallery_kind AS Kind
                   FROM view_galleries WHERE id = @GalleryId;
                 """, command, transaction, cancellationToken: token));
             if (current.PersonalSpaceId == Guid.Empty)
@@ -105,6 +107,7 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
             }
 
             ValidateCover(connection, transaction, current.PersonalSpaceId, command.CoverItemId, token);
+            ValidateSoundtrack(connection, transaction, current.OwnerProfileId, command.SoundtrackPlaylistId, token);
             if (command.Kind == ViewGalleryKind.Smart)
             {
                 connection.Execute(new CommandDefinition(
@@ -116,6 +119,7 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
                 UPDATE view_galleries SET
                     name = @Name, description = @Description, gallery_kind = @Kind,
                     smart_rule_json = @SmartRuleJson, cover_item_id = @CoverItemId,
+                    soundtrack_playlist_id = @SoundtrackPlaylistId,
                     sort_order = @SortOrder, updated_at = @now
                  WHERE id = @GalleryId;
                 """, new
@@ -126,6 +130,7 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
                 Kind = ToStorage(command.Kind),
                 SmartRuleJson = normalizedRule,
                 command.CoverItemId,
+                command.SoundtrackPlaylistId,
                 command.SortOrder,
                 now,
             }, transaction, cancellationToken: token));
@@ -346,6 +351,7 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
                vg.personal_space_id AS PersonalSpaceId, vg.name AS Name,
                vg.description AS Description, vg.gallery_kind AS GalleryKind,
                vg.smart_rule_json AS SmartRuleJson, vg.cover_item_id AS CoverItemId,
+               vg.soundtrack_playlist_id AS SoundtrackPlaylistId,
                vg.sort_order AS SortOrder, COUNT(vgi.item_id) AS ItemCount,
                vg.created_at AS CreatedAt, vg.updated_at AS UpdatedAt
           FROM view_galleries vg
@@ -394,6 +400,28 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
         {
             throw new InvalidOperationException("Gallery cover must belong to its owner's Personal Space.");
         }
+    }
+
+    private static void ValidateSoundtrack(
+        System.Data.IDbConnection connection,
+        System.Data.IDbTransaction transaction,
+        Guid ownerProfileId,
+        Guid? playlistId,
+        CancellationToken ct)
+    {
+        if (!playlistId.HasValue)
+            return;
+
+        var isAccessiblePlaylist = connection.ExecuteScalar<long>(new CommandDefinition("""
+            SELECT COUNT(1)
+              FROM collections
+             WHERE id = @playlistId
+               AND collection_type IN ('Playlist', 'Smart')
+               AND is_enabled = 1
+               AND (scope = 'library' OR profile_id = @ownerProfileId);
+            """, new { playlistId, ownerProfileId }, transaction, cancellationToken: ct)) != 0;
+        if (!isAccessiblePlaylist)
+            throw new ArgumentException("Gallery soundtrack must be an accessible, enabled playlist.");
     }
 
     private static void Validate(CreateViewGalleryCommand command)
@@ -490,7 +518,7 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
     private static ViewGallery Map(GalleryRow row) => new(row.Id, row.OwnerProfileId, row.PersonalSpaceId,
         row.Name, row.Description, row.GalleryKind == "manual" ? ViewGalleryKind.Manual : ViewGalleryKind.Smart,
         row.SmartRuleJson, row.CoverItemId, row.SortOrder, row.ItemCount,
-        DateTimeOffset.Parse(row.CreatedAt), DateTimeOffset.Parse(row.UpdatedAt));
+        DateTimeOffset.Parse(row.CreatedAt), DateTimeOffset.Parse(row.UpdatedAt), row.SoundtrackPlaylistId);
 
     private static ViewGallery MapWithDynamicCount(
         System.Data.IDbConnection connection,
@@ -551,6 +579,7 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
         public string Name { get; init; } = string.Empty; public string? Description { get; init; }
         public string GalleryKind { get; init; } = string.Empty; public string? SmartRuleJson { get; init; }
         public Guid? CoverItemId { get; init; }
+        public Guid? SoundtrackPlaylistId { get; init; }
         public int SortOrder { get; init; }
         public int ItemCount { get; init; }
         public string CreatedAt { get; init; } = string.Empty; public string UpdatedAt { get; init; } = string.Empty;
