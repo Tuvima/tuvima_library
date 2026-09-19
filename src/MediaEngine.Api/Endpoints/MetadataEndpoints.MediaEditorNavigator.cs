@@ -50,10 +50,10 @@ public static partial class MetadataEndpoints
         group.MapPost("/{entityId:guid}/membership-preview", async (
             Guid entityId,
             MediaEditorMembershipPreviewRequestDto request,
-            IMediaEditorMembershipReadService membershipReadService,
+            IHierarchyAlignmentService hierarchyAlignment,
             CancellationToken ct) =>
         {
-            var preview = await membershipReadService.PreviewAsync(entityId, ToInternal(request), ct);
+            var preview = await hierarchyAlignment.PreviewAsync(entityId, ToInternal(request), ct);
             return preview is null
                 ? ApiErrors.NotFound($"Membership preview for {entityId} not found.")
                 : Results.Ok(ToContract(preview));
@@ -67,10 +67,10 @@ public static partial class MetadataEndpoints
         group.MapPost("/{entityId:guid}/membership-apply", async (
             Guid entityId,
             MediaEditorMembershipPreviewRequestDto request,
-            IMediaEditorMembershipReadService membershipReadService,
+            IHierarchyAlignmentService hierarchyAlignment,
             CancellationToken ct) =>
         {
-            var result = await membershipReadService.ApplyAsync(entityId, ToInternal(request), ct);
+            var result = await hierarchyAlignment.ApplyAsync(entityId, ToInternal(request), ct);
             return result is null
                 ? ApiErrors.NotFound($"Membership apply for {entityId} not found.")
                 : Results.Ok(ToContract(result));

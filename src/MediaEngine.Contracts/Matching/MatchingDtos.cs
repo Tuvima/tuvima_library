@@ -328,6 +328,24 @@ public sealed class ItemCanonicalApplyResponseDto
 
     [JsonPropertyName("artwork_message")]
     public string? ArtworkMessage { get; set; }
+
+    [JsonPropertyName("hierarchy_changed")]
+    public bool HierarchyChanged { get; set; }
+
+    [JsonPropertyName("selected_entity_id")]
+    public Guid SelectedEntityId { get; set; }
+
+    [JsonPropertyName("target_root_entity_id")]
+    public Guid TargetRootEntityId { get; set; }
+
+    [JsonPropertyName("target_parent_entity_id")]
+    public Guid? TargetParentEntityId { get; set; }
+
+    [JsonPropertyName("previous_path")]
+    public string? PreviousPath { get; set; }
+
+    [JsonPropertyName("target_path")]
+    public string? TargetPath { get; set; }
 }
 
 public sealed class ReplaceRetailMatchRequestDto
