@@ -744,13 +744,13 @@ public sealed class HierarchyAlignmentService(IDatabaseConnection db, IHydration
         var path = new List<string>();
         if (row.HasRoot)
         {
-            path.Add(FirstNonBlank(row.RootLabel, "Container"));
+            path.Add(StringHelpers.FirstNonBlankOr("Item", row.RootLabel, "Container"));
         }
         if (row.HasParent)
         {
             path.Add(string.Equals(row.MediaType, "TV", StringComparison.OrdinalIgnoreCase) && row.HasRoot
                 ? $"Season {row.ParentOrdinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"
-                : FirstNonBlank(row.ParentLabel, "Container"));
+                : StringHelpers.FirstNonBlankOr("Item", row.ParentLabel, "Container"));
         }
 
         path.Add(BuildMembershipLeafLabel(row));
@@ -765,7 +765,7 @@ public sealed class HierarchyAlignmentService(IDatabaseConnection db, IHydration
                 ? $"Episode {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"
                 : row.HasParent
                     ? $"Season {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"
-                    : FirstNonBlank(row.LeafLabel, "Show");
+                    : StringHelpers.FirstNonBlankOr("Item", row.LeafLabel, "Show");
         }
         if (string.Equals(row.MediaType, "Music", StringComparison.OrdinalIgnoreCase)
             && string.Equals(row.WorkKind, "child", StringComparison.OrdinalIgnoreCase))
@@ -773,11 +773,8 @@ public sealed class HierarchyAlignmentService(IDatabaseConnection db, IHydration
             return $"Track {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}";
         }
 
-        return FirstNonBlank(row.LeafLabel, row.WorkKind, "Item");
+        return StringHelpers.FirstNonBlankOr("Item", row.LeafLabel, row.WorkKind, "Item");
     }
-
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? "Item";
 
     private static Guid ResolveRootWorkId(SqliteConnection conn, Guid entityId, SqliteTransaction? tx, CancellationToken ct)
     {

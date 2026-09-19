@@ -42,7 +42,7 @@
             </div>
             @if (_showSelectorPopover)
             {
-                <div id="see-selector-popover" class="see-selector-popover" role="dialog" aria-modal="false" aria-label="@CategoryLabel(_categories.FirstOrDefault(x => x.category == _selectedCategory)) entities" tabindex="-1" @onkeydown="OnSelectorKeyDown">
+                <div id="see-selector-popover" class="see-selector-popover" role="dialog" aria-modal="false" aria-label="@CategoryLabel(_categories.FirstOrDefault(x => x.category == _selectedCategory)) entities" tabindex="-1" @onkeydown="OnSelectorKeyDown" @onkeydown:stopPropagation="true">
                     <div class="see-popover-heading"><strong>@CategoryLabel(_categories.FirstOrDefault(x => x.category == _selectedCategory))</strong><AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" aria-label="Close selector" OnClick="CloseSelectorPopoverAsync">×</AppButton></div>
                     <div class="see-search"><AppTextField T="string" Label="Search entities" Value="@_search" ValueChanged="SearchChangedAsync" InputType="InputType.Search" /></div>
                     <div class="see-selector-list" role="listbox" aria-label="Category entities">
@@ -67,7 +67,7 @@
             </nav>
             @if (_showSelectorPopover)
             {
-                <div id="see-selector-popover" class="see-selector-popover" role="dialog" aria-modal="false" aria-label="Other @CategoryName(_context?.category ?? "")" tabindex="-1" @onkeydown="OnSelectorKeyDown">
+                <div id="see-selector-popover" class="see-selector-popover" role="dialog" aria-modal="false" aria-label="Other @CategoryName(_context?.category ?? "")" tabindex="-1" @onkeydown="OnSelectorKeyDown" @onkeydown:stopPropagation="true">
                     <div class="see-popover-heading"><strong>Other @CategoryName(_context?.category ?? "")</strong><AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" aria-label="Close selector" OnClick="CloseSelectorPopoverAsync">×</AppButton></div>
                     <div class="see-search"><AppTextField T="string" Label="Search entities" Value="@_search" ValueChanged="SearchChangedAsync" InputType="InputType.Search" /></div>
                     <div class="see-selector-list" role="listbox" aria-label="Sibling entities">

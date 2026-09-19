@@ -72,7 +72,19 @@ window.tuvimaPositionSharedEntityPopover = function (anchorId, popoverId) {
     if (current) {
         window.removeEventListener('resize', current.position);
         window.removeEventListener('scroll', current.position, true);
+        current.popover?.removeEventListener('keydown', current.escapeHandler);
     }
+
+    // MudDialog also observes Escape at the document level. Stop the native
+    // event at the selector boundary and route dismissal through the existing
+    // close button so the editor stays open and focus returns to its anchor.
+    const escapeHandler = (event) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        popover.querySelector('[aria-label="Close selector"]')?.click();
+    };
+    popover.addEventListener('keydown', escapeHandler);
 
     const position = () => {
         if (!anchor.isConnected || !popover.isConnected) return;
@@ -98,7 +110,7 @@ window.tuvimaPositionSharedEntityPopover = function (anchorId, popoverId) {
         popover.style.zIndex = '1500';
     };
 
-    positions.set(popoverId, { anchorId, position });
+    positions.set(popoverId, { anchorId, position, popover, escapeHandler });
     window.addEventListener('resize', position);
     window.addEventListener('scroll', position, true);
     position();
@@ -110,6 +122,7 @@ window.tuvimaRemoveSharedEntityPopoverPosition = function (popoverId) {
     if (current) {
         window.removeEventListener('resize', current.position);
         window.removeEventListener('scroll', current.position, true);
+        current.popover?.removeEventListener('keydown', current.escapeHandler);
         positions.delete(popoverId);
     }
     const popover = popoverId && document.getElementById(popoverId);

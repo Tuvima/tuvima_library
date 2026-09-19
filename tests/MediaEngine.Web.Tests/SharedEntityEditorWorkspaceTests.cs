@@ -43,6 +43,8 @@ public sealed class SharedEntityEditorWorkspaceTests : AsyncBunitContext
         Assert.Contains("position: fixed", ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedEntityEditorWorkspace.razor.css"), StringComparison.Ordinal);
         Assert.Contains("tuvimaPositionSharedEntityPopover", ReadSource("src/MediaEngine.Web/wwwroot/app.js"), StringComparison.Ordinal);
         Assert.Contains("roomBelow", ReadSource("src/MediaEngine.Web/wwwroot/app.js"), StringComparison.Ordinal);
+        Assert.Contains("event.stopPropagation()", ReadSource("src/MediaEngine.Web/wwwroot/app.js"), StringComparison.Ordinal);
+        Assert.Contains("@onkeydown:stopPropagation=\"true\"", ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedEntityEditorWorkspace.razor"), StringComparison.Ordinal);
         cut.Find("#see-category-Character").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "ArrowRight" });
         cut.WaitForAssertion(() => Assert.Contains("is-active", cut.Find("#see-category-Location").ClassList));
         Assert.Equal("0", cut.Find("#see-category-Location").GetAttribute("tabindex"));
