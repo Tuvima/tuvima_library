@@ -677,8 +677,12 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("(\"TV\", 0) => \"series\"", code, StringComparison.Ordinal);
         Assert.Contains("(\"TV\", 1) => \"season\"", code, StringComparison.Ordinal);
         Assert.Contains("(\"TV\", 2) => \"episode\"", code, StringComparison.Ordinal);
+        Assert.Contains("\"film_series\" => \"Film Series\"", code, StringComparison.Ordinal);
+        Assert.Contains("\"movie\" => \"Movie\"", code, StringComparison.Ordinal);
         Assert.Contains("public sealed record EditorContextLevel", models, StringComparison.Ordinal);
         Assert.Contains("AppOverflowMenu", navigator, StringComparison.Ordinal);
+        Assert.Contains("\"film_series\" => Icons.Material.Outlined.VideoLibrary", navigator, StringComparison.Ordinal);
+        Assert.Contains("\"movie\" => Icons.Material.Outlined.Movie", navigator, StringComparison.Ordinal);
         Assert.Contains("SearchThreshold", navigator, StringComparison.Ordinal);
         Assert.Contains("MaxVisibleOptions", navigator, StringComparison.Ordinal);
         Assert.Contains("Take(MaxVisibleOptions)", navigator, StringComparison.Ordinal);

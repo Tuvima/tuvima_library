@@ -1194,6 +1194,8 @@ public partial class SharedMediaEditorShell
             "album" => "Album",
             "track" => "Track",
             "series" => "Series",
+            "film_series" => "Film Series",
+            "movie" => "Movie",
             "book" => "Book",
             "audiobook" => "Audiobook",
             "issue" => "Issue",

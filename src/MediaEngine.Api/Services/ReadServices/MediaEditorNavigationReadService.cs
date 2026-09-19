@@ -540,6 +540,7 @@ public sealed class MediaEditorNavigationReadService(
         mediaType switch
         {
             "TV" or "Music" => true,
+            "Movies" => true,
             "Books" or "Audiobooks" or "Comics" => rows.Count > 1,
             _ => false,
         };
@@ -667,6 +668,8 @@ public sealed class MediaEditorNavigationReadService(
             "TV" when row.Depth == 0 => "series",
             "TV" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) => "season",
             "TV" => "episode",
+            "Movies" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) => "film_series",
+            "Movies" => "movie",
             "Music" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) => "album",
             "Music" => "track",
             "Comics" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) => "series",
@@ -698,8 +701,10 @@ public sealed class MediaEditorNavigationReadService(
         nodeKind switch
         {
             "series" => "series",
+            "film_series" => "series",
             "season" => "season",
             "episode" => "episode",
+            "movie" => "work",
             "album" => "album",
             "track" => "track",
             "issue" or "book" or "audiobook" when mediaType is "Comics" or "Books" or "Audiobooks" => "volume_issue",
@@ -711,6 +716,7 @@ public sealed class MediaEditorNavigationReadService(
         {
             "TV" => "Series",
             "Music" => "Album",
+            "Movies" => "Movie",
             "Comics" or "Books" or "Audiobooks" => "Series",
             _ => "Item",
         };
@@ -719,8 +725,10 @@ public sealed class MediaEditorNavigationReadService(
         nodeKind switch
         {
             "series" => "Series",
+            "film_series" => "Film Series",
             "season" => ResolveNavigatorOrdinalLabel("TV", row, value) ?? "Season",
             "episode" => ResolveNavigatorOrdinalLabel("TV", row, value) ?? "Episode",
+            "movie" => "Movie",
             "album" => "Album",
             "track" => ResolveNavigatorOrdinalLabel("Music", row, value) ?? "Track",
             "issue" => ResolveNavigatorOrdinalLabel("Comics", row, value) ?? "Issue",
@@ -736,6 +744,9 @@ public sealed class MediaEditorNavigationReadService(
             "TV" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
                 $"Season {ParseNavigatorOrdinal(value?.AssetSeasonNumber ?? value?.WorkSeasonNumber, ToInt(row.Ordinal))?.ToString(CultureInfo.InvariantCulture) ?? "?"}",
             "TV" => StringHelpers.FirstNonBlankOr(string.Empty, GetDisplayOverrideValue(value, "title"), value?.AssetEpisodeTitle, value?.AssetTitle, value?.WorkTitle, $"Episode {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
+            "Movies" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
+                StringHelpers.FirstNonBlankOr(string.Empty, GetDisplayOverrideValue(value, "title"), value?.WorkSeries, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Film Series"),
+            "Movies" => StringHelpers.FirstNonBlankOr(string.Empty, GetDisplayOverrideValue(value, "title"), value?.AssetTitle, value?.WorkTitle, "Movie"),
             "Music" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
                 StringHelpers.FirstNonBlankOr(string.Empty, GetDisplayOverrideValue(value, "title"), value?.WorkAlbum, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Album"),
             "Music" => StringHelpers.FirstNonBlankOr(string.Empty, GetDisplayOverrideValue(value, "title"), value?.AssetTitle, value?.WorkTitle, $"Track {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),

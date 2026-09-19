@@ -79,6 +79,98 @@ public sealed class MediaEditorNavigationReadServiceTests : IDisposable
         Assert.Equal("Pilot", episode.Title);
     }
 
+    [Fact]
+    public async Task GetNavigatorAsync_MovieSeries_UsesFilmSeriesAndMovieNodes()
+    {
+        var seriesId = Guid.NewGuid();
+        var movieId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+
+        using (var connection = _database.CreateConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO works (id, media_type, work_kind, ownership)
+                VALUES ($seriesId, 'Movies', 'parent', 'Owned');
+
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, ordinal, ownership)
+                VALUES ($movieId, 'Movies', 'child', $seriesId, 1, 'Owned');
+
+                INSERT INTO editions (id, work_id, format_label)
+                VALUES ($editionId, $movieId, 'MKV');
+
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES ($assetId, $editionId, 'movie-hash', 'movie.mkv');
+
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES
+                    ($seriesId, 'title', 'The Trilogy', datetime('now')),
+                    ($assetId, 'title', 'The First Film', datetime('now'));
+                """;
+            command.Parameters.AddWithValue("$seriesId", GuidSql.ToBlob(seriesId));
+            command.Parameters.AddWithValue("$movieId", GuidSql.ToBlob(movieId));
+            command.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));
+            command.Parameters.AddWithValue("$assetId", GuidSql.ToBlob(assetId));
+            command.ExecuteNonQuery();
+        }
+
+        var service = new MediaEditorNavigationReadService(_database, null!, null!);
+        var navigator = await service.GetNavigatorAsync(seriesId, CancellationToken.None);
+
+        Assert.NotNull(navigator);
+        Assert.True(navigator.Enabled);
+        var filmSeries = Assert.Single(navigator.Nodes, node => node.NodeKind == "film_series");
+        var movie = Assert.Single(navigator.Nodes, node => node.NodeKind == "movie");
+        Assert.Equal("Film Series", filmSeries.Label);
+        Assert.Equal("The Trilogy", filmSeries.Title);
+        Assert.Equal("Movie", movie.Label);
+        Assert.Equal("The First Film", movie.Title);
+        Assert.Equal("work", movie.ScopeId);
+        Assert.True(movie.CanSelectAsEditorTarget);
+    }
+
+    [Fact]
+    public async Task GetNavigatorAsync_StandaloneMovie_UsesMovieNode()
+    {
+        var movieId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+
+        using (var connection = _database.CreateConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO works (id, media_type, work_kind, ownership)
+                VALUES ($movieId, 'Movies', 'standalone', 'Owned');
+
+                INSERT INTO editions (id, work_id, format_label)
+                VALUES ($editionId, $movieId, 'MKV');
+
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES ($assetId, $editionId, 'standalone-movie-hash', 'standalone.mkv');
+
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES ($assetId, 'title', 'Standalone Film', datetime('now'));
+                """;
+            command.Parameters.AddWithValue("$movieId", GuidSql.ToBlob(movieId));
+            command.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));
+            command.Parameters.AddWithValue("$assetId", GuidSql.ToBlob(assetId));
+            command.ExecuteNonQuery();
+        }
+
+        var service = new MediaEditorNavigationReadService(_database, null!, null!);
+        var navigator = await service.GetNavigatorAsync(movieId, CancellationToken.None);
+
+        Assert.NotNull(navigator);
+        Assert.True(navigator.Enabled);
+        var movie = Assert.Single(navigator.Nodes);
+        Assert.Equal("movie", movie.NodeKind);
+        Assert.Equal("Movie", movie.Label);
+        Assert.Equal("Standalone Film", movie.Title);
+        Assert.True(movie.CanSelectAsEditorTarget);
+    }
+
     public void Dispose()
     {
         try { _database.Dispose(); } catch { }
