@@ -31,8 +31,8 @@ public sealed partial class EngineApiClient
     public async Task<IReadOnlyList<SharedEntityArtworkDto>?> UpdateSharedEntityArtworkAsync(SharedEntityEditorTargetDto target, SharedEntityArtworkUpdateRequest request, CancellationToken ct = default) =>
         await SendSharedEntityAsync<List<SharedEntityArtworkDto>>(HttpMethod.Put, BuildPath(target, "artwork"), request, ct).ConfigureAwait(false);
 
-    public Task<IReadOnlyList<SharedEntityArtworkDto>?> UploadSharedEntityArtworkAsync(SharedEntityEditorTargetDto target, string assetType, Stream stream, string fileName, CancellationToken ct = default) =>
-        UploadSharedEntityArtworkCoreAsync(BuildPath(target, $"artwork/{Escape(assetType)}/upload"), stream, fileName, ct);
+    public Task<IReadOnlyList<SharedEntityArtworkDto>?> UploadSharedEntityArtworkAsync(SharedEntityEditorTargetDto target, string assetType, Stream stream, string fileName, string contentType, CancellationToken ct = default) =>
+        UploadSharedEntityArtworkCoreAsync(BuildPath(target, $"artwork/{Escape(assetType)}/upload"), stream, fileName, contentType, ct);
 
     public async Task<IReadOnlyList<SharedEntityAppearanceDto>> GetSharedEntityAppearancesAsync(SharedEntityEditorTargetDto target, CancellationToken ct = default) =>
         IsEntity(target) ? await GetSharedEntityAsync<List<SharedEntityAppearanceDto>>(BuildPath(target, "appearances"), ct).ConfigureAwait(false) ?? [] : [];
@@ -97,12 +97,31 @@ public sealed partial class EngineApiClient
         catch (Exception ex) { RecordExceptionFailure(path, ex); return default; }
     }
 
-    private async Task<IReadOnlyList<SharedEntityArtworkDto>?> UploadSharedEntityArtworkCoreAsync(string path, Stream stream, string fileName, CancellationToken ct)
+    private async Task<IReadOnlyList<SharedEntityArtworkDto>?> UploadSharedEntityArtworkCoreAsync(string path, Stream stream, string fileName, string contentType, CancellationToken ct)
     {
+        var normalizedContentType = contentType?.Trim().ToLowerInvariant();
+        if (normalizedContentType is not ("image/jpeg" or "image/png"))
+        {
+            normalizedContentType = Path.GetExtension(fileName).ToLowerInvariant() switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                _ => null,
+            };
+        }
+
+        if (normalizedContentType is null)
+        {
+            LastError = "Managed entity artwork uploads must be JPEG or PNG images.";
+            return null;
+        }
+
         try
         {
             using var content = new MultipartFormDataContent();
-            content.Add(new StreamContent(stream), "file", Path.GetFileName(fileName));
+            var fileContent = new StreamContent(stream);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(normalizedContentType);
+            content.Add(fileContent, "file", Path.GetFileName(fileName));
             using var response = await _http.PostAsync(path, content, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {

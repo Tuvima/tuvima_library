@@ -11,7 +11,7 @@ public partial interface IEngineApiClient
     Task<SharedEntityDetailsDto?> UpdateSharedEntityDetailsAsync(SharedEntityEditorTargetDto target, SharedEntityDetailsUpdateRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<SharedEntityArtworkDto>> GetSharedEntityArtworkAsync(SharedEntityEditorTargetDto target, CancellationToken ct = default);
     Task<IReadOnlyList<SharedEntityArtworkDto>?> UpdateSharedEntityArtworkAsync(SharedEntityEditorTargetDto target, SharedEntityArtworkUpdateRequest request, CancellationToken ct = default);
-    Task<IReadOnlyList<SharedEntityArtworkDto>?> UploadSharedEntityArtworkAsync(SharedEntityEditorTargetDto target, string assetType, Stream stream, string fileName, CancellationToken ct = default);
+    Task<IReadOnlyList<SharedEntityArtworkDto>?> UploadSharedEntityArtworkAsync(SharedEntityEditorTargetDto target, string assetType, Stream stream, string fileName, string contentType, CancellationToken ct = default);
     Task<IReadOnlyList<SharedEntityAppearanceDto>> GetSharedEntityAppearancesAsync(SharedEntityEditorTargetDto target, CancellationToken ct = default);
     Task<IReadOnlyList<SharedEntityRelationshipDto>> GetSharedEntityRelationshipsAsync(SharedEntityEditorTargetDto target, CancellationToken ct = default);
     Task<IReadOnlyList<SharedEntityTimelineEntryDto>> GetSharedEntityTimelineAsync(SharedEntityEditorTargetDto target, CancellationToken ct = default);

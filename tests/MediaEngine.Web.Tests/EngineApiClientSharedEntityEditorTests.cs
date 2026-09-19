@@ -28,7 +28,7 @@ public sealed class EngineApiClientSharedEntityEditorTests
         await client.UpdateSharedEntityDetailsAsync(root, new("Universe", "description"));
         await client.GetSharedEntityArtworkAsync(root);
         await client.UpdateSharedEntityArtworkAsync(root, new("CoverArt", "https://cdn.test/art.jpg"));
-        await client.UploadSharedEntityArtworkAsync(root, "CoverArt", new MemoryStream([1, 2, 3]), "art.jpg");
+        await client.UploadSharedEntityArtworkAsync(root, "CoverArt", new MemoryStream([1, 2, 3]), "art.jpg", "image/jpeg");
         await client.GetSharedEntityRelationshipsAsync(root);
         await client.GetSharedEntityTimelineAsync(root);
         await client.GetSharedEntitySourcesAsync(root);
@@ -41,7 +41,7 @@ public sealed class EngineApiClientSharedEntityEditorTests
         await client.UpdateSharedEntityDetailsAsync(entity, new("Entity", null));
         await client.GetSharedEntityArtworkAsync(entity);
         await client.UpdateSharedEntityArtworkAsync(entity, new("Logo", "https://cdn.test/logo.png"));
-        await client.UploadSharedEntityArtworkAsync(entity, "Logo", new MemoryStream([4, 5]), "logo.png");
+        await client.UploadSharedEntityArtworkAsync(entity, "Logo", new MemoryStream([4, 5]), "logo.png", "image/png");
         await client.GetSharedEntityAppearancesAsync(entity);
         await client.GetSharedEntityRelationshipsAsync(entity);
         await client.GetSharedEntityTimelineAsync(entity);
@@ -119,7 +119,9 @@ public sealed class EngineApiClientSharedEntityEditorTests
             Requests.Add(($"{request.Method.Method.ToUpperInvariant()} {path}", request.Content?.Headers.ContentType?.ToString() ?? string.Empty));
             if (request.Content is MultipartFormDataContent multipart)
             {
-                Assert.Contains(multipart, part => part.Headers.ContentDisposition?.Name?.Trim('"') == "file");
+                var filePart = Assert.Single(multipart);
+                Assert.Equal("file", filePart.Headers.ContentDisposition?.Name?.Trim('"'));
+                Assert.Contains(filePart.Headers.ContentType?.MediaType, new[] { "image/jpeg", "image/png" });
             }
 
             var body = path.EndsWith("/entities?offset=20&limit=25&category=Character&search=Bat%20Man", StringComparison.Ordinal)
