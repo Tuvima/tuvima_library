@@ -217,6 +217,24 @@ Stage 3 universe enrichment runs plugin lore after the core Wikidata enhancer pa
 
 Universe graph parameters in `config/hydration.json`:
 
+## Shared editor API
+
+`/entity-editor/universes/{qid}` is the backend contract used by the shared
+editor for graph targets; it does not introduce a second editor surface. A
+Universe target is identified by its authoritative `narrative_roots.qid`. A
+fictional-entity target carries both its internal GUID and Wikidata QID.
+
+Only `details` and `artwork` capabilities are editable. Relationship,
+appearance, in-universe timeline, source, history, and enrichment sections are
+read or refresh projections. User detail edits are stored separately from
+provider-enriched values and EntityAsset user overrides remain preferred through
+subsequent enrichment. Universe artwork is owned by `Universe` + root QID;
+fictional-entity artwork is owned by `FictionalEntity` + internal GUID.
+
+Every root and entity route is constrained by an owned work carrying canonical
+`narrative_root_qid`/`fictional_universe_qid` provenance and the normal
+resource-authorization policy. A caller-supplied raw QID is not access proof.
+
 | Key | Default | Purpose |
 |---|---|---|
 | `fetch_temporal_qualifiers` | true | Include P580/P582 in Data Extension requests |

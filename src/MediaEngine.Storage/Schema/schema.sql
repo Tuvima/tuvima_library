@@ -1,6 +1,6 @@
 ﻿-- =============================================================================
 -- Tuvima Library - SQLite initialization script
--- Current storage epoch: guid-blob-v8-graph-facts
+-- Current storage epoch: guid-blob-v9-shared-entity-editor
 --
 -- Internal UUIDs are stored as 16-byte BLOBs where the current domain model owns
 -- the identifier. External provider identifiers, QIDs, hashes, URLs, and file
@@ -318,6 +318,22 @@ CREATE TABLE IF NOT EXISTS fictional_entities (
     created_at               TEXT NOT NULL,
     enriched_at              TEXT
 , wikidata_revision_id INTEGER);
+
+-- User-authored graph-editor details are intentionally isolated from provider fields.
+-- Enrichment can update fictional_entities without undoing editor choices.
+CREATE TABLE IF NOT EXISTS fictional_entity_user_overrides (
+    entity_id      BLOB NOT NULL PRIMARY KEY REFERENCES fictional_entities(id) ON DELETE CASCADE,
+    label          TEXT NOT NULL,
+    description    TEXT,
+    updated_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS narrative_root_user_overrides (
+    qid            TEXT NOT NULL PRIMARY KEY REFERENCES narrative_roots(qid) ON DELETE CASCADE,
+    label          TEXT NOT NULL,
+    description    TEXT,
+    updated_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
 
 CREATE TABLE IF NOT EXISTS fictional_entity_work_links (
     id                   BLOB NOT NULL PRIMARY KEY,
@@ -1969,7 +1985,7 @@ CREATE TABLE IF NOT EXISTS storage_metadata (
 );
 
 INSERT OR REPLACE INTO storage_metadata (key, value)
-VALUES ('storage_epoch', 'guid-blob-v8-graph-facts');
+VALUES ('storage_epoch', 'guid-blob-v9-shared-entity-editor');
 
 -- Seed the built-in native-client Application once for a new access epoch. The
 -- marker preserves later administrative disable, delete, permission, and binding edits.

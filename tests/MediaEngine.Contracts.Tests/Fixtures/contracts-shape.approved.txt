@@ -6775,6 +6775,130 @@ MediaEngine.Contracts.Timeline.MediaEngine.Contracts.Timeline.RematchEntityRespo
   queued: System.Boolean | nullability=not-null | accessors=get,init
   entityId: System.Guid | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityAppearanceDto
+  work_qid: System.String | nullability=not-null | accessors=get,init
+  work_label: System.String | nullability=nullable | accessors=get,init
+  link_type: System.String | nullability=not-null | accessors=get,init
+  role: System.String | nullability=nullable | accessors=get,init
+  work_context: System.String | nullability=nullable | accessors=get,init
+  anchor_kind: System.String | nullability=nullable | accessors=get,init
+  anchor_value: System.String | nullability=nullable | accessors=get,init
+  narrative_time_index: System.String | nullability=nullable | accessors=get,init
+  start_time: System.String | nullability=nullable | accessors=get,init
+  end_time: System.String | nullability=nullable | accessors=get,init
+  spoiler_for_work_qid: System.String | nullability=nullable | accessors=get,init
+  provenance: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityArtworkDto
+  id: System.Guid | nullability=not-null | accessors=get,init
+  asset_type: System.String | nullability=not-null | accessors=get,init
+  image_url: System.String | nullability=nullable | accessors=get,init
+  is_preferred: System.Boolean | nullability=not-null | accessors=get,init
+  is_user_override: System.Boolean | nullability=not-null | accessors=get,init
+  source_provider: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityArtworkUpdateRequest
+  asset_type: System.String | nullability=not-null | accessors=get,init
+  image_url: System.String | nullability=not-null | accessors=get,init
+  preferred: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityCategorySummaryDto
+  category: System.String | nullability=not-null | accessors=get,init
+  label: System.String | nullability=not-null | accessors=get,init
+  count: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityDetailsDto
+  id: System.Guid? | nullability=nullable | accessors=get,init
+  qid: System.String | nullability=not-null | accessors=get,init
+  label: System.String | nullability=not-null | accessors=get,init
+  category: System.String | nullability=not-null | accessors=get,init
+  description: System.String | nullability=nullable | accessors=get,init
+  universe_qid: System.String | nullability=not-null | accessors=get,init
+  universe_label: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityDetailsUpdateRequest
+  label: System.String | nullability=not-null | accessors=get,init
+  description: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityEditorCapabilityDto
+  section: System.String | nullability=not-null | accessors=get,init
+  readable: System.Boolean | nullability=not-null | accessors=get,init
+  editable: System.Boolean | nullability=not-null | accessors=get,init
+  read_only_hint: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityEditorContextDto
+  target: MediaEngine.Contracts.Universe.SharedEntityEditorTargetDto | nullability=not-null | accessors=get,init
+  label: System.String | nullability=not-null | accessors=get,init
+  category: System.String | nullability=not-null | accessors=get,init
+  capabilities: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Universe.SharedEntityEditorCapabilityDto> | nullability=not-null | accessors=get,init
+  enrichment_status: System.String | nullability=not-null | accessors=get,init
+  breadcrumb: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityEditorSections
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityEditorTargetDto
+  Kind: System.String | nullability=not-null | accessors=get,init
+  UniverseQid: System.String | nullability=not-null | accessors=get,init
+  FictionalEntityId: System.Guid? | nullability=nullable | accessors=get,init
+  Qid: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityEditorTargetKinds
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityEnrichmentStatusDto
+  status: System.String | nullability=not-null | accessors=get,init
+  enriched_at: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  wikidata_revision_id: System.Int64? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityHistoryEntryDto
+  id: System.Guid | nullability=not-null | accessors=get,init
+  event_type: System.String | nullability=not-null | accessors=get,init
+  occurred_at: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  detail: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityRefreshDto
+  queued: System.Boolean | nullability=not-null | accessors=get,init
+  message: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityRelationshipDto
+  statement_key: System.String | nullability=not-null | accessors=get,init
+  subject_qid: System.String | nullability=not-null | accessors=get,init
+  type: System.String | nullability=not-null | accessors=get,init
+  object_qid: System.String | nullability=not-null | accessors=get,init
+  provenance: System.String | nullability=not-null | accessors=get,init
+  work_qid: System.String | nullability=nullable | accessors=get,init
+  qualifiers: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Universe.UniverseGraphQualifierDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntitySelectorItemDto
+  id: System.Guid | nullability=not-null | accessors=get,init
+  qid: System.String | nullability=not-null | accessors=get,init
+  label: System.String | nullability=not-null | accessors=get,init
+  category: System.String | nullability=not-null | accessors=get,init
+  description: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntitySelectorPageDto
+  items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Universe.SharedEntitySelectorItemDto> | nullability=not-null | accessors=get,init
+  offset: System.Int32 | nullability=not-null | accessors=get,init
+  limit: System.Int32 | nullability=not-null | accessors=get,init
+  total: System.Int32 | nullability=not-null | accessors=get,init
+  has_more: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntitySourceDto
+  kind: System.String | nullability=not-null | accessors=get,init
+  value: System.String | nullability=not-null | accessors=get,init
+  provenance: System.String | nullability=not-null | accessors=get,init
+  source_provider: System.String | nullability=nullable | accessors=get,init
+  work_qid: System.String | nullability=nullable | accessors=get,init
+  supplemental: System.Boolean | nullability=not-null | accessors=get,init
+  confidence: System.Double? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityTimelineEntryDto
+  kind: System.String | nullability=not-null | accessors=get,init
+  value: System.String | nullability=not-null | accessors=get,init
+  start_time: System.String | nullability=nullable | accessors=get,init
+  end_time: System.String | nullability=nullable | accessors=get,init
+  work_qid: System.String | nullability=nullable | accessors=get,init
+  provenance: System.String | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.UniverseAdaptationNodeDto
   qid: System.String | nullability=not-null | accessors=get,init
   label: System.String | nullability=not-null | accessors=get,init
