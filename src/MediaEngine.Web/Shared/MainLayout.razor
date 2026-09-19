@@ -81,7 +81,7 @@
                     <AppNativeButton Type="button"
                                      Class="layout-shell__my-list"
                                      AriaLabel="@L["TopBar_MyList"]"
-                                     OnClick="@(_ => OpenMyList())">
+                                     OnClick="@(_ => OpenForMe())">
                         <MudIcon Icon="@Icons.Material.Filled.Bookmark"
                                  Class="layout-shell__my-list-icon" />
                     </AppNativeButton>
@@ -293,7 +293,7 @@
         InvokeAsync(StateHasChanged);
     }
 
-    private void OpenMyList() => Nav.NavigateTo("/my-list");
+    private void OpenForMe() => Nav.NavigateTo("/for-me?view=my-list");
 
     private void OpenSearch() => _searchOverlay?.Open();
 

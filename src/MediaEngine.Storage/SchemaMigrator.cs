@@ -15,6 +15,117 @@ internal sealed class SchemaMigrator
         EnsureCurrentIndexes(conn);
         SeedMetadataProviders(conn);
         SeedDefaultProfile(conn);
+        MigrateLegacyProfileLists(conn);
+    }
+
+    private static void MigrateLegacyProfileLists(SqliteConnection conn)
+    {
+        using (var check = conn.CreateCommand())
+        {
+            check.CommandText = "SELECT COUNT(*) FROM schema_migrations WHERE migration_id = '006_profile_state_for_me_cutover';";
+            if (Convert.ToInt32(check.ExecuteScalar()) > 0)
+            {
+                return;
+            }
+        }
+
+        DatabaseConnection.ExecuteStartupTransaction(conn, transaction =>
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = transaction;
+            cmd.CommandText = """
+                -- The old Dashboard created these exact private Playlists as an
+                -- implementation detail. Restrict by both name and product-owned
+                -- description so a user Playlist with the same name is untouched.
+                INSERT OR IGNORE INTO profile_saved_items(profile_id, entity_kind, entity_id, saved_at, position)
+                SELECT c.profile_id,
+                       CASE w.media_type
+                           WHEN 'Movies' THEN 'Movie'
+                           WHEN 'TV' THEN 'TvShow'
+                           WHEN 'Books' THEN 'Book'
+                           WHEN 'Comics' THEN 'Comic'
+                           WHEN 'Audiobooks' THEN 'Audiobook'
+                           ELSE 'Book'
+                       END,
+                       ci.work_id,
+                       ci.added_at,
+                       ci.sort_order
+                FROM collections c
+                JOIN collection_items ci ON ci.collection_id = c.id
+                JOIN works w ON w.id = ci.work_id
+                WHERE c.scope = 'user'
+                  AND c.profile_id IS NOT NULL
+                  AND c.collection_type = 'Playlist'
+                  AND c.resolution = 'materialized'
+                  AND (
+                    (c.display_name = 'Favorites' AND c.description = 'Profile-level favorites across the library.' AND w.media_type <> 'Music')
+                    OR (c.display_name = 'Watchlist' AND c.description = 'Quick-save shows and movies to watch later.')
+                  );
+
+                -- Music rows in the legacy Favorites Playlist represented the heart
+                -- action, not saved-for-later intent. Preserve them as Likes.
+                INSERT OR IGNORE INTO profile_reactions(profile_id, entity_kind, entity_id, reaction, updated_at)
+                SELECT c.profile_id, 'Song', ci.work_id, 'Like', ci.added_at
+                FROM collections c
+                JOIN collection_items ci ON ci.collection_id = c.id
+                JOIN works w ON w.id = ci.work_id
+                WHERE c.scope = 'user'
+                  AND c.profile_id IS NOT NULL
+                  AND c.collection_type = 'Playlist'
+                  AND c.resolution = 'materialized'
+                  AND c.display_name = 'Favorites'
+                  AND c.description = 'Profile-level favorites across the library.'
+                  AND w.media_type = 'Music';
+
+                INSERT OR REPLACE INTO profile_reactions(profile_id, entity_kind, entity_id, reaction, updated_at)
+                SELECT c.profile_id,
+                       CASE w.media_type
+                           WHEN 'Movies' THEN 'Movie'
+                           WHEN 'TV' THEN 'TvShow'
+                           WHEN 'Books' THEN 'Book'
+                           WHEN 'Comics' THEN 'Comic'
+                           WHEN 'Audiobooks' THEN 'Audiobook'
+                           WHEN 'Music' THEN 'Song'
+                           ELSE 'Book'
+                       END,
+                       ci.work_id,
+                       CASE c.display_name
+                           WHEN 'Disliked Media' THEN 'Dislike'
+                           WHEN 'Loved Media' THEN 'Love'
+                           ELSE 'Like'
+                       END,
+                       ci.added_at
+                FROM collections c
+                JOIN collection_items ci ON ci.collection_id = c.id
+                JOIN works w ON w.id = ci.work_id
+                WHERE c.scope = 'user'
+                  AND c.profile_id IS NOT NULL
+                  AND c.collection_type = 'Playlist'
+                  AND c.resolution = 'materialized'
+                  AND (
+                    (c.display_name = 'Liked Media' AND c.description = 'Profile-level positive feedback across the library.')
+                    OR (c.display_name = 'Disliked Media' AND c.description = 'Profile-level dislikes across the library.')
+                    OR (c.display_name = 'Loved Media' AND c.description = 'Profile-level strongest positive feedback across the library.')
+                  );
+
+                DELETE FROM collections
+                WHERE scope = 'user'
+                  AND profile_id IS NOT NULL
+                  AND collection_type = 'Playlist'
+                  AND resolution = 'materialized'
+                  AND (
+                    (display_name = 'Favorites' AND description = 'Profile-level favorites across the library.')
+                    OR (display_name = 'Watchlist' AND description = 'Quick-save shows and movies to watch later.')
+                    OR (display_name = 'Liked Media' AND description = 'Profile-level positive feedback across the library.')
+                    OR (display_name = 'Disliked Media' AND description = 'Profile-level dislikes across the library.')
+                    OR (display_name = 'Loved Media' AND description = 'Profile-level strongest positive feedback across the library.')
+                  );
+
+                INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
+                VALUES ('006_profile_state_for_me_cutover', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+                """;
+            cmd.ExecuteNonQuery();
+        });
     }
 
     private static void EnsureExpandedArtworkAssetTypes(SqliteConnection conn)

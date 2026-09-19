@@ -62,7 +62,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Services.AddScoped<ListenAudioDragService>();
         Services.AddScoped<IUserPlaybackPreferencesAccessor, UserPlaybackPreferencesAccessor>();
         Services.AddScoped<MediaReactionService>();
-        Services.AddScoped<FavoriteService>();
+        Services.AddScoped<SavedItemService>();
         Services.AddScoped<MediaEditorLauncherService>();
         Services.AddSingleton<IAdministratorSurfaceAccessService>(new AlwaysUnlockedAdministratorSurfaceAccessService());
         var profileId = Guid.Parse("00000000-0000-0000-0000-000000000001");

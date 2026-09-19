@@ -269,7 +269,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("Key = \"preview\",", composer);
         Assert.Contains("IsReadableEntity", composer);
         Assert.DoesNotContain("watch-party", composer);
-        Assert.Contains("Label = isSelected ? \"In My List\" : \"My List\"", composer);
+        Assert.Contains("Label = isSelected ? \"In My List\" : \"Add to My List\"", composer);
         Assert.Contains("Key = \"my-list\"", composer);
         Assert.DoesNotContain("Label = \"Add to Collection\"", composer);
         Assert.Contains("HasPrimaryOverflowCluster", source);
@@ -313,7 +313,7 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("ResolveWorkToAssetAsync", source);
         Assert.Contains("Nav.NavigateTo($\"/read/{assetId.Value:D}\")", source);
-        Assert.Contains("FavoriteService Favorites", source);
+        Assert.Contains("SavedItemService SavedItems", source);
         Assert.Contains("ToggleFavoriteAsync(action)", source);
         Assert.Contains("MediaReactionService Reactions", source);
         Assert.Contains("SetReactionAsync(action)", source);

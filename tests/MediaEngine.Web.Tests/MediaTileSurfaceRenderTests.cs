@@ -50,7 +50,7 @@ public sealed class MediaTileSurfaceRenderTests : AsyncBunitContext
         Services.AddSingleton(api);
         Services.AddScoped<ActiveProfileSessionService>();
         Services.AddScoped<MediaReactionService>();
-        Services.AddScoped<FavoriteService>();
+        Services.AddScoped<SavedItemService>();
         Services.AddScoped(_ => new PlaybackSessionController(null!, api));
     }
 

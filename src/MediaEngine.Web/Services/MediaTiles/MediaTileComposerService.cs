@@ -41,15 +41,6 @@ public sealed class MediaTileComposerService
 
     public static bool IsUserVisiblePlaylist(ManagedCollectionViewModel collection)
     {
-        if (string.Equals(collection.Name, "Watchlist", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.Name, "Favorites", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.Name, "Liked Media", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.Name, "Disliked Media", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.Name, "Loved Media", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
         return string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
                || string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
                || string.Equals(collection.CollectionType, "PlaylistFolder", StringComparison.OrdinalIgnoreCase);

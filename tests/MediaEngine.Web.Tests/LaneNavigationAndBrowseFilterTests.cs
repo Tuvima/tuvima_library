@@ -137,8 +137,8 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("BuildLibraryGroup(Preset)", read, StringComparison.Ordinal);
         Assert.Contains("BuildLibraryGroup(Preset)", watch, StringComparison.Ordinal);
         Assert.Contains("preset.Tabs.Select", laneConfiguration, StringComparison.Ordinal);
-        Assert.Contains("new(\"My List\", \"/my-list\"", read, StringComparison.Ordinal);
-        Assert.Contains("new(\"My List\", \"/my-list\"", watch, StringComparison.Ordinal);
+        Assert.Contains("new(\"My List\", \"/for-me?view=my-list&area=read\"", read, StringComparison.Ordinal);
+        Assert.Contains("new(\"My List\", \"/for-me?view=my-list&area=watch\"", watch, StringComparison.Ordinal);
         Assert.DoesNotContain("Label=\"Browse audiobooks\"", listen, StringComparison.Ordinal);
         Assert.Contains("browse-multi-select__option", multiSelect, StringComparison.Ordinal);
         Assert.Contains("role=\"menuitemcheckbox\"", multiSelect, StringComparison.Ordinal);

@@ -2109,6 +2109,32 @@ CREATE TABLE IF NOT EXISTS profile_sequence_preferences (
 CREATE INDEX IF NOT EXISTS idx_profile_sequence_preferences_container
     ON profile_sequence_preferences(media_type, container_key, profile_id);
 
+-- Personal hub state is deliberately independent from Collections, Playlists,
+-- Galleries, and playback progress. A saved container remains one reference.
+CREATE TABLE IF NOT EXISTS profile_saved_items (
+    profile_id   BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    entity_kind  TEXT NOT NULL CHECK(entity_kind IN ('Movie','TvShow','Book','Comic','Audiobook','Album','Song','Collection','Playlist')),
+    entity_id    BLOB NOT NULL,
+    saved_at     TEXT NOT NULL,
+    position     INTEGER,
+    PRIMARY KEY (profile_id, entity_kind, entity_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_profile_saved_items_recent
+    ON profile_saved_items(profile_id, saved_at DESC);
+
+CREATE TABLE IF NOT EXISTS profile_reactions (
+    profile_id   BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    entity_kind  TEXT NOT NULL CHECK(entity_kind IN ('Movie','TvShow','Book','Comic','Audiobook','Album','Song','Collection','Playlist')),
+    entity_id    BLOB NOT NULL,
+    reaction     TEXT NOT NULL CHECK(reaction IN ('Like','Dislike','Love')),
+    updated_at   TEXT NOT NULL,
+    PRIMARY KEY (profile_id, entity_kind, entity_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_profile_reactions_recent
+    ON profile_reactions(profile_id, reaction, updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS user_states (
     revision INTEGER NOT NULL DEFAULT 0,
     user_id             BLOB NOT NULL,

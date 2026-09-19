@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Web.Components.Browse;
 using MediaEngine.Web.Components.Library;
@@ -35,8 +36,8 @@ public partial class ListenPage
     [Inject] private UIOrchestratorService Orchestrator { get; set; } = default!;
     [Inject] private PlaybackSessionController Playback { get; set; } = default!;
     [Inject] private ListenAudioDragService AudioDrag { get; set; } = default!;
-    [Inject] private FavoriteService Favorites { get; set; } = default!;
     [Inject] private MediaReactionService Reactions { get; set; } = default!;
+    [Inject] private SavedItemService SavedItems { get; set; } = default!;
     [Inject] private MediaEditorLauncherService MediaEditorLauncher { get; set; } = default!;
     [Inject] private CollectionEditorLauncherService CollectionEditorLauncher { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
@@ -119,6 +120,7 @@ public partial class ListenPage
     private Guid? _draggingPlaylistTrackItemId;
     private Guid? _playlistTrackDropTargetItemId;
     private bool _playlistTrackDropAfter;
+    private bool _activePlaylistSaved;
     private bool _creatingPlaylistInline;
     private string _newPlaylistName = string.Empty;
     private Guid? _renamingPlaylistId;
@@ -384,6 +386,9 @@ public partial class ListenPage
         ? PlaylistCollections.FirstOrDefault(collection => collection.Id == CollectionId.Value)
         : null;
 
+    private bool CanSaveActivePlaylist => ActivePlaylistCollection is { } playlist
+        && (!_activeProfileId.HasValue || playlist.ProfileId != _activeProfileId);
+
     private string ActivePlaylistTitle => !string.IsNullOrWhiteSpace(PlaylistKey)
         ? PlaylistKey.ToLowerInvariant() switch
         {
@@ -404,7 +409,7 @@ public partial class ListenPage
         ? PlaylistKey.ToLowerInvariant() switch
         {
             "all-music" => "Every song in your library in one utility view.",
-            "favorite-songs" => "Songs saved to this profile's Favorites.",
+            "favorite-songs" => "Songs this profile has marked as Favorites.",
             "recently-added" => "Fresh music sorted by arrival time.",
             _ => null,
         }
@@ -434,7 +439,7 @@ public partial class ListenPage
 
     private IReadOnlyList<ListenNavigationItem> ListenPinnedPlaylistItems =>
     [
-        new("Favorites", "/listen/music/playlists/system/favorite-songs", Icons.Material.Outlined.FavoriteBorder),
+        new("Favorites", "/for-me?view=favorites&area=listen", Icons.Material.Outlined.FavoriteBorder),
         new("All Playlists", PlaylistsRoute, Icons.Material.Outlined.QueueMusic),
     ];
 
@@ -470,6 +475,7 @@ public partial class ListenPage
         _albumDetail = null;
         _artistDetail = null;
         _artistLoading = false;
+        _activePlaylistSaved = false;
         _playlistItems.Clear();
         _selectedTrackIds.Clear();
         CloseTrackContextMenu();
@@ -604,7 +610,7 @@ public partial class ListenPage
             _managedCollections.Clear();
             _managedCollections.AddRange(collectionsTask.Result);
 
-            _favoriteWorkIds = (await Favorites.GetFavoriteWorkIdsAsync(_activeProfileId, ct)).ToHashSet();
+            _favoriteWorkIds = (await Reactions.GetFavoriteWorkIdsAsync(_activeProfileId, ct)).ToHashSet();
             _dislikedWorkIds = (await Reactions.GetDislikedWorkIdsAsync(_activeProfileId, ct)).ToHashSet();
             if (!IsCurrentLoad(loadVersion))
             {
@@ -620,6 +626,13 @@ public partial class ListenPage
             if (CollectionId.HasValue && IsPlaylistSurface)
             {
                 _playlistItems.AddRange(await ApiClient.GetCollectionItemsAsync(CollectionId.Value, 1000, _activeProfileId, ct));
+                if (CanSaveActivePlaylist)
+                {
+                    _activePlaylistSaved = (await SavedItems.GetMembershipAsync(
+                        ProfileEntityKind.Playlist,
+                        CollectionId.Value,
+                        ct)).IsSaved;
+                }
                 if (!IsCurrentLoad(loadVersion))
                 {
                     return;
@@ -655,6 +668,22 @@ public partial class ListenPage
             _error = ex.Message;
             _loading = false;
         }
+    }
+
+    private async Task ToggleActivePlaylistSavedAsync()
+    {
+        if (ActivePlaylistCollection is null || !CanSaveActivePlaylist)
+            return;
+
+        var result = await SavedItems.ToggleAsync(ProfileEntityKind.Playlist, ActivePlaylistCollection.Id);
+        if (result is null)
+        {
+            Snackbar.Add("The Playlist could not be updated in My List.", Severity.Error);
+            return;
+        }
+
+        _activePlaylistSaved = result.IsSaved;
+        Snackbar.Add(result.IsSaved ? "Playlist added to My List." : "Playlist removed from My List.", Severity.Success);
     }
 
     private bool IsCurrentLoad(int loadVersion)
@@ -1679,14 +1708,19 @@ public partial class ListenPage
 
     private async Task ToggleFavoriteAsync(WorkViewModel work)
     {
-        await Favorites.ToggleAsync(work.Id, _activeProfileId);
+        var current = _favoriteWorkIds.Contains(work.Id) ? MediaReaction.Like : MediaReaction.Neutral;
+        await Reactions.SetReactionAsync(
+            work.Id,
+            current == MediaReaction.Neutral ? MediaReaction.Like : MediaReaction.Neutral,
+            _activeProfileId,
+            ProfileEntityKind.Song);
         await RefreshReactionStateAsync();
     }
 
     private async Task ToggleDislikeAsync(WorkViewModel work)
     {
         var nextReaction = _dislikedWorkIds.Contains(work.Id) ? MediaReaction.Neutral : MediaReaction.Dislike;
-        await Reactions.SetReactionAsync(work.Id, nextReaction, _activeProfileId);
+        await Reactions.SetReactionAsync(work.Id, nextReaction, _activeProfileId, ProfileEntityKind.Song);
         await RefreshReactionStateAsync();
     }
 
@@ -1800,7 +1834,7 @@ public partial class ListenPage
 
     private async Task RefreshReactionStateAsync()
     {
-        _favoriteWorkIds = (await Favorites.GetFavoriteWorkIdsAsync(_activeProfileId)).ToHashSet();
+        _favoriteWorkIds = (await Reactions.GetFavoriteWorkIdsAsync(_activeProfileId)).ToHashSet();
         _dislikedWorkIds = (await Reactions.GetDislikedWorkIdsAsync(_activeProfileId)).ToHashSet();
         StateHasChanged();
     }

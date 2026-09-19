@@ -633,7 +633,7 @@ else
                         <div class="listen-empty">
                             <div>
                                 <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-56px tl-u-opacity-0-22" />
-                                <p>No saved playlists yet. Favorites and recently added stay available from Quick access.</p>
+                                <p>No saved Playlists yet. Favorites remain available from For Me.</p>
                             </div>
                         </div>
                     }
@@ -679,6 +679,16 @@ else
                                 <MudIcon Icon="@Icons.Material.Filled.Shuffle" Size="Size.Small" />
                                 <span>Shuffle</span>
                             </AppNativeButton>
+                            @if (CanSaveActivePlaylist)
+                            {
+                                <AppNativeButton Type="button"
+                                                 Class="listen-button listen-button--secondary"
+                                                 aria-pressed="@_activePlaylistSaved"
+                                                 OnClick="ToggleActivePlaylistSavedAsync">
+                                    <MudIcon Icon="@(_activePlaylistSaved ? Icons.Material.Filled.Bookmark : Icons.Material.Outlined.BookmarkBorder)" Size="Size.Small" />
+                                    <span>@(_activePlaylistSaved ? "In My List" : "Add to My List")</span>
+                                </AppNativeButton>
+                            }
                         </div>
                     </div>
                     @if (ActivePlaylistCollection is not null)

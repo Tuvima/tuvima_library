@@ -2,12 +2,13 @@
 @using System.Globalization
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Contracts.Playback
+@using MediaEngine.Domain.Enums
 @using MediaEngine.Web.Components.Shared
 @using MediaEngine.Web.Services.Integration
 @using MediaEngine.Web.Services.Playback
 @using Microsoft.AspNetCore.Components.Web
 @using MudBlazor
-@inject FavoriteService Favorites
+@inject MediaReactionService Reactions
 @inject ListenAudioDragService AudioDrag
 @inject PlaybackSessionController Playback
 @inject UIOrchestratorService Orchestrator
@@ -321,7 +322,7 @@
             .Where(column => column.Key != "artist" || ShowArtistColumn)
             .ToList();
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
         var nextMode = IsAudiobook ? "audiobook" : "music";
         if (!string.Equals(_modeKey, nextMode, StringComparison.Ordinal))
@@ -333,13 +334,11 @@
             _columns.AddRange(IsAudiobook ? AudiobookColumns() : MusicColumns());
         }
 
+        var profile = await Orchestrator.GetActiveProfileAsync();
         _favoriteIds.Clear();
-        foreach (var item in Items)
+        if (!IsAudiobook)
         {
-            if (item.IsFavorite && Guid.TryParse(item.Id, out var id))
-            {
-                _favoriteIds.Add(id);
-            }
+            _favoriteIds.UnionWith(await Reactions.GetFavoriteWorkIdsAsync(profile?.Id));
         }
     }
 
@@ -409,20 +408,21 @@
         }
 
         var profile = await Orchestrator.GetActiveProfileAsync();
-        var membership = await Favorites.ToggleAsync(ItemId(item), profile?.Id);
-        if (membership is null)
+        if (profile is null)
         {
             Snackbar.Add("Favorites require an active profile.", Severity.Warning);
             return;
         }
-
-        if (membership.IsFavorite)
+        var id = ItemId(item);
+        var next = _favoriteIds.Contains(id) ? MediaReaction.Neutral : MediaReaction.Like;
+        await Reactions.SetReactionAsync(id, next, profile.Id, ProfileEntityKind.Song);
+        if (next == MediaReaction.Like)
         {
-            _favoriteIds.Add(ItemId(item));
+            _favoriteIds.Add(id);
         }
         else
         {
-            _favoriteIds.Remove(ItemId(item));
+            _favoriteIds.Remove(id);
         }
     }
 

@@ -22,7 +22,7 @@ public sealed class MediaTileComposerServiceTests
         };
 
         Assert.True(MediaTileComposerService.IsUserVisiblePlaylist(playlist));
-        Assert.False(MediaTileComposerService.IsUserVisiblePlaylist(new ManagedCollectionViewModel
+        Assert.True(MediaTileComposerService.IsUserVisiblePlaylist(new ManagedCollectionViewModel
         {
             Name = "Favorites",
             CollectionType = "Playlist",

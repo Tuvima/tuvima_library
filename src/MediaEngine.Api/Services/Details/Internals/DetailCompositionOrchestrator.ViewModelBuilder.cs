@@ -683,7 +683,7 @@ internal sealed partial class DetailCompositionOrchestrator
         => new()
         {
             Key = "my-list",
-            Label = isSelected ? "In My List" : "My List",
+            Label = isSelected ? "In My List" : "Add to My List",
             Icon = isSelected ? "check_circle" : "add",
             Tooltip = isSelected ? "Remove from My List" : "Add to My List",
             DisplayStyle = "icon",
@@ -748,8 +748,7 @@ internal sealed partial class DetailCompositionOrchestrator
            || IsWatchEntity(entityType)
            || entityType is DetailEntityType.MusicAlbum
                or DetailEntityType.TvShow
-               or DetailEntityType.TvSeason
-               or DetailEntityType.TvEpisode;
+               or DetailEntityType.Collection;
 
     private static string BuildReadListenAvailabilityLabel(DetailEntityType entityType, IReadOnlyList<OwnedFormatViewModel> formats)
     {

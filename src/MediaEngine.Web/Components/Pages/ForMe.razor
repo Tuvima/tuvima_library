@@ -1,0 +1,440 @@
+@page "/for-me"
+@namespace MediaEngine.Web.Components.Pages
+@using MediaEngine.Contracts.Display
+@using MediaEngine.Contracts.LocalAssets
+@using MediaEngine.Contracts.ProfileState
+@using MediaEngine.Domain.Enums
+@using MediaEngine.Web.Services.MediaTiles
+@using MediaEngine.Web.Services.Playback
+@implements IDisposable
+
+@inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
+@inject NavigationManager Nav
+@inject ILogger<ForMe> Logger
+
+<PageTitle>For Me - Tuvima</PageTitle>
+
+<section class="for-me-page">
+    <header class="for-me-page__header">
+        <div class="for-me-page__eyebrow">Your profile</div>
+        <h1>For Me</h1>
+        <p>Your progress, saved items, favorites, and personal spaces—kept distinct and brought together here.</p>
+    </header>
+
+    <SurfaceNavigationBar Items="NavigationItems"
+                          ActiveKey="@ActiveView"
+                          ActiveKeyChanged="NavigateViewAsync"
+                          AriaLabel="For Me sections"
+                          Class="for-me-page__navigation" />
+
+    @if (_loading)
+    {
+        <AppPageState Kind="AppPageStateKind.Loading"
+                      Title="Loading For Me"
+                      Message="Gathering this profile's progress and personal spaces." />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <AppErrorState Title="For Me could not load"
+                       Message="The Dashboard could not read this profile's personal state."
+                       Details="@_error"
+                       Retry="LoadAsync" />
+    }
+    else if (ActiveView == "overview")
+    {
+        <div class="for-me-page__shelves">
+            @foreach (var shelf in OverviewShelves)
+            {
+                <MediaTileShelf Shelf="@shelf"
+                                HoverMode="MediaTileHoverMode.GlowOnly"
+                                HideMediaKindBadges="true"
+                                HideSourceBadges="true"
+                                ShowCompactCaptions="true"
+                                @key="shelf.Key" />
+            }
+            @if (OverviewShelves.Count == 0)
+            {
+                <AppEmptyState Title="Your personal hub is ready"
+                               Message="Save a title, mark a favorite, or begin watching, reading, or listening to see it here.">
+                    <Action><AppButton Href="/" Label="Browse your library" /></Action>
+                </AppEmptyState>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="for-me-page__view-heading">
+            <div>
+                <h2>@ViewTitle</h2>
+                <p>@ViewDescription</p>
+            </div>
+            @if (ActiveView is "my-list" or "favorites")
+            {
+                <span class="for-me-page__count">@CountLabel</span>
+            }
+        </div>
+
+        @if (ActiveView is "my-list" or "favorites")
+        {
+            <div class="for-me-page__controls">
+                <div class="for-me-page__areas" role="group" aria-label="Media area">
+                    @foreach (var option in AreaOptions)
+                    {
+                        <AppButton ButtonStyle="@(Area == option.Key ? AppButtonStyle.Filled : AppButtonStyle.Outlined)"
+                                   Tone="@(Area == option.Key ? AppUiTone.Primary : AppUiTone.Neutral)"
+                                   OnClick="@(() => NavigateArea(option.Key))">
+                            @option.Label
+                        </AppButton>
+                    }
+                </div>
+                <label class="for-me-page__sort">
+                    <span>Sort</span>
+                    <AppNativeSelect Value="@Sort" OnChange="SortChangedAsync" aria-label="Sort For Me items">
+                        <option value="recent">Recently added</option>
+                        <option value="title">Title</option>
+                    </AppNativeSelect>
+                </label>
+            </div>
+        }
+
+        @if (ActiveItems.Count == 0)
+        {
+            <AppEmptyState Title="@EmptyTitle" Message="@EmptyMessage" />
+        }
+        else
+        {
+            <MediaTileGrid Items="@ActiveItems"
+                           HoverMode="MediaTileHoverMode.GlowOnly"
+                           HideSourceBadges="true"
+                           ShowCompactCaptions="true"
+                           Class="for-me-page__grid" />
+        }
+    }
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "view")] public string? View { get; set; }
+    [SupplyParameterFromQuery(Name = "area")] public string? RequestedArea { get; set; }
+    [SupplyParameterFromQuery(Name = "sort")] public string? RequestedSort { get; set; }
+
+    private readonly List<ProfileSavedItemDto> _saved = [];
+    private readonly List<ProfileReactionDto> _reactions = [];
+    private readonly List<MediaTileViewModel> _media = [];
+    private readonly List<MediaTileViewModel> _continue = [];
+    private readonly List<MediaTileViewModel> _collections = [];
+    private readonly List<MediaTileViewModel> _playlists = [];
+    private readonly List<MediaTileViewModel> _galleries = [];
+    private Guid? _activeProfileId;
+    private bool _loading = true;
+    private string? _error;
+
+    private string ActiveView => View?.ToLowerInvariant() switch
+    {
+        "my-list" => "my-list",
+        "favorites" => "favorites",
+        "collections" => "collections",
+        "playlists" => "playlists",
+        "galleries" => "galleries",
+        _ => "overview",
+    };
+    private string Area => RequestedArea?.ToLowerInvariant() switch
+    {
+        "watch" => "watch",
+        "read" => "read",
+        "listen" => "listen",
+        "collections" => "collections",
+        _ => "all",
+    };
+    private string Sort => string.Equals(RequestedSort, "title", StringComparison.OrdinalIgnoreCase) ? "title" : "recent";
+
+    private IReadOnlyList<SurfaceTabItem> NavigationItems =>
+    [
+        new("overview", "Overview", Icons.Material.Outlined.SpaceDashboard),
+        new("my-list", "My List", Icons.Material.Filled.Bookmark, _saved.Count),
+        new("favorites", "Favorites", Icons.Material.Outlined.FavoriteBorder, FavoriteStates.Count),
+        new("collections", "Collections", Icons.Material.Outlined.CollectionsBookmark, _collections.Count),
+        new("playlists", "Playlists", Icons.Material.Outlined.QueueMusic, _playlists.Count),
+        new("galleries", "Galleries", Icons.Material.Outlined.PhotoLibrary, _galleries.Count),
+    ];
+
+    private static readonly IReadOnlyList<(string Key, string Label)> AreaOptions =
+    [
+        ("all", "All"),
+        ("watch", "Watch"),
+        ("read", "Read"),
+        ("listen", "Listen"),
+        ("collections", "Collections"),
+    ];
+
+    private IReadOnlyList<ProfileReactionDto> FavoriteStates => _reactions
+        .Where(item => item.Reaction is ProfileReactionKind.Like or ProfileReactionKind.Love)
+        .ToList();
+
+    private IReadOnlyList<MediaTileViewModel> SavedItems => SortItems(FilterArea(
+        _saved.Select(saved => FindSavedTile(saved)).Where(tile => tile is not null).Cast<MediaTileViewModel>()),
+        _saved.ToDictionary(item => (item.EntityKind, item.EntityId), item => item.SavedAt));
+
+    private IReadOnlyList<MediaTileViewModel> FavoriteItems => SortItems(FilterArea(
+        FavoriteStates.Select(FindReactionTile).Where(tile => tile is not null).Cast<MediaTileViewModel>()),
+        FavoriteStates.ToDictionary(item => (item.EntityKind, item.EntityId), item => item.UpdatedAt));
+
+    private IReadOnlyList<MediaTileViewModel> ActiveItems => ActiveView switch
+    {
+        "my-list" => SavedItems,
+        "favorites" => FavoriteItems,
+        "collections" => _collections,
+        "playlists" => _playlists,
+        "galleries" => _galleries,
+        _ => [],
+    };
+
+    private IReadOnlyList<MediaTileShelfViewModel> OverviewShelves
+    {
+        get
+        {
+            var shelves = new List<MediaTileShelfViewModel>();
+            AddShelf(shelves, "continue", "Continue", "Pick up where you left off", _continue, "/?shelf=continue");
+            AddShelf(shelves, "my-list", "My List", "Saved for later", SavedItems, "/for-me?view=my-list");
+            AddShelf(shelves, "favorites", "Favorites", "Things you like and love", FavoriteItems, "/for-me?view=favorites");
+            AddShelf(shelves, "collections", "Your Collections", "Collections owned by this profile", _collections, "/for-me?view=collections");
+            AddShelf(shelves, "playlists", "Your Playlists", "Listening queues owned by this profile", _playlists, "/for-me?view=playlists");
+            AddShelf(shelves, "galleries", "Your Galleries", "Personal photo and video spaces", _galleries, "/for-me?view=galleries");
+            return shelves;
+        }
+    }
+
+    private string ViewTitle => ActiveView switch
+    {
+        "my-list" => "My List",
+        "favorites" => "Favorites",
+        "collections" => "Your Collections",
+        "playlists" => "Your Playlists",
+        "galleries" => "Your Galleries",
+        _ => "For Me",
+    };
+    private string ViewDescription => ActiveView switch
+    {
+        "my-list" => "Movies, shows, books, albums, Collections, and shared Playlists you saved for later.",
+        "favorites" => "Media and songs you marked as something you like or love.",
+        "collections" => "Collections owned by this profile. Library-wide Collections remain in Collections unless you save one.",
+        "playlists" => "Manual and Smart Playlists owned by this profile.",
+        "galleries" => "Galleries from this profile's Personal Space.",
+        _ => string.Empty,
+    };
+    private string CountLabel => ActiveItems.Count == 1 ? "1 item" : $"{ActiveItems.Count:N0} items";
+    private string EmptyTitle => ActiveView switch
+    {
+        "my-list" => "Your list is empty",
+        "favorites" => "No favorites yet",
+        "collections" => "No personal Collections yet",
+        "playlists" => "No Playlists yet",
+        "galleries" => "No Galleries yet",
+        _ => "Nothing here yet",
+    };
+    private string EmptyMessage => ActiveView switch
+    {
+        "my-list" => "Use Add to My List on a media or Collection detail page to save it here.",
+        "favorites" => "Use the heart or rating action on media and songs to build your Favorites.",
+        "collections" => "Create a personal Collection to organize media for this profile.",
+        "playlists" => "Create a Playlist from Listen or add songs to a new Playlist.",
+        "galleries" => "Create a Gallery from View to organize personal photos and videos.",
+        _ => "There are no items in this view.",
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        Orchestrator.OnProfileChanged += OnProfileChanged;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var profile = await Orchestrator.GetActiveProfileAsync();
+            _activeProfileId = profile?.Id;
+            if (!_activeProfileId.HasValue)
+                throw new InvalidOperationException("For Me requires an active profile.");
+
+            var savedTask = ApiClient.GetSavedItemsAsync();
+            var reactionsTask = ApiClient.GetProfileReactionsAsync();
+            var readTask = ApiClient.GetDisplayBrowseAsync(lane: "read", grouping: "all", limit: 500, profileId: _activeProfileId);
+            var watchTask = ApiClient.GetDisplayBrowseAsync(lane: "watch", grouping: "all", limit: 500, profileId: _activeProfileId);
+            var listenTask = ApiClient.GetDisplayBrowseAsync(lane: "listen", grouping: "all", limit: 500, profileId: _activeProfileId);
+            var songsTask = ApiClient.GetDisplayBrowseAsync(lane: "listen", mediaType: "Music", grouping: "tracks", limit: 500, profileId: _activeProfileId);
+            var continueTask = ApiClient.GetDisplayContinueAsync(limit: 18);
+            var catalogTask = ApiClient.GetCollectionCatalogAsync(_activeProfileId);
+            var managedTask = ApiClient.GetManagedCollectionsAsync(_activeProfileId);
+            var galleriesTask = ApiClient.GetViewGalleriesAsync();
+
+            await Task.WhenAll(savedTask, reactionsTask, readTask, watchTask, listenTask, songsTask,
+                continueTask, catalogTask, managedTask, galleriesTask);
+
+            _saved.Clear();
+            _saved.AddRange(await savedTask);
+            _reactions.Clear();
+            _reactions.AddRange(await reactionsTask);
+
+            _media.Clear();
+            _media.AddRange(new[] { await readTask, await watchTask, await listenTask, await songsTask }
+                .Where(page => page is not null)
+                .SelectMany(FlattenCards)
+                .GroupBy(card => card.Id)
+                .Select(group => MediaTileComposerService.FromDisplayCard(group.First())));
+
+            _continue.Clear();
+            if (await continueTask is { } continuePage)
+                _continue.AddRange(FlattenCards(continuePage).Select(MediaTileComposerService.FromDisplayCard).Take(18));
+
+            var catalog = await catalogTask;
+            _collections.Clear();
+            _collections.AddRange(catalog
+                .Where(item => item.ProfileId == _activeProfileId
+                               && item.CollectionType is not ("Playlist" or "PlaylistFolder"))
+                .Select(CollectionSurfaceTileComposer.FromCollection));
+
+            var managed = await managedTask;
+            _playlists.Clear();
+            _playlists.AddRange(managed
+                .Where(item => item.ProfileId == _activeProfileId && MediaTileComposerService.IsUserVisiblePlaylist(item))
+                .Select(MediaTileComposerService.FromPlaylist));
+
+            var galleries = await galleriesTask;
+            _galleries.Clear();
+            _galleries.AddRange((galleries?.Owned ?? []).Select(ToGalleryTile));
+
+            // Keep accessible library Collections and shared Playlists available to
+            // My List resolution without promoting them into the owned shelves.
+            _accessibleCollections = catalog.ToDictionary(item => item.Id);
+            _accessiblePlaylists = managed.ToDictionary(item => item.Id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load For Me for profile {ProfileId}.", _activeProfileId);
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private Dictionary<Guid, CollectionManagementCatalogViewModel> _accessibleCollections = [];
+    private Dictionary<Guid, ManagedCollectionViewModel> _accessiblePlaylists = [];
+
+    private MediaTileViewModel? FindSavedTile(ProfileSavedItemDto saved)
+    {
+        if (saved.EntityKind == ProfileEntityKind.Collection
+            && _accessibleCollections.TryGetValue(saved.EntityId, out var collection))
+            return CollectionSurfaceTileComposer.FromCollection(collection);
+        if (saved.EntityKind == ProfileEntityKind.Playlist
+            && _accessiblePlaylists.TryGetValue(saved.EntityId, out var playlist))
+            return MediaTileComposerService.FromPlaylist(playlist);
+        return FindMediaTile(saved.EntityId);
+    }
+
+    private MediaTileViewModel? FindMediaTile(Guid id) =>
+        _media.FirstOrDefault(item => item.Id == id || item.WorkId == id || item.RepresentativeEntityId == id);
+
+    private MediaTileViewModel? FindReactionTile(ProfileReactionDto reaction)
+    {
+        if (reaction.EntityKind == ProfileEntityKind.Collection
+            && _accessibleCollections.TryGetValue(reaction.EntityId, out var collection))
+            return CollectionSurfaceTileComposer.FromCollection(collection);
+        return FindMediaTile(reaction.EntityId);
+    }
+
+    private IEnumerable<MediaTileViewModel> FilterArea(IEnumerable<MediaTileViewModel> items) => Area switch
+    {
+        "watch" => items.Where(item => item.MediaKind is "Movie" or "TV"),
+        "read" => items.Where(item => item.MediaKind is "Book" or "Comic"),
+        "listen" => items.Where(item => item.MediaKind is "Music" or "Audiobook"),
+        "collections" => items.Where(item => item.IsCollection),
+        _ => items,
+    };
+
+    private IReadOnlyList<MediaTileViewModel> SortItems(
+        IEnumerable<MediaTileViewModel> items,
+        IReadOnlyDictionary<(ProfileEntityKind Kind, Guid Id), DateTimeOffset> timestamps)
+    {
+        var list = items.DistinctBy(item => (item.Id, item.CollectionId)).ToList();
+        if (Sort == "title")
+            return list.OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase).ToList();
+
+        return list.OrderByDescending(item => timestamps
+            .Where(pair => pair.Key.Id == item.Id || pair.Key.Id == item.WorkId || pair.Key.Id == item.CollectionId)
+            .Select(pair => pair.Value)
+            .DefaultIfEmpty(item.SortTimestamp)
+            .Max()).ToList();
+    }
+
+    private static IEnumerable<DisplayCardDto> FlattenCards(DisplayPageDto? page) => page is null
+        ? []
+        : page.Catalog.Concat(page.Shelves.SelectMany(shelf => shelf.Items)).DistinctBy(card => card.Id);
+
+    private static void AddShelf(
+        ICollection<MediaTileShelfViewModel> shelves,
+        string key,
+        string title,
+        string subtitle,
+        IEnumerable<MediaTileViewModel> items,
+        string route)
+    {
+        var bounded = items.Take(12).ToList();
+        if (bounded.Count == 0)
+            return;
+        shelves.Add(new MediaTileShelfViewModel
+        {
+            Key = key,
+            Title = title,
+            Subtitle = subtitle,
+            Items = bounded,
+            SeeAllRoute = route,
+        });
+    }
+
+    private static MediaTileViewModel ToGalleryTile(ViewGalleryDto gallery) => new()
+    {
+        Id = gallery.Id,
+        Title = gallery.Name,
+        Subtitle = $"{gallery.ItemCount:N0} {(gallery.ItemCount == 1 ? "item" : "items")} · {gallery.Kind}",
+        Description = gallery.Description,
+        MediaKind = "Gallery",
+        AccentColor = "var(--tl-media-view)",
+        Shape = MediaTileShape.Square,
+        HoverArtworkShape = MediaTileShape.Square,
+        SurfaceKind = MediaTileSurfaceKind.CoverSquare,
+        HoverMode = MediaTileHoverMode.GlowOnly,
+        TileTextMode = MediaTileTextMode.Caption,
+        NavigationUrl = $"/view/galleries/{gallery.Id:D}",
+        DetailsNavigationUrl = $"/view/galleries/{gallery.Id:D}",
+        PrimaryNavigationUrl = $"/view/galleries/{gallery.Id:D}",
+        PrimaryActionLabel = "Open",
+        SortTimestamp = gallery.UpdatedAt,
+        IsCollection = true,
+    };
+
+    private Task NavigateViewAsync(string view)
+    {
+        Nav.NavigateTo(view == "overview" ? "/for-me" : $"/for-me?view={Uri.EscapeDataString(view)}");
+        return Task.CompletedTask;
+    }
+
+    private void NavigateArea(string area) =>
+        Nav.NavigateTo($"/for-me?view={ActiveView}&area={area}&sort={Sort}");
+
+    private Task SortChangedAsync(ChangeEventArgs args)
+    {
+        var sort = args.Value?.ToString() == "title" ? "title" : "recent";
+        Nav.NavigateTo($"/for-me?view={ActiveView}&area={Area}&sort={sort}");
+        return Task.CompletedTask;
+    }
+
+    private void OnProfileChanged() => _ = InvokeAsync(LoadAsync);
+
+    public void Dispose() => Orchestrator.OnProfileChanged -= OnProfileChanged;
+}

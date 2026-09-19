@@ -83,7 +83,7 @@
         {
             var playlistItems = new List<MediaSectionNavigationItem>
             {
-                new("Favorites", "/listen/music/playlists/system/favorite-songs", Icons.Material.Outlined.FavoriteBorder),
+                new("Favorites", "/for-me?view=favorites&area=listen", Icons.Material.Outlined.FavoriteBorder),
                 new("All Playlists", "/listen/playlists", Icons.Material.Outlined.QueueMusic, Exact: true),
             };
             playlistItems.AddRange(_playlists
@@ -106,7 +106,7 @@
                     ListenBrowseConfiguration.LibraryRailTabIds),
                 new("Listen next",
                 [
-                    new("My List", "/my-list", Icons.Material.Outlined.BookmarkBorder, Exact: true),
+                    new("My List", "/for-me?view=my-list&area=listen", Icons.Material.Outlined.BookmarkBorder, Exact: true),
                     new("Continue Listening", "/listen/audiobooks?status=in-progress", Icons.Material.Outlined.PlayCircle, Exact: true),
                     new("Recently Played", "/listen/music?sort=recently-played", Icons.Material.Outlined.History, Exact: true),
                     new("Recently Added", "/listen/music?sort=newest", Icons.Material.Outlined.Schedule, Exact: true),

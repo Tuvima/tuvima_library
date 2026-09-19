@@ -13,7 +13,7 @@ public sealed class Stage5BResidualUiTests
     [Theory]
     [InlineData(@"src\MediaEngine.Web\Components\Collections\CollectionsPage.razor")]
     [InlineData(@"src\MediaEngine.Web\Components\Pages\EpubReader.razor")]
-    [InlineData(@"src\MediaEngine.Web\Components\Pages\MyList.razor")]
+    [InlineData(@"src\MediaEngine.Web\Components\Pages\ForMe.razor")]
     [InlineData(@"src\MediaEngine.Web\Components\Pages\Settings.razor")]
     [InlineData(@"src\MediaEngine.Web\Components\Pages\WatchPlayerPage.razor")]
     public void PageSizedLoadingStates_UseAppPageState(string relativePath)
@@ -26,7 +26,7 @@ public sealed class Stage5BResidualUiTests
 
     [Theory]
     [InlineData(@"src\MediaEngine.Web\Components\Pages\EpubReader.razor")]
-    [InlineData(@"src\MediaEngine.Web\Components\Pages\MyList.razor")]
+    [InlineData(@"src\MediaEngine.Web\Components\Pages\ForMe.razor")]
     [InlineData(@"src\MediaEngine.Web\Components\Pages\WatchPlayerPage.razor")]
     public void RetryableFailures_KeepRicherAppErrorState(string relativePath)
     {
@@ -77,7 +77,6 @@ public sealed class Stage5BResidualUiTests
 
     [Theory]
     [InlineData(@"src\MediaEngine.Web\Services\MediaTiles\CollectionSurfaceTileComposer.cs")]
-    [InlineData(@"src\MediaEngine.Web\Components\Pages\MyList.razor")]
     public void ResidualTileCallers_DelegateArtworkSelection(string relativePath)
     {
         var source = Read(relativePath);

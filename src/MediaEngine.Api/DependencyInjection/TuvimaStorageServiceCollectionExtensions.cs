@@ -166,6 +166,7 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddSingleton<UserStateRepository>();
         services.AddSingleton<IUserStateStore>(sp => sp.GetRequiredService<UserStateRepository>());
         services.AddSingleton<IPersonalStatusRepository, PersonalStatusRepository>();
+        services.AddSingleton<IProfileStateRepository, ProfileStateRepository>();
         services.AddSingleton<ITvEpisodeCreditRepository, TvEpisodeCreditRepository>();
 
         services.AddSingleton<CollectionBackfillService>();

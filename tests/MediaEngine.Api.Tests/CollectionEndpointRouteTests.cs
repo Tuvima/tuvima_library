@@ -175,8 +175,8 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("artwork_secondary_hex", source, StringComparison.Ordinal);
         Assert.Contains("artwork_accent_hex", source, StringComparison.Ordinal);
         Assert.Contains("preferred_cover.primary_hex", source, StringComparison.Ordinal);
-        Assert.Contains("Watchlist", source, StringComparison.Ordinal);
-        Assert.Contains("Favorites", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Watchlist", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Favorites", source, StringComparison.Ordinal);
         Assert.Contains("CollectionManagementCatalogDto", dtoSource, StringComparison.Ordinal);
         Assert.Contains("CollectionArtworkItemDto", dtoSource, StringComparison.Ordinal);
         Assert.Contains("PrimaryColor", dtoSource, StringComparison.Ordinal);

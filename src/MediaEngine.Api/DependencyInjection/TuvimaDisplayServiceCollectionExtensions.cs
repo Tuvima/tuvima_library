@@ -5,6 +5,7 @@ using MediaEngine.Api.Services.Collections;
 using MediaEngine.Api.Services.Details;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Metadata;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Application.Services;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Processors;
@@ -41,6 +42,7 @@ public static class TuvimaDisplayServiceCollectionExtensions
         services.AddSingleton<DisplayCardBuilder>();
         services.AddSingleton<DisplayShelfBuilder>();
         services.AddScoped<DisplayComposerService>();
+        services.AddScoped<ProfileStateAccessService>();
         services.AddSingleton<DetailRecommendationService>();
         services.AddSingleton<DetailComposerService>();
         return services;

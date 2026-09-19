@@ -2,6 +2,8 @@ using System.Security.Claims;
 using Bunit;
 using MediaEngine.Contracts.Authentication;
 using MediaEngine.Contracts.Collections;
+using MediaEngine.Contracts.ProfileState;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Playback;
@@ -12,11 +14,11 @@ using Microsoft.JSInterop;
 
 namespace MediaEngine.Web.Tests;
 
-public sealed class ProfileAndFavoriteServiceTests : AsyncBunitContext
+public sealed class ProfileAndSavedItemServiceTests : AsyncBunitContext
 {
     private static readonly Guid ProfileId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
-    public ProfileAndFavoriteServiceTests()
+    public ProfileAndSavedItemServiceTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
@@ -86,19 +88,22 @@ public sealed class ProfileAndFavoriteServiceTests : AsyncBunitContext
     }
 
     [Fact]
-    public async Task FavoriteMembership_ReadsAreSingleFlightAndNeverCreateACollection()
+    public async Task SavedItemToggle_UsesProfileStateAndNeverCreatesACollection()
     {
-        var managedCollectionRequests = 0;
+        var saved = false;
         var createCollectionRequests = 0;
-        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var response = new TaskCompletionSource<List<ManagedCollectionViewModel>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var saveRequests = 0;
         var api = EngineApiClientStub.Create(stub =>
         {
-            stub.SetHandler(nameof(IEngineApiClient.GetManagedCollectionsAsync), _ =>
+            stub.SetHandler(nameof(IEngineApiClient.GetSavedItemAsync), _ => Task.FromResult<ProfileSavedItemDto?>(saved
+                ? new(ProfileEntityKind.Book, Guid.Empty, DateTimeOffset.UtcNow, null)
+                : null));
+            stub.SetHandler(nameof(IEngineApiClient.SaveItemAsync), _ =>
             {
-                Interlocked.Increment(ref managedCollectionRequests);
-                requestStarted.TrySetResult();
-                return response.Task;
+                saved = true;
+                Interlocked.Increment(ref saveRequests);
+                return Task.FromResult<ProfileStateMutationDto?>(new(
+                    ProfileEntityKind.Book, Guid.Empty, true, null, DateTimeOffset.UtcNow));
             });
             stub.SetHandler(nameof(IEngineApiClient.CreateCollectionAsync), _ =>
             {
@@ -106,115 +111,37 @@ public sealed class ProfileAndFavoriteServiceTests : AsyncBunitContext
                 return Task.FromResult(true);
             });
         });
-        var favorites = new FavoriteService(api);
+        var savedItems = new SavedItemService(api);
 
-        var pendingMemberships = Enumerable.Range(0, 32)
-            .Select(_ => favorites.GetMembershipAsync(Guid.NewGuid(), ProfileId))
-            .ToList();
+        var membership = await savedItems.ToggleAsync(ProfileEntityKind.Book, Guid.NewGuid());
 
-        await requestStarted.Task;
-        Assert.Equal(1, managedCollectionRequests);
-        Assert.Equal(0, createCollectionRequests);
-
-        response.SetResult([]);
-        var memberships = await Task.WhenAll(pendingMemberships);
-
-        Assert.All(memberships, Assert.Null);
-        Assert.Equal(1, managedCollectionRequests);
+        Assert.NotNull(membership);
+        Assert.True(membership.IsSaved);
+        Assert.Equal(1, saveRequests);
         Assert.Equal(0, createCollectionRequests);
     }
 
     [Fact]
-    public async Task FavoriteToggle_CreatesMissingCollectionOnlyOnMutation()
+    public async Task SavedItemList_ReturnsFirstClassProfileState()
     {
-        var collectionCreated = false;
         var createCollectionRequests = 0;
-        var addItemRequests = 0;
-        var favoritesCollectionId = Guid.NewGuid();
+        var entityId = Guid.NewGuid();
         var api = EngineApiClientStub.Create(stub =>
         {
-            stub.SetHandler(nameof(IEngineApiClient.GetManagedCollectionsAsync), _ =>
-                Task.FromResult(collectionCreated
-                    ? new List<ManagedCollectionViewModel>
-                    {
-                        new()
-                        {
-                            Id = favoritesCollectionId,
-                            Name = "Favorites",
-                            CollectionType = "Playlist",
-                            ProfileId = ProfileId,
-                        },
-                    }
-                    : []));
-            stub.SetHandler(nameof(IEngineApiClient.CreateCollectionAsync), _ =>
-            {
-                collectionCreated = true;
-                Interlocked.Increment(ref createCollectionRequests);
-                return Task.FromResult(true);
-            });
-            stub.SetHandler(nameof(IEngineApiClient.GetCollectionItemsAsync), _ =>
-                Task.FromResult(new List<CollectionItemDto>()));
-            stub.SetHandler(nameof(IEngineApiClient.AddCollectionItemAsync), _ =>
-            {
-                Interlocked.Increment(ref addItemRequests);
-                return Task.FromResult(true);
-            });
-        });
-        var favorites = new FavoriteService(api);
-        var workId = Guid.NewGuid();
-
-        var initialMembership = await favorites.GetMembershipAsync(workId, ProfileId);
-        Assert.Null(initialMembership);
-        Assert.Equal(0, createCollectionRequests);
-
-        await favorites.ToggleAsync(workId, ProfileId);
-
-        Assert.Equal(1, createCollectionRequests);
-        Assert.Equal(1, addItemRequests);
-    }
-
-    [Fact]
-    public async Task FavoriteList_ReturnsSavedItemsWithoutCreatingACollection()
-    {
-        var favoritesCollectionId = Guid.NewGuid();
-        var workId = Guid.NewGuid();
-        var createCollectionRequests = 0;
-        var api = EngineApiClientStub.Create(stub =>
-        {
-            stub.SetHandler(nameof(IEngineApiClient.GetManagedCollectionsAsync), _ =>
-                Task.FromResult(new List<ManagedCollectionViewModel>
-                {
-                    new()
-                    {
-                        Id = favoritesCollectionId,
-                        Name = "Favorites",
-                        CollectionType = "Playlist",
-                        ProfileId = ProfileId,
-                    },
-                }));
-            stub.SetHandler(nameof(IEngineApiClient.GetCollectionItemsAsync), _ =>
-                Task.FromResult(new List<CollectionItemDto>
-                {
-                    new()
-                    {
-                        Id = Guid.NewGuid(),
-                        WorkId = workId,
-                        Title = "Saved work",
-                        MediaType = "Book",
-                    },
-                }));
+            stub.SetHandler(nameof(IEngineApiClient.GetSavedItemsAsync), _ =>
+                Task.FromResult<IReadOnlyList<ProfileSavedItemDto>>(
+                    [new(ProfileEntityKind.Movie, entityId, DateTimeOffset.UtcNow, null)]));
             stub.SetHandler(nameof(IEngineApiClient.CreateCollectionAsync), _ =>
             {
                 Interlocked.Increment(ref createCollectionRequests);
                 return Task.FromResult(true);
             });
         });
-        var favorites = new FavoriteService(api);
+        var savedItems = new SavedItemService(api);
 
-        var list = await favorites.GetListAsync(ProfileId);
+        var list = await savedItems.GetListAsync();
 
-        Assert.Equal(favoritesCollectionId, list.CollectionId);
-        Assert.Collection(list.Items, item => Assert.Equal(workId, item.WorkId));
+        Assert.Collection(list, item => Assert.Equal(entityId, item.EntityId));
         Assert.Equal(0, createCollectionRequests);
     }
 

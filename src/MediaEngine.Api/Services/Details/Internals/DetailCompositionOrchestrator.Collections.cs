@@ -383,7 +383,7 @@ internal sealed partial class DetailCompositionOrchestrator
             Progress = heroProgress,
             Metadata = BuildCollectionMetadata(entityType, displayWorks, values, tvPlaybackEpisode, tvPlaybackValues),
             PrimaryActions = BuildCollectionActions(collectionId, entityType, context, heroProgress, displayWorks),
-            SecondaryActions = BuildSecondaryActions(rootWorkId ?? collectionId, entityType, rootWorkId.HasValue && favoriteWorkIds.Contains(rootWorkId.Value)),
+            SecondaryActions = BuildSecondaryActions(rootWorkId ?? collectionId, entityType, favoriteWorkIds.Contains(rootWorkId ?? collectionId)),
             OverflowActions = BuildOverflowActions(collectionId, entityType, actionAuthorization),
             SequencePlacement = sequencePlacement,
             ContributorGroups = contributorGroups,

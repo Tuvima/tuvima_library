@@ -4,6 +4,7 @@
 @using System.Text
 @using MediaEngine.Contracts.Display
 @using MediaEngine.Contracts.Realtime
+@using MediaEngine.Domain.Enums
 @using MediaEngine.Web.Components.Listen
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
@@ -19,7 +20,7 @@
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
 @inject MediaEditorLauncherService MediaEditorLauncher
-@inject FavoriteService Favorites
+@inject MediaReactionService Reactions
 @inject PlaybackSessionController Playback
 @inject ListenAudioDragService AudioDrag
 @inject NavigationManager Nav
@@ -1501,16 +1502,32 @@
 
     private async Task ToggleFavoriteAsync(Guid workId)
     {
-        var membership = await Favorites.ToggleAsync(workId, _activeProfileId);
-        if (membership is null)
+        if (!_activeProfileId.HasValue)
         {
             Snackbar.Add("The favorite could not be updated.", Severity.Warning);
             return;
         }
-
-        Snackbar.Add(membership.IsFavorite ? "Added to Favorites." : "Removed from Favorites.", Severity.Success);
+        var kind = IsMusicSongsGrouping ? ProfileEntityKind.Song : ProfileEntityKindForBrowse();
+        var current = await Reactions.GetReactionAsync(workId, _activeProfileId, kind);
+        var next = current is MediaReaction.Like or MediaReaction.Love ? MediaReaction.Neutral : MediaReaction.Like;
+        await Reactions.SetReactionAsync(workId, next, _activeProfileId, kind);
+        Snackbar.Add(next == MediaReaction.Neutral ? "Removed from Favorites." : "Added to Favorites.", Severity.Success);
         await LoadBrowseContentAsync();
     }
+
+    private ProfileEntityKind ProfileEntityKindForBrowse() => Preset.HeroVariant switch
+    {
+        BrowseHeroVariant.Watch => string.Equals(CurrentTab.MediaType, "TV", StringComparison.OrdinalIgnoreCase)
+            ? ProfileEntityKind.TvShow
+            : ProfileEntityKind.Movie,
+        BrowseHeroVariant.Read => string.Equals(CurrentTab.MediaType, "Comics", StringComparison.OrdinalIgnoreCase)
+            ? ProfileEntityKind.Comic
+            : ProfileEntityKind.Book,
+        BrowseHeroVariant.Listen => string.Equals(CurrentTab.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
+            ? ProfileEntityKind.Audiobook
+            : ProfileEntityKind.Album,
+        _ => ProfileEntityKind.Movie,
+    };
 
     private async Task PlaySongTracksAsync(
         IReadOnlyList<WorkViewModel> tracks,

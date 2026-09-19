@@ -325,20 +325,9 @@ public sealed class CollectionCatalogReadService(
             return null;
         }
 
-        if (collection.CollectionType == CollectionType.System)
-        {
-            return normalizedName.ToLowerInvariant().Replace(' ', '-');
-        }
-
-        return normalizedName switch
-        {
-            "Watchlist" => "watchlist",
-            "Favorites" => "favorites",
-            "Reading List" => "reading-list",
-            "Listening Queue" => "listening-queue",
-            "Currently Watching" => "currently-watching",
-            _ => null,
-        };
+        return collection.CollectionType == CollectionType.System
+            ? normalizedName.ToLowerInvariant().Replace(' ', '-')
+            : null;
     }
 
     private static string? SystemLaneForKey(string systemKey) => systemKey switch

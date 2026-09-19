@@ -6,6 +6,7 @@
 @using MediaEngine.Contracts.Progress
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Contracts.Universe
+@using MediaEngine.Domain.Enums
 @using MediaEngine.Web.Components.MediaEditor
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
@@ -14,7 +15,7 @@
 @inject IEngineApiClient ApiClient
 @inject MediaEditorLauncherService MediaEditorLauncher
 @inject CollectionEditorLauncherService CollectionEditorLauncher
-@inject FavoriteService Favorites
+@inject SavedItemService SavedItems
 @inject MediaReactionService Reactions
 @inject PlaybackSessionController Playback
 @inject UIOrchestratorService Orchestrator
@@ -588,40 +589,60 @@
             return;
 
         var profile = await Orchestrator.GetActiveProfileAsync();
-        if (!TryResolveFavoriteWorkId(out var workId))
+        if (!TryResolveProfileEntity(out var entityKind, out var entityId))
         {
             Snackbar.Add("This item cannot be added to My List yet.", Severity.Warning);
             return;
         }
 
-        var membership = await Favorites.ToggleAsync(workId, profile?.Id);
-        if (membership is null)
+        if (profile is null)
         {
             Snackbar.Add("My List requires an active profile.", Severity.Warning);
             return;
         }
 
-        SetFavoriteSelection(Model.PrimaryActions, membership.IsFavorite);
-        SetFavoriteSelection(Model.SecondaryActions, membership.IsFavorite);
-        SetFavoriteSelection(Model.OverflowActions, membership.IsFavorite);
-        action.IsSelected = membership.IsFavorite;
+        var membership = await SavedItems.ToggleAsync(entityKind, entityId);
+        if (membership is null)
+        {
+            Snackbar.Add("My List could not be updated.", Severity.Warning);
+            return;
+        }
+
+        SetFavoriteSelection(Model.PrimaryActions, membership.IsSaved);
+        SetFavoriteSelection(Model.SecondaryActions, membership.IsSaved);
+        SetFavoriteSelection(Model.OverflowActions, membership.IsSaved);
+        action.IsSelected = membership.IsSaved;
+        Snackbar.Add(membership.IsSaved ? "Added to My List." : "Removed from My List.", Severity.Success);
         StateHasChanged();
         await OnActionSelected.InvokeAsync(action);
     }
 
-    private bool TryResolveFavoriteWorkId(out Guid workId)
+    private bool TryResolveProfileEntity(out ProfileEntityKind entityKind, out Guid entityId)
     {
-        workId = Guid.Empty;
-        var target = Model?.EditorTarget;
-        if (target is not null)
+        entityKind = Model?.EntityType switch
         {
-            return !string.Equals(target.EntityKind, "Collection", StringComparison.OrdinalIgnoreCase)
-                && Guid.TryParse(target.EntityId, out workId);
-        }
-
+            DetailEntityType.Movie => ProfileEntityKind.Movie,
+            DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => ProfileEntityKind.TvShow,
+            DetailEntityType.Book or DetailEntityType.Work => ProfileEntityKind.Book,
+            DetailEntityType.ComicIssue => ProfileEntityKind.Comic,
+            DetailEntityType.Audiobook => ProfileEntityKind.Audiobook,
+            DetailEntityType.MusicAlbum => ProfileEntityKind.Album,
+            DetailEntityType.Collection => ProfileEntityKind.Collection,
+            _ => default,
+        };
+        entityId = Guid.Empty;
         return Model is not null
-            && Model.EntityType is not DetailEntityType.Collection
-            && Guid.TryParse(Model.Id, out workId);
+               && Model.EntityType is DetailEntityType.Movie
+                   or DetailEntityType.TvShow
+                   or DetailEntityType.TvSeason
+                   or DetailEntityType.TvEpisode
+                   or DetailEntityType.Book
+                   or DetailEntityType.Work
+                   or DetailEntityType.ComicIssue
+                   or DetailEntityType.Audiobook
+                   or DetailEntityType.MusicAlbum
+                   or DetailEntityType.Collection
+               && Guid.TryParse(Model.Id, out entityId);
     }
 
     private static void SetFavoriteSelection(IEnumerable<DetailAction> actions, bool isFavorite)
@@ -637,7 +658,7 @@
 
     private async Task SetReactionAsync(DetailAction action)
     {
-        if (!TryResolveFavoriteWorkId(out var workId))
+        if (!TryResolveProfileEntity(out var entityKind, out var workId))
         {
             Snackbar.Add("This item cannot be rated yet.", Severity.Warning);
             return;
@@ -652,9 +673,9 @@
         };
 
         var profile = await Orchestrator.GetActiveProfileAsync();
-        var current = await Reactions.GetReactionAsync(workId, profile?.Id);
+        var current = await Reactions.GetReactionAsync(workId, profile?.Id, entityKind);
         var next = current == reaction ? MediaReaction.Neutral : reaction;
-        await Reactions.SetReactionAsync(workId, next, profile?.Id);
+        await Reactions.SetReactionAsync(workId, next, profile?.Id, entityKind);
         if (Model is not null)
         {
             SetReactionSelection(Model.PrimaryActions, next);

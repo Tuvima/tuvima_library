@@ -469,7 +469,7 @@ public sealed class DetailComposerServiceTests
         var source = ReadDetailComposerSource();
 
         Assert.DoesNotContain("Key = \"watch-party\"", source);
-        Assert.Contains("Label = isSelected ? \"In My List\" : \"My List\"", source);
+        Assert.Contains("Label = isSelected ? \"In My List\" : \"Add to My List\"", source);
         Assert.Contains("Key = \"my-list\"", source);
         Assert.DoesNotContain("Label = \"Add to Collection\"", source);
         Assert.Contains("BuildReactionAction", source);
