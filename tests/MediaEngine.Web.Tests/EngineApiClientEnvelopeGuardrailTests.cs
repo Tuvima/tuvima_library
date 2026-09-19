@@ -12,7 +12,9 @@ public sealed class EngineApiClientEnvelopeGuardrailTests
         var source = ReadClientSources();
 
         AssertAtOrBelow(source, "_http.GetFromJsonAsync", 116);
-        AssertAtOrBelow(source, "_http.GetAsync", 22);
+        // SharedEntityEditor uses a manual status check so failed typed target loads retain HTTP
+        // failure classification and LastStatusCode; its 404 behavior is covered explicitly.
+        AssertAtOrBelow(source, "_http.GetAsync", 23);
         AssertAtOrBelow(source, "_http.PostAsJsonAsync", 61);
         AssertAtOrBelow(source, "_http.PutAsJsonAsync", 28);
         AssertAtOrBelow(source, "_http.DeleteAsync", 14);

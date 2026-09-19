@@ -114,7 +114,7 @@
 .see-art-types { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }
 .see-art-types button, .see-panel > button { border: 1px solid rgba(255,255,255,.15); border-radius: 999px; padding: .45rem .7rem; background: transparent; color: inherit; cursor: pointer; }
 .see-art-types button.is-active { border-color: var(--app-accent, #9d7aff); background: color-mix(in srgb, var(--app-accent, #9d7aff) 18%, transparent); }
-.see-primary { border: 0; border-radius: .55rem; padding: .65rem .95rem; background: var(--app-accent, #9d7aff); color: #160f24; font: inherit; font-weight: 650; cursor: pointer; }
+.see-primary { border: 0; border-radius: .55rem; padding: .65rem .95rem; background: var(--app-accent, #9d7aff); color: #160f24; font: inherit; font-weight: 600; cursor: pointer; }
 .see-primary:disabled { cursor: not-allowed; opacity: .5; }
 .see-message { color: #9fddb1; }
 .see-error { color: #ff9eaa; }

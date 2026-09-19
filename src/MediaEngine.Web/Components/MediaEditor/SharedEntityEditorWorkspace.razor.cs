@@ -238,9 +238,9 @@ public partial class SharedEntityEditorWorkspace : IDisposable
 
     private Task ScrollCategoryWheelAsync(WheelEventArgs args) => ScrollCategoryRailAsync(args.DeltaY >= 0 ? 1 : -1);
 
-    private async Task SearchChangedAsync(ChangeEventArgs args)
+    private async Task SearchChangedAsync(string? value)
     {
-        _search = args.Value?.ToString() ?? string.Empty;
+        _search = value ?? string.Empty;
         _searchCts?.Cancel();
         _searchCts?.Dispose();
         _searchCts = new CancellationTokenSource();
@@ -394,8 +394,9 @@ public partial class SharedEntityEditorWorkspace : IDisposable
         finally { _refreshing = false; }
     }
 
-    private async Task LabelChanged(ChangeEventArgs args) { _label = args.Value?.ToString() ?? string.Empty; await NotifyDirtyAsync(_dirty); }
-    private async Task DescriptionChanged(ChangeEventArgs args) { _description = args.Value?.ToString() ?? string.Empty; await NotifyDirtyAsync(_dirty); }
+    private async Task LabelChangedAsync(string? value) { _label = value ?? string.Empty; await NotifyDirtyAsync(_dirty); }
+    private async Task DescriptionChangedAsync(string? value) { _description = value ?? string.Empty; await NotifyDirtyAsync(_dirty); }
+    private void SelectUploadType(string type) => _uploadType = type;
     private async Task NotifyDirtyAsync(bool dirty) => await DirtyChanged.InvokeAsync(dirty);
 
     private async Task OnCategoryItemKeyDown(KeyboardEventArgs args, string currentCategory)

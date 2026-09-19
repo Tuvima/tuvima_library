@@ -32,7 +32,8 @@ public sealed class SharedEntityEditorWorkspaceTests : AsyncBunitContext
         cut.WaitForAssertion(() => Assert.Equal(5, cut.FindAll(".see-category").Count));
         Assert.Equal(
             ["Characters", "Locations/Places", "Organizations/Groups", "Events", "Objects"],
-            cut.FindAll(".see-category span").Select(node => node.TextContent).ToArray());
+            cut.FindAll(".see-category").Select(node => node.GetAttribute("aria-label")!).ToArray());
+        Assert.Equal(5, cut.FindAll(".see-category .mud-icon-root").Count);
         Assert.DoesNotContain("More", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Scroll categories left", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Scroll categories right", cut.Markup, StringComparison.Ordinal);
@@ -79,6 +80,7 @@ public sealed class SharedEntityEditorWorkspaceTests : AsyncBunitContext
         cut.WaitForAssertion(() => Assert.Equal("History", cut.Find(".see-content h3").TextContent));
 
         cut.Find(".see-nav-item").Click();
+        Assert.NotNull(cut.Find(".see-field textarea"));
         cut.Find(".see-field input").Input("Mara of the North");
         Assert.Contains(true, _dirtyChanges);
         cut.Find(".see-sibling-toggle").Click();
@@ -103,8 +105,10 @@ public sealed class SharedEntityEditorWorkspaceTests : AsyncBunitContext
         Assert.Contains("Request.EntityIds.FirstOrDefault()", code, StringComparison.Ordinal);
         Assert.Contains("if (IsSharedEntityMode)", shell, StringComparison.Ordinal);
         Assert.Contains("<SharedEntityEditorWorkspace", shell, StringComparison.Ordinal);
+        Assert.Contains("<AppTextarea", workspace, StringComparison.Ordinal);
         Assert.DoesNotContain("@page", workspace, StringComparison.Ordinal);
         Assert.DoesNotContain("ShowAsync<SharedEntityEditorWorkspace>", shell, StringComparison.Ordinal);
+        Assert.Contains("else if (_context is null && !string.IsNullOrWhiteSpace(_error))", workspace, StringComparison.Ordinal);
     }
 
     [Fact]

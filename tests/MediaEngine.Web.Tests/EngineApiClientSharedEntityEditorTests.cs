@@ -13,6 +13,22 @@ namespace MediaEngine.Web.Tests;
 public sealed class EngineApiClientSharedEntityEditorTests
 {
     [Fact]
+    public async Task SharedEntityContext_RecordsHttpNotFoundFailureSemantics()
+    {
+        using var http = new HttpClient(new StatusHandler(HttpStatusCode.NotFound)) { BaseAddress = new Uri("http://engine.test/") };
+        var client = new EngineApiClient(http, NullLogger<EngineApiClient>.Instance);
+        var target = new SharedEntityEditorTargetDto(SharedEntityEditorTargetKinds.Universe, "Q42", null, "Q42");
+
+        var context = await client.GetSharedEntityEditorContextAsync(target);
+
+        Assert.Null(context);
+        Assert.Equal("not_found", client.LastFailureKind);
+        Assert.Equal(404, client.LastStatusCode);
+        Assert.Equal("/entity-editor/universes/Q42/context", client.LastFailedEndpoint);
+        Assert.Contains("HTTP 404", client.LastError, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SharedEntityMethods_UseAuthorizedEntityEditorRoutesAndMultipartUpload()
     {
         var handler = new RecordingHandler();
@@ -136,6 +152,15 @@ public sealed class EngineApiClientSharedEntityEditorTests
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
             };
         }
+    }
+
+    private sealed class StatusHandler(HttpStatusCode statusCode) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(statusCode)
+            {
+                Content = new StringContent("{\"title\":\"Not found\",\"detail\":\"Universe context is unavailable.\"}", Encoding.UTF8, "application/problem+json"),
+            });
     }
 
     private class DialogServiceProxy : DispatchProxy

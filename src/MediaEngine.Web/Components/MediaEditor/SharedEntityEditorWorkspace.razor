@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.MediaEditor
 @using MediaEngine.Contracts.Universe
 @using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Components.Shared
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components
 @using MudBlazor
@@ -10,7 +11,7 @@
     {
         <div class="see-loading"><MudProgressCircular Indeterminate="true" Size="Size.Medium" /> Loading shared entity…</div>
     }
-    else if (!string.IsNullOrWhiteSpace(_error))
+    else if (_context is null && !string.IsNullOrWhiteSpace(_error))
     {
         <div class="see-error" role="alert">@_error</div>
     }
@@ -19,64 +20,65 @@
         @if (IsUniverse)
         {
             <div class="see-category-wrap">
-                <button type="button" class="see-category-control" aria-label="Scroll categories left" @onclick="() => ScrollCategoryRailAsync(-1)">‹</button>
+                <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" Class="see-category-control" aria-label="Scroll categories left" OnClick="() => ScrollCategoryRailAsync(-1)">‹</AppButton>
                 <div class="see-category-rail" @ref="_categoryRail" role="tablist" aria-label="Universe categories" @onwheel="ScrollCategoryWheelAsync" @onwheel:preventDefault="true">
                     @foreach (var category in _categories)
                     {
                         var categoryId = category.category;
-                        <button type="button" class="see-category @(string.Equals(categoryId, _selectedCategory, StringComparison.OrdinalIgnoreCase) ? "is-active" : null)"
-                                id="see-category-@categoryId" tabindex="@(string.Equals(categoryId, _selectedCategory, StringComparison.OrdinalIgnoreCase) ? "0" : "-1")"
-                                role="tab" aria-selected="@(string.Equals(categoryId, _selectedCategory, StringComparison.OrdinalIgnoreCase))"
-                                aria-expanded="@(string.Equals(categoryId, _selectedCategory, StringComparison.OrdinalIgnoreCase) && _showSelectorPopover)"
-                                @onclick="() => ToggleCategorySelectorAsync(categoryId)"
-                                @onkeydown="args => OnCategoryItemKeyDown(args, categoryId)" @onkeydown:stopPropagation="true">
-                            <span>@CategoryLabel(category)</span><small>@category.count</small>
-                        </button>
+                        <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" Class="@($"see-category {(string.Equals(categoryId, _selectedCategory, StringComparison.OrdinalIgnoreCase) ? "is-active" : string.Empty)}")"
+                                id="@($"see-category-{categoryId}")" tabindex="@(string.Equals(categoryId, _selectedCategory, StringComparison.OrdinalIgnoreCase) ? "0" : "-1")"
+                                role="tab" aria-selected="@(string.Equals(categoryId, _selectedCategory, StringComparison.OrdinalIgnoreCase) ? "true" : "false")"
+                                aria-label="@CategoryLabel(category)"
+                                aria-expanded="@(string.Equals(categoryId, _selectedCategory, StringComparison.OrdinalIgnoreCase) && _showSelectorPopover ? "true" : "false")"
+                                OnClick="() => ToggleCategorySelectorAsync(categoryId)"
+                                @onkeydown="args => OnCategoryItemKeyDown(args, categoryId)">
+                            <span>@CategoryLabel(category)</span><small>@category.count</small><MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Size="Size.Small" aria-hidden="true" />
+                        </AppButton>
                     }
                 </div>
-                <button type="button" class="see-category-control" aria-label="Scroll categories right" @onclick="() => ScrollCategoryRailAsync(1)">›</button>
+                <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" Class="see-category-control" aria-label="Scroll categories right" OnClick="() => ScrollCategoryRailAsync(1)">›</AppButton>
             </div>
             @if (_showSelectorPopover)
             {
                 <div class="see-selector-popover" aria-label="@CategoryLabel(_categories.FirstOrDefault(x => x.category == _selectedCategory)) entities">
-                    <div class="see-popover-heading"><strong>@CategoryLabel(_categories.FirstOrDefault(x => x.category == _selectedCategory))</strong><button type="button" aria-label="Close selector" @onclick="() => _showSelectorPopover = false">×</button></div>
-                    <label class="see-search">Search entities <input type="search" value="@_search" @oninput="SearchChangedAsync" /></label>
+                    <div class="see-popover-heading"><strong>@CategoryLabel(_categories.FirstOrDefault(x => x.category == _selectedCategory))</strong><AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" aria-label="Close selector" OnClick="() => _showSelectorPopover = false">×</AppButton></div>
+                    <div class="see-search"><AppTextField T="string" Label="Search entities" Value="@_search" ValueChanged="SearchChangedAsync" InputType="InputType.Search" /></div>
                     <div class="see-selector-list" role="listbox" aria-label="Category entities">
                         @foreach (var item in _selectorItems)
                         {
                             var selected = item.id == _context?.target.FictionalEntityId;
-                            <button type="button" role="option" aria-selected="@(selected ? "true" : "false")" class="see-selector-item" @onclick="() => SelectEntityAsync(item)">
+                            <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" role="option" aria-selected="@(selected ? "true" : "false")" Class="see-selector-item" OnClick="() => SelectEntityAsync(item)">
                                 <span><strong>@item.label</strong><small>@item.qid</small></span>
                                 @if (selected) { <MudIcon Icon="@Icons.Material.Filled.Check" aria-label="Selected" /> }
-                            </button>
+                            </AppButton>
                         }
                     </div>
-                    @if (_selectorHasMore) { <button type="button" class="see-load-more" disabled="@_selectorLoading" @onclick="LoadMoreAsync">Load more</button> }
+                    @if (_selectorHasMore) { <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Primary" Class="see-load-more" Disabled="@_selectorLoading" OnClick="LoadMoreAsync">Load more</AppButton> }
                 </div>
             }
         }
         else
         {
             <nav class="see-breadcrumb" aria-label="Entity location">
-                <button type="button" @onclick="ReturnToUniverseAsync">@UniverseBreadcrumbLabel</button><span aria-hidden="true">›</span><strong>@_context?.label</strong>
-                <button type="button" class="see-sibling-toggle" aria-expanded="@_showSelectorPopover" @onclick="ToggleSiblingSelectorAsync">Other @CategoryName(_context?.category ?? "")</button>
+                <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Primary" OnClick="ReturnToUniverseAsync">@UniverseBreadcrumbLabel</AppButton><span aria-hidden="true">›</span><strong>@_context?.label</strong>
+                <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" Class="see-sibling-toggle" aria-expanded="@_showSelectorPopover" OnClick="ToggleSiblingSelectorAsync">Other @CategoryName(_context?.category ?? "")</AppButton>
             </nav>
             @if (_showSelectorPopover)
             {
                 <div class="see-selector-popover" aria-label="Other @CategoryName(_context?.category ?? "")">
-                    <div class="see-popover-heading"><strong>Other @CategoryName(_context?.category ?? "")</strong><button type="button" aria-label="Close selector" @onclick="() => _showSelectorPopover = false">×</button></div>
-                    <label class="see-search">Search entities <input type="search" value="@_search" @oninput="SearchChangedAsync" /></label>
+                    <div class="see-popover-heading"><strong>Other @CategoryName(_context?.category ?? "")</strong><AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" aria-label="Close selector" OnClick="() => _showSelectorPopover = false">×</AppButton></div>
+                    <div class="see-search"><AppTextField T="string" Label="Search entities" Value="@_search" ValueChanged="SearchChangedAsync" InputType="InputType.Search" /></div>
                     <div class="see-selector-list" role="listbox" aria-label="Sibling entities">
                         @foreach (var item in _selectorItems)
                         {
                             var selected = item.id == _context?.target.FictionalEntityId;
-                            <button type="button" role="option" aria-selected="@(selected ? "true" : "false")" class="see-selector-item" @onclick="() => SelectEntityAsync(item)">
+                            <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" role="option" aria-selected="@(selected ? "true" : "false")" Class="see-selector-item" OnClick="() => SelectEntityAsync(item)">
                                 <span><strong>@item.label</strong><small>@item.qid</small></span>
                                 @if (selected) { <MudIcon Icon="@Icons.Material.Filled.Check" aria-label="Selected" /> }
-                            </button>
+                            </AppButton>
                         }
                     </div>
-                    @if (_selectorHasMore) { <button type="button" class="see-load-more" disabled="@_selectorLoading" @onclick="LoadMoreAsync">Load more</button> }
+                    @if (_selectorHasMore) { <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Primary" Class="see-load-more" Disabled="@_selectorLoading" OnClick="LoadMoreAsync">Load more</AppButton> }
                 </div>
             }
         }
@@ -85,9 +87,9 @@
         {
             <div class="see-switch-confirm" role="alert">
                 <span>Save changes before editing @_pendingTargetLabel?</span>
-                <button type="button" @onclick="CancelTargetSwitch">Stay here</button>
-                <button type="button" class="is-danger" @onclick="DiscardAndSwitchAsync">Discard and switch</button>
-                <button type="button" class="is-primary" @onclick="SaveAndSwitchAsync">Save and switch</button>
+                <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" OnClick="CancelTargetSwitch">Stay here</AppButton>
+                <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Error" Class="is-danger" OnClick="DiscardAndSwitchAsync">Discard and switch</AppButton>
+                <AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Class="is-primary" OnClick="SaveAndSwitchAsync">Save and switch</AppButton>
             </div>
         }
 
@@ -95,14 +97,14 @@
             <nav class="see-nav" aria-label="Editor sections">
                 @foreach (var capability in ReadableCapabilities)
                 {
-                    <button type="button" class="see-nav-item @(string.Equals(_activeSection, capability.section, StringComparison.OrdinalIgnoreCase) ? "is-active" : null)"
+                    <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" Class="@($"see-nav-item {(string.Equals(_activeSection, capability.section, StringComparison.OrdinalIgnoreCase) ? "is-active" : string.Empty)}")"
                             aria-current="@(string.Equals(_activeSection, capability.section, StringComparison.OrdinalIgnoreCase) ? "page" : null)"
-                            @onclick="() => SelectSectionAsync(capability.section)">@SectionLabel(capability.section, _context?.category)</button>
+                            OnClick="() => SelectSectionAsync(capability.section)">@SectionLabel(capability.section, _context?.category)</AppButton>
                 }
                 @if (CanRefresh)
                 {
                     <div class="see-refresh">
-                        <button type="button" disabled="@_refreshing" @onclick="RefreshEnrichmentAsync">@(_refreshing ? "Queueing…" : "Refresh enrichment")</button>
+                        <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" Disabled="@_refreshing" OnClick="RefreshEnrichmentAsync">@(_refreshing ? "Queueing…" : "Refresh enrichment")</AppButton>
                         @if (_enrichment is not null) { <small>@EnrichmentLabel</small> }
                     </div>
                 }
@@ -113,7 +115,7 @@
                 {
                     <section class="see-panel" aria-labelledby="see-selector-title">
                         <div class="see-panel-heading"><div><h3 id="see-selector-title">@CategoryLabel(_categories.FirstOrDefault(x => x.category == _selectedCategory))</h3><p>Browse entities in this universe.</p></div></div>
-                        <label class="see-search">Search entities <input type="search" value="@_search" @oninput="SearchChangedAsync" /></label>
+                        <div class="see-search"><AppTextField T="string" Label="Search entities" Value="@_search" ValueChanged="SearchChangedAsync" InputType="InputType.Search" /></div>
                         @if (_selectorLoading) { <div class="see-muted">Loading entities…</div> }
                         else if (_selectorItems.Count == 0) { <div class="see-muted">No entities found.</div> }
                         else
@@ -122,13 +124,13 @@
                                 @foreach (var item in _selectorItems)
                                 {
                                     var selected = item.id == _context?.target.FictionalEntityId;
-                                    <button type="button" role="option" aria-selected="@(selected ? "true" : "false")" class="see-selector-item" @onclick="() => RequestTargetSwitchAsync(ToEntityTarget(item))">
+                                    <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" role="option" aria-selected="@(selected ? "true" : "false")" Class="see-selector-item" OnClick="() => RequestTargetSwitchAsync(ToEntityTarget(item))">
                                         <span><strong>@item.label</strong><small>@item.qid · @CategoryName(item.category)</small></span>
                                         @if (selected) { <MudIcon Icon="@Icons.Material.Filled.Check" aria-label="Selected" /> }
-                                    </button>
+                                    </AppButton>
                                 }
                             </div>
-                            @if (_selectorHasMore) { <button type="button" class="see-load-more" disabled="@_selectorLoading" @onclick="LoadMoreAsync">Load more entities</button> }
+                            @if (_selectorHasMore) { <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Primary" Class="see-load-more" Disabled="@_selectorLoading" OnClick="LoadMoreAsync">Load more entities</AppButton> }
                         }
                     </section>
                 }
@@ -136,9 +138,9 @@
                 {
                     <section class="see-panel" aria-labelledby="see-details-title">
                         <h3 id="see-details-title">Details</h3>
-                        <label class="see-field">Name<input value="@_label" @oninput="LabelChanged" /></label>
-                        <label class="see-field">Description<textarea rows="5" @oninput="DescriptionChanged">@_description</textarea></label>
-                        @if (_detailsEditable) { <button type="button" class="see-primary" disabled="@(!_dirty || _saving)" @onclick="SaveDetailsAsync">@(_saving ? "Saving…" : "Save details")</button> }
+                        <div class="see-field"><AppTextField T="string" Label="Name" Value="@_label" ValueChanged="LabelChangedAsync" /></div>
+                        <div class="see-field"><AppTextarea Label="Description" Value="@_description" ValueChanged="DescriptionChangedAsync" Lines="5" /></div>
+                        @if (_detailsEditable) { <AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Class="see-primary" Disabled="@(!_dirty || _saving)" OnClick="SaveDetailsAsync">@(_saving ? "Saving…" : "Save details")</AppButton> }
                         else { <p class="see-muted">Details are read-only for this target.</p> }
                     </section>
                 }
@@ -165,7 +167,7 @@
                                 <label>Artwork type
                                     <span class="see-art-types">
                                         @foreach (var type in ArtworkTypes)
-                                        { <button type="button" class="@(_uploadType == type ? "is-active" : null)" @onclick="() => _uploadType = type">@ArtworkLabel(type)</button> }
+                                        { <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" Class="@(_uploadType == type ? "is-active" : null)" OnClick="() => SelectUploadType(type)">@ArtworkLabel(type)</AppButton> }
                                     </span>
                                 </label>
                                 <InputFile OnChange="UploadArtworkAsync" accept="image/jpeg,image/png" />
@@ -196,7 +198,7 @@
                 }
                 else if (string.Equals(_activeSection, SharedEntityEditorSections.Enrichment, StringComparison.OrdinalIgnoreCase))
                 {
-                    <section class="see-panel"><h3>Enrichment</h3><p>@(_enrichment is null ? _context?.enrichment_status : EnrichmentLabel)</p>@if (_enrichment?.wikidata_revision_id is long revision) { <p class="see-muted">Wikidata revision @revision · Enriched @(_enrichment.enriched_at?.ToLocalTime().ToString("g") ?? "unknown")</p> }<button type="button" disabled="@_refreshing" @onclick="RefreshEnrichmentAsync">@(_refreshing ? "Queueing…" : "Refresh enrichment")</button></section>
+                    <section class="see-panel"><h3>Enrichment</h3><p>@(_enrichment is null ? _context?.enrichment_status : EnrichmentLabel)</p>@if (_enrichment?.wikidata_revision_id is long revision) { <p class="see-muted">Wikidata revision @revision · Enriched @(_enrichment.enriched_at?.ToLocalTime().ToString("g") ?? "unknown")</p> }<AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" Disabled="@_refreshing" OnClick="RefreshEnrichmentAsync">@(_refreshing ? "Queueing…" : "Refresh enrichment")</AppButton></section>
                 }
                 else { <section class="see-panel"><h3>@SectionLabel(_activeSection, _context?.category)</h3><p class="see-muted">This section is not available for the current target.</p></section> }
 
