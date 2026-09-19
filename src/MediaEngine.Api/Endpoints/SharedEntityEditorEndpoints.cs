@@ -2,6 +2,7 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Metadata;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Universe;
 using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Constants;
@@ -83,10 +84,9 @@ public static class SharedEntityEditorEndpoints
         if (await AuthorizedRootAsync(qid, http, roots, entities, display, authorization, ApplicationPermissionIds.MetadataRead, ct) is null) return ApiErrors.NotFound("Universe not found.");
         var selected = ResolveCategory(category);
         if (category is not null && selected is null) return ApiErrors.BadRequest("Unsupported entity category.");
-        var skip = Math.Max(0, offset ?? 0);
-        var take = Math.Clamp(limit ?? 50, 1, 100);
-        var page = await entities.SearchVisibleByUniverseAsync(qid, await VisibleWorksAsync(display, ct), selected?.Id, search, skip, take, ct);
-        return Results.Ok(new SharedEntitySelectorPageDto(page.Items.Select(ToSelector).ToList(), skip, take, page.Total, skip + page.Items.Count < page.Total));
+        var request = PagedRequest.From(offset, limit, defaultLimit: 50, maxLimit: 100);
+        var page = await entities.SearchVisibleByUniverseAsync(qid, await VisibleWorksAsync(display, ct), selected?.Id, search, request.Offset, request.Limit, ct);
+        return Results.Ok(new SharedEntitySelectorPageDto(page.Items.Select(ToSelector).ToList(), request.Offset, request.Limit, page.Total, request.Offset + page.Items.Count < page.Total));
     }
 
     private static async Task<IResult> GetUniverseDetailsAsync(string qid, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)

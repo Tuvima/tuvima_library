@@ -14,6 +14,7 @@ public sealed class SharedEntityEditorEndpointRouteTests
         Assert.Contains("RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)", source, StringComparison.Ordinal);
         Assert.Contains("trigger_type\"] = \"universe_sweep\"", source, StringComparison.Ordinal);
         Assert.Contains("FindWorkIdsByProvenanceQidAsync", source, StringComparison.Ordinal);
+        Assert.Contains("PagedRequest.From(offset, limit, defaultLimit: 50, maxLimit: 100)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("new(\"files\"", source, StringComparison.OrdinalIgnoreCase);
     }
 
