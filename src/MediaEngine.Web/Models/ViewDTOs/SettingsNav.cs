@@ -214,12 +214,7 @@ public static class SettingsNav
             [SettingsSection.Libraries] = [],
             [SettingsSection.Ingestion] = [],
             [SettingsSection.RecentlyAdded] = [],
-            [SettingsSection.DevHarness] =
-            [
-                new("options", "Run Options", Icons.Material.Outlined.Tune),
-                new("harnesses", "Harnesses", Icons.Material.Outlined.Construction),
-                new("result", "Last Result", Icons.Material.Outlined.FactCheck),
-            ],
+            [SettingsSection.DevHarness] = [],
             [SettingsSection.Providers] =
             [
                 new("providers", "Providers", Icons.Material.Outlined.Dns),

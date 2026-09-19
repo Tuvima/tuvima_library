@@ -17,21 +17,20 @@ public sealed class DevHarnessSettingsTests
     }
 
     [Fact]
-    public void DevHarnessTab_UsesCoreHarnessEndpointsAndOptions()
+    public void DevHarnessTab_ExposesIntentBasedResetSeedAndRescanWorkflow()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\DevHarnessTab.razor");
         var client = ReadEngineApiClientSources("IEngineApiClient*.cs");
         var implementation = ReadEngineApiClientSources("EngineApiClient*.cs");
 
-        Assert.Contains("/dev/full-test", source, StringComparison.Ordinal);
-        Assert.Contains("/dev/reingest-library", source, StringComparison.Ordinal);
-        Assert.Contains("/dev/integration-test", source, StringComparison.Ordinal);
-        Assert.Contains("/dev/seed-library", source, StringComparison.Ordinal);
-        Assert.Contains("/dev/wipe", source, StringComparison.Ordinal);
-        Assert.Contains("wipeScope", source, StringComparison.Ordinal);
-        Assert.Contains("generated-state", source, StringComparison.Ordinal);
-        Assert.Contains("full", source, StringComparison.Ordinal);
-        Assert.Contains("stages", source, StringComparison.Ordinal);
+        Assert.Contains("/dev/reset-and-seed", source, StringComparison.Ordinal);
+        Assert.Contains("/dev/reset-library-data", source, StringComparison.Ordinal);
+        Assert.Contains("/dev/factory-reset", source, StringComparison.Ordinal);
+        Assert.Contains("TriggerRescanAsync", source, StringComparison.Ordinal);
+        Assert.Contains("Reset & Seed Test Library", source, StringComparison.Ordinal);
+        Assert.Contains("Rescan All Libraries", source, StringComparison.Ordinal);
+        Assert.Contains("Standard", source, StringComparison.Ordinal);
+        Assert.Contains("Stress", source, StringComparison.Ordinal);
         Assert.Contains("types", source, StringComparison.Ordinal);
 
         foreach (var mediaType in new[] { "books", "audiobooks", "movies", "tv", "music", "comics" })
@@ -44,6 +43,14 @@ public sealed class DevHarnessSettingsTests
         Assert.DoesNotContain("MediaEngine.Storage", source, StringComparison.Ordinal);
         Assert.Contains("/settings/ingestion", source, StringComparison.Ordinal);
         Assert.DoesNotContain("/settings/media-management", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Integration depth", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Stage 1", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Test Harness", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Provider Tester", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Enrichment Tester", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Last Result", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Allow full source wipe", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("dev-harness-table", source, StringComparison.Ordinal);
     }
 
     private static string ReadRepoFile(string relativePath) =>

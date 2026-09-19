@@ -3,6 +3,9 @@ using System.Reflection;
 using MediaEngine.Api.DevSupport;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
+using MediaEngine.Ingestion.Models;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Api.Tests;
 
@@ -53,6 +56,103 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         Assert.Equal(DevHarnessWipeScope.GeneratedState, DevHarnessResetService.ParseScope(null));
         Assert.Equal(DevHarnessWipeScope.GeneratedState, DevHarnessResetService.ParseScope("generated-state"));
         Assert.Equal(DevHarnessWipeScope.Full, DevHarnessResetService.ParseScope("full"));
+    }
+
+    [Fact]
+    public void DevelopmentTools_UseIntentEndpointsAndPreserveConfigurationByDefault()
+    {
+        var endpoints = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\DevSeedEndpoints.cs"));
+        var reset = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\DevHarnessResetService.cs"));
+        var service = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\DevelopmentTestService.cs"));
+
+        Assert.Contains("group.MapPost(\"/reset-and-seed\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/reset-library-data\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/factory-reset\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("ResetAndSeedAsync", service, StringComparison.Ordinal);
+        Assert.Contains("DevelopmentFixtureSet fixtureSet", service, StringComparison.Ordinal);
+        Assert.Contains("ScanDirectories", service, StringComparison.Ordinal);
+        Assert.Contains("ResumeWatcherAsync", service, StringComparison.Ordinal);
+        Assert.Contains("PreservedConfigurationTables", reset, StringComparison.Ordinal);
+        Assert.Contains("ResetLibraryDatabaseAsync", reset, StringComparison.Ordinal);
+        Assert.Contains("\"accounts\"", reset, StringComparison.Ordinal);
+        Assert.Contains("\"profiles\"", reset, StringComparison.Ordinal);
+        Assert.Contains("\"metadata_providers\"", reset, StringComparison.Ordinal);
+        Assert.Contains("\"provider_config\"", reset, StringComparison.Ordinal);
+        Assert.Contains("DevFixtureManifestStore.Read", reset, StringComparison.Ordinal);
+        Assert.DoesNotContain("DevSeedEndpoints.GetSeedFilePaths", reset, StringComparison.Ordinal);
+        Assert.Contains("Configured source media was preserved", reset, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StandardFixtureSet_IsSmallDeterministicAndStructurallyRepresentative()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\DevSeedEndpoints.cs"));
+
+        Assert.Contains("StandardBookTitles", source, StringComparison.Ordinal);
+        Assert.Contains("\"Leviathan Wakes\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"Caliban's War\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"Blade Runner 2049\"", source, StringComparison.Ordinal);
+        Assert.Contains("fixture.SeasonNumber == 1", source, StringComparison.Ordinal);
+        Assert.Contains("StandardMusicTitles", source, StringComparison.Ordinal);
+        Assert.Contains("StandardComicTitles", source, StringComparison.Ordinal);
+        Assert.Contains("fixtureSet == DevelopmentFixtureSet.Stress", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DevelopmentFixtureManifest_RecordsOnlyExplicitlyGeneratedFiles()
+    {
+        var libraryRoot = Path.Combine(_tempRoot, "library");
+        var sourceRoot = Path.Combine(_tempRoot, "source");
+        Directory.CreateDirectory(sourceRoot);
+        var generated = Path.Combine(sourceRoot, "generated.epub");
+        var unrelated = Path.Combine(sourceRoot, "Dune.epub");
+        File.WriteAllText(generated, "fixture");
+        File.WriteAllText(unrelated, "user media");
+        var options = Options.Create(new IngestionOptions { LibraryRoot = libraryRoot });
+
+        DevFixtureManifestStore.Record(options, [generated], NullLogger.Instance);
+
+        var entries = DevFixtureManifestStore.Read(options, NullLogger.Instance);
+        Assert.Equal([Path.GetFullPath(generated)], entries);
+        Assert.DoesNotContain(Path.GetFullPath(unrelated), entries, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("accounts", true)]
+    [InlineData("profiles", true)]
+    [InlineData("profile_sequence_preferences", true)]
+    [InlineData("metadata_providers", true)]
+    [InlineData("provider_config", true)]
+    [InlineData("application_permission_grants", true)]
+    [InlineData("view_sources", true)]
+    [InlineData("local_items", true)]
+    [InlineData("works", false)]
+    [InlineData("media_assets", false)]
+    [InlineData("ingestion_batches", false)]
+    [InlineData("metadata_claims", false)]
+    public void LibraryReset_PreservesConfigurationAndClearsGeneratedLibraryTables(string table, bool expected)
+    {
+        var method = typeof(DevHarnessResetService).GetMethod(
+            "ShouldPreserveConfigurationTable",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        Assert.Equal(expected, Assert.IsType<bool>(method!.Invoke(null, [table])));
+    }
+
+    [Theory]
+    [InlineData("search_index_data", true)]
+    [InlineData("search_index_idx", true)]
+    [InlineData("search_index", false)]
+    [InlineData("search_results_cache", false)]
+    public void LibraryReset_DoesNotDeleteFtsShadowTablesDirectly(string table, bool expected)
+    {
+        var method = typeof(DevHarnessResetService).GetMethod(
+            "IsSearchIndexShadowTable",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        Assert.Equal(expected, Assert.IsType<bool>(method!.Invoke(null, [table])));
     }
 
     [Fact]

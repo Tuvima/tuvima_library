@@ -3,23 +3,29 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @inject IEngineApiClient ApiClient
+@inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-<div class="tl-page dev-harness-page" data-temporary-page="dev-ingestion-harness">
-    <AppAlert Severity="Severity.Warning"
-              Variant="Variant.Outlined"
-              Icon="@Icons.Material.Outlined.Construction"
-              Class="mb-4">
-        Temporary development harness. Use generated-state wipes for normal validation; full source wipe deletes configured source-folder contents and stays locked until explicitly enabled below.
-    </AppAlert>
+<div class="tl-page dev-harness-page" data-temporary-page="development-tools">
+    <header class="dev-harness-header">
+        <h2>Development Tools</h2>
+        <p>Reset catalogued library data and send deterministic fixtures through the normal ingestion pipeline.</p>
+    </header>
 
-    <AppCard Title="Run Options"
-             Description="Select the media types and validation depth before starting a harness run."
-             Class="mb-4 dev-harness-options-card">
-        <div class="dev-harness-options">
-            <section class="dev-harness-option-block">
-                <div class="dev-harness-option-heading">Media types</div>
+    <AppCard Title="Test Media"
+             Description="Choose the media you want to recreate as new library input."
+             Class="dev-harness-card">
+        <div class="dev-harness-form">
+            <section class="dev-harness-fieldset" aria-labelledby="dev-media-label">
+                <div id="dev-media-label" class="dev-harness-field-label">Media</div>
                 <div class="dev-harness-chip-row">
+                    <AppChip Text="All"
+                             Icon="@Icons.Material.Outlined.AllInclusive"
+                             Tone="@(AllTypesSelected ? AppUiTone.Primary : AppUiTone.Neutral)"
+                             Variant="@(AllTypesSelected ? Variant.Filled : Variant.Outlined)"
+                             Disabled="@IsBusy"
+                             OnClick="SelectAllTypes"
+                             Class="dev-harness-chip" />
                     @foreach (var mediaType in MediaTypes)
                     {
                         var selected = _selectedTypes.Contains(mediaType.Key);
@@ -27,197 +33,109 @@
                                  Icon="@mediaType.Icon"
                                  Tone="@(selected ? AppUiTone.Primary : AppUiTone.Neutral)"
                                  Variant="@(selected ? Variant.Filled : Variant.Outlined)"
-                                 Disabled="@(_runningCommandId is not null)"
+                                 Disabled="@IsBusy"
                                  OnClick="@(() => ToggleType(mediaType.Key))"
                                  Class="dev-harness-chip" />
                     }
                 </div>
             </section>
 
-            <section class="dev-harness-option-block">
-                <div class="dev-harness-option-heading">Integration depth</div>
-                <AppSegmentedControl Options="@StageOptions"
-                                     Value="@_selectedStages"
-                                     ValueChanged="@SetStages"
-                                     Disabled="@(_runningCommandId is not null)"
-                                     AriaLabel="Integration validation depth"
-                                     Class="dev-harness-stage-control" />
+            <section class="dev-harness-fieldset" aria-labelledby="dev-fixture-label">
+                <div id="dev-fixture-label" class="dev-harness-field-label">Fixture Set</div>
+                <AppSegmentedControl Options="@FixtureSetOptions"
+                                     Value="@_fixtureSet"
+                                     ValueChanged="SetFixtureSet"
+                                     Disabled="@IsBusy"
+                                     AriaLabel="Fixture set" />
+                <p class="dev-harness-helper">
+                    @(_fixtureSet == "standard"
+                        ? "A small deterministic set covering standalone items, series, episodes, albums, tracks, and comic issues."
+                        : "A larger deterministic set for queue, activity, layout, pagination, and concurrent enrichment testing.")
+                </p>
             </section>
 
-            <section class="dev-harness-option-block dev-harness-option-block--danger">
-                <AppCheckbox
-                             @bind-Value="_allowFullSourceWipe"
-                             Color="Color.Warning"
-                             Disabled="@(_runningCommandId is not null)"
-                             Label="Allow full source wipe" />
-                <p>Generated-state wipes remove generated library state, seed fixtures, database tables, caches, artwork, and logs. Full source wipe also empties configured source folders.</p>
-            </section>
+            <div class="dev-harness-primary-action">
+                <AppButton Label="@(_runningAction == "seed" ? "Resetting & Seeding" : "Reset & Seed Test Library")"
+                           StartIcon="@Icons.Material.Outlined.RestartAlt"
+                           Tone="AppUiTone.Primary"
+                           ButtonStyle="AppButtonStyle.Filled"
+                           Disabled="@(IsBusy || _selectedTypes.Count == 0)"
+                           OnClick="ResetAndSeedAsync" />
+                <p>Clears generated library state, creates the selected test media fixtures, and sends them through the normal ingestion pipeline.</p>
+            </div>
         </div>
     </AppCard>
 
-    <AppCard Title="Test Harness"
-             Description="Run synthetic fixtures, real configured-source reingestion, or the validation report harness from one place."
-             Class="mb-4 dev-harness-run-card">
-        <div class="dev-harness-table-wrap">
-            <table class="dev-harness-table">
-                <thead>
-                    <tr>
-                        <th>Harness</th>
-                        <th>Wipe</th>
-                        <th>Input</th>
-                        <th>Checks</th>
-                        <th>Typical use</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var command in HarnessCommands.Where(command => !command.Dangerous))
-                    {
-                        <tr class="@(command.Dangerous ? "is-danger" : null)">
-                            <td>
-                                <div class="dev-harness-command">
-                                    <span class="dev-harness-command__icon">
-                                        <MudIcon Icon="@command.Icon" />
-                                    </span>
-                                    <span class="dev-harness-command__copy">
-                                        <strong>@command.Title</strong>
-                                        <span>@command.Description</span>
-                                    </span>
-                                </div>
-                            </td>
-                            <td>@command.WipeMode</td>
-                            <td>@command.Input</td>
-                            <td>
-                                <ul class="dev-harness-step-list">
-                                    @foreach (var step in command.Checks)
-                                    {
-                                        <li>@step</li>
-                                    }
-                                </ul>
-                            </td>
-                            <td>@command.TypicalUse</td>
-                            <td class="dev-harness-table__action">
-                                <AppButton Label="@GetButtonLabel(command)"
-                                           StartIcon="@command.ButtonIcon"
-                                           Tone="@(command.Dangerous ? AppUiTone.Warning : AppUiTone.Primary)"
-                                           ButtonStyle="@(command.Primary ? AppButtonStyle.Filled : AppButtonStyle.Outlined)"
-                                           Size="AppControlSize.Compact"
-                                           Disabled="@IsCommandDisabled(command)"
-                                           OnClick="@(() => RunHarnessAsync(command))" />
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+    <section class="dev-harness-secondary-section">
+        <div>
+            <h3>Existing Development Media</h3>
+            <p>Forces configured library folders to be rediscovered using the normal ingestion pipeline.</p>
         </div>
-    </AppCard>
-
-    <MudGrid Spacing="3" Class="mb-4">
-        <MudItem xs="12" md="6">
-            <AppCard Title="Provider Tester"
-                     Description="Check configured metadata provider connectivity and response behavior.">
-                <AppButton Label="Open Provider Tester"
-                           Href="/settings/provider-tester"
-                           StartIcon="@Icons.Material.Outlined.Science"
-                           Size="AppControlSize.Compact" />
-            </AppCard>
-        </MudItem>
-        <MudItem xs="12" md="6">
-            <AppCard Title="Enrichment Tester"
-                     Description="Inspect enrichment output and validation evidence for a selected item.">
-                <AppButton Label="Open Enrichment Tester"
-                           Href="/settings/enrichment-tester"
-                           StartIcon="@Icons.Material.Outlined.AutoFixHigh"
-                           Size="AppControlSize.Compact" />
-            </AppCard>
-        </MudItem>
-    </MudGrid>
+        <AppButton Label="@(_runningAction == "rescan" ? "Rescanning" : "Rescan All Libraries")"
+                   StartIcon="@Icons.Material.Outlined.Refresh"
+                   ButtonStyle="AppButtonStyle.Outlined"
+                   Disabled="@IsBusy"
+                   OnClick="RescanLibrariesAsync" />
+    </section>
 
     @if (!string.IsNullOrWhiteSpace(_error))
     {
-        <AppAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">
+        <AppAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="dev-harness-message">
             @_error
         </AppAlert>
     }
-
-    <AppCard Title="Last Result"
-                 Description="@_lastCommandTitle"
-                 Class="dev-harness-result-card mb-4">
-        @if (_lastResult is null)
-        {
-            <AppEmptyState Title="No test result yet"
-                           Message="Run a test harness to see its endpoint, status, timing, and response here." />
-        }
-        else
-        {
-            <div class="dev-harness-result-strip">
-                <AppChip Text="@(_lastResult.Succeeded ? "Accepted" : "Failed")"
-                         Tone="@(_lastResult.Succeeded ? AppUiTone.Success : AppUiTone.Error)"
-                         Variant="Variant.Filled" />
-                <AppChip Text="@($"HTTP {_lastResult.StatusCode}")"
-                         Tone="AppUiTone.Info" />
-                <AppChip Text="@($"{_lastResult.ElapsedMs:N0} ms")" />
-                <AppChip Text="@_lastResult.Endpoint" />
-                <AppButton Label="Open ingestion activity"
-                           Href="/settings/ingestion"
-                           StartIcon="@Icons.Material.Outlined.PendingActions"
-                           Size="AppControlSize.Compact" />
+    else if (!string.IsNullOrWhiteSpace(_statusMessage))
+    {
+        <AppAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="dev-harness-message">
+            <div class="dev-harness-success-row">
+                <span>@_statusMessage</span>
+                @if (_showIngestionLink)
+                {
+                    <AppButton Label="View Ingestion"
+                               Href="/settings/ingestion"
+                               StartIcon="@Icons.Material.Outlined.PendingActions"
+                               Size="AppControlSize.Compact" />
+                }
             </div>
-
-            @if (_lastResult.IsHtml)
-            {
-                <AppAlert Severity="Severity.Info"
-                          Variant="Variant.Outlined"
-                          Icon="@Icons.Material.Outlined.Article"
-                          Class="mb-3">
-                    The integration harness returned an HTML report. The Engine also writes the report under <code>tools/reports</code> when disk write succeeds.
-                </AppAlert>
-            }
-
-            <pre class="dev-harness-result-body">@FormatBody(_lastResult)</pre>
-        }
-    </AppCard>
-
-    <AppCard Title="Danger Zone"
-             Description="Irreversible actions intended only for disposable development environments."
-             Class="dev-harness-result-card">
-        <AppAlert Tone="AppUiTone.Error">
-            A full source wipe deletes files inside configured source folders. It remains locked until you explicitly allow it above.
         </AppAlert>
-        @foreach (var command in HarnessCommands.Where(command => command.Dangerous))
-        {
-            <AppButton Label="@GetButtonLabel(command)"
-                       StartIcon="@command.ButtonIcon"
-                       Tone="AppUiTone.Error"
-                       ButtonStyle="AppButtonStyle.Outlined"
-                       Disabled="@IsCommandDisabled(command)"
-                       OnClick="@(() => RunHarnessAsync(command))" />
-        }
-    </AppCard>
+    }
+
+    <MudExpansionPanels Elevation="0" Class="dev-harness-advanced">
+        <MudExpansionPanel Text="Advanced">
+            <div class="dev-harness-danger-zone">
+                <div class="dev-harness-danger-row">
+                    <div>
+                        <strong>Reset Library Data</strong>
+                        <p>Clears catalogued media, relationships, enrichment, generated artwork, and ingestion history. Configuration and source files remain.</p>
+                    </div>
+                    <AppButton Label="@(_runningAction == "reset" ? "Resetting" : "Reset Library Data")"
+                               StartIcon="@Icons.Material.Outlined.DeleteSweep"
+                               Tone="AppUiTone.Warning"
+                               ButtonStyle="AppButtonStyle.Outlined"
+                               Disabled="@IsBusy"
+                               OnClick="ResetLibraryDataAsync" />
+                </div>
+                <div class="dev-harness-danger-row is-factory">
+                    <div>
+                        <strong>Factory Reset Development Instance</strong>
+                        <p>Clears the development database, users, profiles, activity, and generated state. Configured source media is never deleted.</p>
+                    </div>
+                    <AppButton Label="@(_runningAction == "factory" ? "Factory Resetting" : "Factory Reset")"
+                               StartIcon="@Icons.Material.Outlined.Warning"
+                               Tone="AppUiTone.Error"
+                               ButtonStyle="AppButtonStyle.Filled"
+                               Disabled="@IsBusy"
+                               OnClick="FactoryResetAsync" />
+                </div>
+            </div>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
 </div>
 
 @code {
     [Parameter] public string Subsection { get; set; } = "options";
 
     private sealed record HarnessMediaType(string Key, string Label, string Icon);
-
-    private sealed record HarnessCommand(
-        string Id,
-        string Title,
-        string Description,
-        string Path,
-        string WipeMode,
-        string Input,
-        IReadOnlyList<string> Checks,
-        string TypicalUse,
-        string Icon,
-        string ButtonIcon,
-        bool UsesTypes = false,
-        bool UsesStages = false,
-        bool GeneratedStateWipe = false,
-        bool Dangerous = false,
-        bool Primary = false,
-        IReadOnlyDictionary<string, string?>? FixedQuery = null);
 
     private static readonly HarnessMediaType[] MediaTypes =
     [
@@ -229,241 +147,205 @@
         new("comics", "Comics", Icons.Material.Outlined.AutoStories),
     ];
 
-    private static readonly AppSelectOption[] StageOptions =
+    private static readonly AppSelectOption[] FixtureSetOptions =
     [
-        new("1", "Stage 1", Icons.Material.Outlined.Storefront),
-        new("12", "Stage 1+2", Icons.Material.Outlined.Hub),
-        new("123", "Full", Icons.Material.Outlined.AutoAwesome),
-    ];
-
-    private static readonly HarnessCommand[] HarnessCommands =
-    [
-        new(
-            "full-test",
-            "Clean synthetic ingestion",
-            "Wipe generated state, seed fixtures, and scan the selected fixture folders.",
-            "/dev/full-test",
-            "Generated state",
-            "Synthetic fixtures",
-            ["Seeds selected media types", "Queues direct scans", "Leaves watcher paused"],
-            "Fast regression pass for fixture ingestion.",
-            Icons.Material.Outlined.PlayCircle,
-            Icons.Material.Outlined.PlayArrow,
-            UsesTypes: true,
-            GeneratedStateWipe: true,
-            Primary: true),
-        new(
-            "integration-test",
-            "Validation report",
-            "Run the full validation harness and return an HTML report.",
-            "/dev/integration-test",
-            "Generated state",
-            "Synthetic fixtures",
-            ["Checks provider health", "Validates requested stages", "Writes report when possible"],
-            "Deep evidence for stage and media-type regressions.",
-            Icons.Material.Outlined.Assessment,
-            Icons.Material.Outlined.FactCheck,
-            UsesTypes: true,
-            UsesStages: true,
-            GeneratedStateWipe: true),
-        new(
-            "reingest-library",
-            "Configured-source reingest",
-            "Reset generated database/cache state and scan every configured source path.",
-            "/dev/reingest-library",
-            "Generated caches",
-            "Configured source folders",
-            ["Does not delete source files", "Scans all configured libraries", "Leaves watcher paused"],
-            "Large ingestion and real-library validation.",
-            Icons.Material.Outlined.Sync,
-            Icons.Material.Outlined.RestartAlt),
-        new(
-            "seed-library",
-            "Seed fixtures only",
-            "Drop selected fixture files into watch folders without wiping first.",
-            "/dev/seed-library",
-            "None",
-            "Synthetic fixtures",
-            ["Creates missing fixture files", "Provider-gated by media type"],
-            "Targeted seed setup before manual scans.",
-            Icons.Material.Outlined.Inventory,
-            Icons.Material.Outlined.Add,
-            UsesTypes: true),
-        new(
-            "wipe-generated",
-            "Wipe generated state",
-            "Reset generated library state, known seed files, database, caches, artwork, and logs.",
-            "/dev/wipe",
-            "Generated state",
-            "No ingestion input",
-            ["Preserves unrelated source files", "Reinitializes schema"],
-            "Clean slate before a custom run.",
-            Icons.Material.Outlined.DeleteSweep,
-            Icons.Material.Outlined.DeleteSweep,
-            FixedQuery: new Dictionary<string, string?>
-            {
-                ["wipeScope"] = "generated-state",
-                ["startEngineAfterWipe"] = "true",
-            }),
-        new(
-            "full-source-wipe-test",
-            "Full source wipe synthetic ingestion",
-            "Delete configured source-folder contents before seeding and scanning fixtures.",
-            "/dev/full-test",
-            "Full source wipe",
-            "Synthetic fixtures",
-            ["Deletes source-folder contents", "Seeds selected media types", "Queues direct scans"],
-            "Only for disposable test source folders.",
-            Icons.Material.Outlined.Warning,
-            Icons.Material.Outlined.Warning,
-            UsesTypes: true,
-            Dangerous: true),
+        new("standard", "Standard", Icons.Material.Outlined.CheckCircleOutline),
+        new("stress", "Stress", Icons.Material.Outlined.Speed),
     ];
 
     private readonly HashSet<string> _selectedTypes = MediaTypes
         .Select(mediaType => mediaType.Key)
         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-    private string _selectedStages = "12";
-    private bool _allowFullSourceWipe;
-    private string? _runningCommandId;
-    private string? _lastCommandTitle;
+    private string _fixtureSet = "standard";
+    private string? _runningAction;
+    private string? _statusMessage;
     private string? _error;
-    private DevHarnessRunResult? _lastResult;
+    private bool _showIngestionLink;
+
+    private bool IsBusy => _runningAction is not null;
+    private bool AllTypesSelected => _selectedTypes.Count == MediaTypes.Length;
+
+    private void SelectAllTypes()
+    {
+        foreach (var mediaType in MediaTypes)
+        {
+            _selectedTypes.Add(mediaType.Key);
+        }
+    }
 
     private void ToggleType(string key)
     {
-        if (_selectedTypes.Contains(key))
-        {
-            _selectedTypes.Remove(key);
-        }
-        else
+        if (!_selectedTypes.Remove(key))
         {
             _selectedTypes.Add(key);
         }
     }
 
-    private Task SetStages(string value)
+    private Task SetFixtureSet(string value)
     {
-        _selectedStages = string.IsNullOrWhiteSpace(value) ? "12" : value;
+        _fixtureSet = string.Equals(value, "stress", StringComparison.OrdinalIgnoreCase)
+            ? "stress"
+            : "standard";
         return Task.CompletedTask;
     }
 
-    private async Task RunHarnessAsync(HarnessCommand command)
+    private async Task ResetAndSeedAsync()
     {
-        if (IsCommandDisabled(command))
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Reset and seed test library?",
+            "This will remove current ingested library data and recreate the selected development fixtures. Application settings, users, configured libraries, and provider credentials will be preserved.",
+            yesText: "Reset & Seed",
+            cancelText: "Cancel");
+        if (confirmed != true)
         {
             return;
         }
 
-        _error = null;
-        _runningCommandId = command.Id;
-        _lastCommandTitle = command.Title;
+        await RunHarnessActionAsync(
+            "seed",
+            "/dev/reset-and-seed",
+            new Dictionary<string, string?>
+            {
+                ["types"] = string.Join(",", MediaTypes.Select(type => type.Key).Where(_selectedTypes.Contains)),
+                ["fixtureSet"] = _fixtureSet,
+            },
+            "Test fixtures created. Ingestion triggered.",
+            showIngestionLink: true);
+    }
 
+    private async Task RescanLibrariesAsync()
+    {
+        BeginAction("rescan");
         try
         {
-            var result = await ApiClient.RunDevHarnessAsync(command.Path, BuildQuery(command));
-            _lastResult = result;
-
-            if (result is null)
+            var succeeded = await ApiClient.TriggerRescanAsync();
+            if (succeeded)
             {
-                _error = "Harness run was cancelled.";
-                Snackbar.Add(_error, Severity.Warning);
-            }
-            else if (result.Succeeded)
-            {
-                Snackbar.Add($"{command.Title} accepted by the Engine.", Severity.Success);
+                CompleteAction("Library rescan triggered.", showIngestionLink: true);
             }
             else
             {
-                _error = $"Harness failed with HTTP {result.StatusCode}.";
-                Snackbar.Add(_error, Severity.Error);
+                FailAction(ApiClient.LastError ?? "The library rescan could not be started.");
             }
         }
         finally
         {
-            _runningCommandId = null;
+            _runningAction = null;
         }
     }
 
-    private IReadOnlyDictionary<string, string?> BuildQuery(HarnessCommand command)
+    private async Task ResetLibraryDataAsync()
     {
-        var query = command.FixedQuery is null
-            ? new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-            : new Dictionary<string, string?>(command.FixedQuery, StringComparer.OrdinalIgnoreCase);
-
-        if (command.UsesTypes)
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Reset library data?",
+            "This clears ingested media, relationships, enrichment, generated artwork, and ingestion history. Application configuration and source media will be preserved.",
+            yesText: "Reset Library Data",
+            cancelText: "Cancel");
+        if (confirmed != true)
         {
-            query["types"] = string.Join(",", SelectedTypeKeys());
+            return;
         }
 
-        if (command.UsesStages)
-        {
-            query["stages"] = _selectedStages;
-        }
-
-        if (command.GeneratedStateWipe)
-        {
-            query["wipeScope"] = "generated-state";
-        }
-
-        if (command.Id == "full-test")
-        {
-            query["wipe"] = "true";
-        }
-
-        if (command.Dangerous)
-        {
-            query["wipe"] = "true";
-            query["wipeScope"] = "full";
-        }
-
-        return query;
+        await RunHarnessActionAsync(
+            "reset",
+            "/dev/reset-library-data",
+            null,
+            "Library data reset. Configuration and source media were preserved.");
     }
 
-    private IEnumerable<string> SelectedTypeKeys() =>
-        MediaTypes
-            .Select(mediaType => mediaType.Key)
-            .Where(_selectedTypes.Contains);
-
-    private bool IsCommandDisabled(HarnessCommand command) =>
-        _runningCommandId is not null
-        || (command.UsesTypes && _selectedTypes.Count == 0)
-        || (command.Dangerous && !_allowFullSourceWipe);
-
-    private string GetButtonLabel(HarnessCommand command) =>
-        string.Equals(_runningCommandId, command.Id, StringComparison.Ordinal)
-            ? "Running"
-            : command.Dangerous && !_allowFullSourceWipe
-                ? "Locked"
-                : command.Primary
-                    ? "Run"
-                    : "Start";
-
-    private static string FormatBody(DevHarnessRunResult result)
+    private async Task FactoryResetAsync()
     {
-        if (string.IsNullOrWhiteSpace(result.Body))
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Factory reset this development instance?",
+            "This permanently clears the development database, including users, profiles, activity, provider state, and generated fixtures. Configured source media will not be deleted. You may need to complete setup again.",
+            yesText: "Factory Reset Development Instance",
+            cancelText: "Cancel");
+        if (confirmed != true)
         {
-            return "(empty response)";
+            return;
         }
 
-        if (result.IsJson)
+        await RunHarnessActionAsync(
+            "factory",
+            "/dev/factory-reset",
+            null,
+            "Development instance factory reset completed.");
+    }
+
+    private async Task RunHarnessActionAsync(
+        string action,
+        string path,
+        IReadOnlyDictionary<string, string?>? query,
+        string fallbackMessage,
+        bool showIngestionLink = false)
+    {
+        BeginAction(action);
+        try
         {
-            try
+            var result = await ApiClient.RunDevHarnessAsync(path, query);
+            if (result?.Succeeded == true)
             {
-                using var doc = JsonDocument.Parse(result.Body);
-                return JsonSerializer.Serialize(
-                    doc.RootElement,
-                    MediaEngineJson.Indented);
+                CompleteAction(ExtractMessage(result.Body, fallbackMessage), showIngestionLink);
             }
-            catch (JsonException)
+            else
             {
-                return result.Body;
+                FailAction(result is null
+                    ? "The operation was cancelled."
+                    : ExtractError(result.Body, $"The operation failed with HTTP {result.StatusCode}."));
             }
         }
+        finally
+        {
+            _runningAction = null;
+        }
+    }
 
-        return result.Body.Length <= 12000
-            ? result.Body
-            : $"{result.Body[..12000]}{Environment.NewLine}...";
+    private void BeginAction(string action)
+    {
+        _runningAction = action;
+        _error = null;
+        _statusMessage = null;
+        _showIngestionLink = false;
+    }
+
+    private void CompleteAction(string message, bool showIngestionLink)
+    {
+        _statusMessage = message;
+        _showIngestionLink = showIngestionLink;
+        Snackbar.Add(message, Severity.Success);
+    }
+
+    private void FailAction(string message)
+    {
+        _error = message;
+        Snackbar.Add(message, Severity.Error);
+    }
+
+    private static string ExtractMessage(string body, string fallback) =>
+        ExtractJsonString(body, "message") ?? fallback;
+
+    private static string ExtractError(string body, string fallback) =>
+        ExtractJsonString(body, "error") ?? fallback;
+
+    private static string? ExtractJsonString(string body, string propertyName)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            return document.RootElement.TryGetProperty(propertyName, out var property)
+                && property.ValueKind == JsonValueKind.String
+                    ? property.GetString()
+                    : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }

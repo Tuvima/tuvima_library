@@ -87,12 +87,14 @@ The component disposes its polling cancellation token and SignalR state subscrip
 
 ## Developer Tools
 
-Developer Tools is an internal-tools, Administrator-only shortcut for repeatable wipe and ingestion validation. It calls the Engine's `/dev/*` endpoints directly, links to the Provider and Enrichment testers, and does not edit existing library records in place.
+Developer Tools is an internal, Administrator-only surface for returning a development library to a known state. It intentionally does not duplicate ingestion progress, provider health, activity history, or metadata-editor tools.
 
-- **Clean synthetic ingestion** runs `/dev/full-test` with the generated-state wipe scope, media-type filters, and direct fixture scans.
-- **Configured-source reingest** runs `/dev/reingest-library`, which resets generated database/cache state and scans configured source folders without deleting source files.
-- **Validation report** runs `/dev/integration-test` with selectable stage depth and media-type filters.
-- **Full source wipe** is exposed only as an explicitly unlocked dangerous option for disposable test source folders.
+- **Reset & Seed Test Library** preserves users, profiles, configured libraries, permissions, settings, and provider configuration; clears catalogued library and derived ingestion state; recreates the selected deterministic Standard or Stress fixtures; and queues those files through normal ingestion. Fixture cleanup uses a generated-file manifest, so a configured source file is never deleted merely because its name resembles a fixture.
+- **Rescan All Libraries** uses the canonical ingestion rescan and never creates or deletes fixture/source media.
+- **View Ingestion** opens the existing Ingestion page, which remains the sole progress surface.
+- **Advanced** contains separately confirmed library-data and development-instance resets. Neither routine deletes configured source media.
+
+Lower-level seed, integration-report, and wipe endpoints remain available to automated harnesses, but are not competing human workflows on the Development Tools page.
 
 ## Source Folders
 

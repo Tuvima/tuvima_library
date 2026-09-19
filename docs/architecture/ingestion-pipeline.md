@@ -51,11 +51,13 @@ TEXT-GUID databases are rejected at startup unless `TUVIMA_STORAGE_RESET=1` (or
 `destructive-reingest`) is set, in which case the old database files are renamed
 as backups and a clean database is initialized.
 
-For development rebuilds, `POST /dev/reingest-library` pauses file watching,
-resets generated database/cache/artwork state without deleting configured source
-media, scans every configured library source path, and leaves file watching
-paused. The reset path includes guards that refuse destructive cleanup when a
-library output path overlaps a source folder.
+For normal development rebuilds, `POST /dev/reset-and-seed` pauses file watching,
+clears catalogued library/database/cache/artwork state while preserving accounts,
+profiles, access rules, settings, configured libraries, and provider configuration,
+recreates the selected Standard or Stress fixtures, queues them through grouped
+normal ingestion scans, and resumes watching. `POST /ingestion/rescan` remains the
+canonical no-wipe operation for configured source media. Reset paths include guards
+that refuse destructive cleanup when a library output path overlaps a source folder.
 
 Fresh-ingest validation is the proof path for sequence, artwork, and attribution
 changes. Do not repair bad historical rows in place for these fixes. Stop the

@@ -34,6 +34,47 @@ public sealed class DevHarnessResetService
     private readonly EnrichmentPipelineExecutionGate _enrichmentPipelineGate;
     private readonly ILogger<DevHarnessResetService> _logger;
 
+    private static readonly HashSet<string> PreservedConfigurationTables = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "storage_metadata",
+        "schema_migrations",
+        "profiles",
+        "accounts",
+        "account_profile_grants",
+        "account_invitations",
+        "account_feature_grants",
+        "account_library_grants",
+        "grant_admin_protections",
+        "account_external_logins",
+        "account_credentials",
+        "profile_credentials",
+        "auth_sessions",
+        "grant_admin_unlocks",
+        "applications",
+        "application_credentials",
+        "application_permission_grants",
+        "application_client_bindings",
+        "account_passkeys",
+        "password_reset_challenges",
+        "client_devices",
+        "device_pairing_requests",
+        "client_tokens",
+        "password_recovery_codes",
+        "service_credentials",
+        "identity_audit_events",
+        "authorization_audit_events",
+        "profile_view_policies",
+        "profile_view_preferences",
+        "profile_sequence_preferences",
+        "metadata_providers",
+        "provider_config",
+        "ui_settings_cache",
+        "user_playback_settings",
+        "application_events",
+        "application_webhooks",
+        "application_webhook_deliveries",
+    };
+
     public DevHarnessResetService(
         IDatabaseConnection db,
         IOptions<IngestionOptions> options,
@@ -88,11 +129,18 @@ public sealed class DevHarnessResetService
             }
             else
             {
-                WipeKnownSeedFiles(details);
+                WipeTrackedSeedFiles(details);
             }
 
             EnsureConfiguredSourcePathsExist(details);
-            await ResetDatabaseAsync(details, ct).ConfigureAwait(false);
+            if (scope == DevHarnessWipeScope.Full)
+            {
+                await ResetDatabaseAsync(details, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                await ResetLibraryDatabaseAsync(details, ct).ConfigureAwait(false);
+            }
             WipeRuntimeLogs(details);
         }
         finally
@@ -122,7 +170,7 @@ public sealed class DevHarnessResetService
         {
             await PauseEnrichmentPipelineAsync(details, ct).ConfigureAwait(false);
             WipeGeneratedCachesOnly(details);
-            await ResetDatabaseAsync(details, ct).ConfigureAwait(false);
+            await ResetLibraryDatabaseAsync(details, ct).ConfigureAwait(false);
             WipeRuntimeLogs(details);
             details.Add("Ingestion engine: FSW resume deferred");
         }
@@ -132,6 +180,45 @@ public sealed class DevHarnessResetService
         }
 
         return new DevHarnessResetResult(DevHarnessWipeScope.GeneratedState, details);
+    }
+
+    public Task<DevHarnessResetResult> ResetLibraryDataAsync(
+        bool resumeWatcher,
+        CancellationToken ct = default) =>
+        WipeAsync(DevHarnessWipeScope.GeneratedState, resumeWatcher, ct);
+
+    public async Task<DevHarnessResetResult> FactoryResetAsync(
+        bool resumeWatcher,
+        CancellationToken ct = default)
+    {
+        var details = new List<string>();
+
+        await PauseWatcherAsync(details, ct).ConfigureAwait(false);
+        try
+        {
+            await PauseEnrichmentPipelineAsync(details, ct).ConfigureAwait(false);
+            EnsureDestructivePathSafety(details);
+            WipeGeneratedLibraryState(details);
+            WipeTrackedSeedFiles(details);
+            EnsureConfiguredSourcePathsExist(details);
+            await ResetDatabaseAsync(details, ct).ConfigureAwait(false);
+            WipeRuntimeLogs(details);
+        }
+        finally
+        {
+            ResumeEnrichmentPipeline(details);
+            if (resumeWatcher)
+            {
+                await ResumeWatcherAsync(details, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                details.Add("Ingestion engine: FSW resume deferred");
+            }
+        }
+
+        details.Add("Configured source media was preserved");
+        return new DevHarnessResetResult(DevHarnessWipeScope.Full, details);
     }
 
     public async Task PauseWatcherAsync(List<string>? details = null, CancellationToken ct = default)
@@ -267,15 +354,37 @@ public sealed class DevHarnessResetService
         }
     }
 
-    private void WipeKnownSeedFiles(List<string> details)
+    private void WipeTrackedSeedFiles(List<string> details)
     {
-        var seedFiles = DevSeedEndpoints.GetSeedFilePaths(_options, _configLoader);
+        var sourceRoots = EnumerateConfiguredSourcePaths()
+            .Select(NormalizePathOrNull)
+            .Where(path => path is not null)
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var seedFiles = DevFixtureManifestStore.Read(_options, _logger);
         int deleted = 0;
         int missing = 0;
+        int rejected = 0;
+        var retainedPaths = new List<string>();
 
         foreach (string path in seedFiles)
         {
-            if (!File.Exists(path))
+            var normalizedPath = NormalizePathOrNull(path);
+            if (normalizedPath is null
+                || !sourceRoots.Any(root =>
+                    !string.Equals(root, normalizedPath, StringComparison.OrdinalIgnoreCase)
+                    && IsSameOrChild(root, normalizedPath)))
+            {
+                rejected++;
+                _logger.LogWarning(
+                    "[HarnessReset] Refused to delete untrusted fixture manifest path {Path}",
+                    path);
+                retainedPaths.Add(path);
+                continue;
+            }
+
+            if (!File.Exists(normalizedPath))
             {
                 missing++;
                 continue;
@@ -283,18 +392,21 @@ public sealed class DevHarnessResetService
 
             try
             {
-                File.SetAttributes(path, FileAttributes.Normal);
-                File.Delete(path);
+                File.SetAttributes(normalizedPath, FileAttributes.Normal);
+                File.Delete(normalizedPath);
                 deleted++;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "[HarnessReset] Failed to delete seed fixture {Path}", path);
-                details.Add($"Seed fixture ({path}): FAILED - {ex.Message}");
+                _logger.LogWarning(ex, "[HarnessReset] Failed to delete seed fixture {Path}", normalizedPath);
+                details.Add($"Seed fixture ({normalizedPath}): FAILED - {ex.Message}");
+                retainedPaths.Add(normalizedPath);
             }
         }
 
-        details.Add($"Seed fixtures: {deleted} known fixture file(s) deleted, {missing} absent");
+        DevFixtureManifestStore.Replace(_options, retainedPaths, _logger);
+        details.Add(
+            $"Seed fixtures: {deleted} tracked fixture file(s) deleted, {missing} absent, {rejected} untrusted path(s) rejected");
     }
 
     private void WipeAllSourcePaths(List<string> details)
@@ -398,6 +510,90 @@ public sealed class DevHarnessResetService
             _db.ReleaseWriteLock();
         }
     }
+
+    private async Task ResetLibraryDatabaseAsync(List<string> details, CancellationToken ct)
+    {
+        await _db.AcquireWriteLockAsync().ConfigureAwait(false);
+        try
+        {
+            var conn = _db.Open();
+
+            using (var fkOff = conn.CreateCommand())
+            {
+                fkOff.CommandText = "PRAGMA foreign_keys = OFF;";
+                fkOff.ExecuteNonQuery();
+            }
+
+            var tables = new List<string>();
+            using (var listCmd = conn.CreateCommand())
+            {
+                listCmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";
+                using var reader = listCmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    tables.Add(reader.GetString(0));
+                }
+            }
+
+            var cleared = new List<string>();
+            foreach (string table in tables)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (ShouldPreserveConfigurationTable(table) || IsSearchIndexShadowTable(table))
+                {
+                    continue;
+                }
+
+                using var deleteCmd = conn.CreateCommand();
+                deleteCmd.CommandText = $"DELETE FROM [{table}];";
+                deleteCmd.ExecuteNonQuery();
+                cleared.Add(table);
+            }
+
+            using (var sequenceCmd = conn.CreateCommand())
+            {
+                sequenceCmd.CommandText = "DELETE FROM sqlite_sequence WHERE name NOT IN (" +
+                    string.Join(",", PreservedConfigurationTables.Select((_, index) => $"$table{index}")) + ");";
+                var index = 0;
+                foreach (var table in PreservedConfigurationTables)
+                {
+                    sequenceCmd.Parameters.AddWithValue($"$table{index++}", table);
+                }
+                sequenceCmd.ExecuteNonQuery();
+            }
+
+            using (var fkOn = conn.CreateCommand())
+            {
+                fkOn.CommandText = "PRAGMA foreign_keys = ON;";
+                fkOn.ExecuteNonQuery();
+            }
+
+            using (var vacuumCmd = conn.CreateCommand())
+            {
+                vacuumCmd.CommandText = "VACUUM;";
+                vacuumCmd.ExecuteNonQuery();
+            }
+
+            _db.RunStartupChecks();
+            details.Add($"Database: cleared {cleared.Count} library/ingestion table(s); accounts, profiles, access, provider configuration, and UI settings preserved");
+            _logger.LogInformation(
+                "[HarnessReset] Library data reset cleared {Count} table(s) while preserving configuration state",
+                cleared.Count);
+        }
+        finally
+        {
+            _db.ReleaseWriteLock();
+        }
+    }
+
+    private static bool ShouldPreserveConfigurationTable(string table) =>
+        PreservedConfigurationTables.Contains(table)
+        || table.StartsWith("view_", StringComparison.OrdinalIgnoreCase)
+        || table.StartsWith("local_", StringComparison.OrdinalIgnoreCase)
+        || table.StartsWith("onboarding_", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSearchIndexShadowTable(string table) =>
+        table.StartsWith("search_index_", StringComparison.OrdinalIgnoreCase);
 
     private void WipeRuntimeLogs(List<string> details)
     {

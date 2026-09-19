@@ -15,6 +15,12 @@ using DevHarnessWipeResponse = MediaEngine.Contracts.Development.DevHarnessWipeR
 
 namespace MediaEngine.Api.DevSupport;
 
+public enum DevelopmentFixtureSet
+{
+    Standard,
+    Stress,
+}
+
 /// <summary>
 /// Development-only endpoints for seeding the library with test data.
 /// Registered conditionally when <c>ASPNETCORE_ENVIRONMENT == "Development"</c>.
@@ -26,6 +32,25 @@ namespace MediaEngine.Api.DevSupport;
 /// </summary>
 public static class DevSeedEndpoints
 {
+    private static readonly HashSet<string> StandardBookTitles = new(StringComparer.Ordinal)
+    {
+        "Dune",
+        "Leviathan Wakes",
+        "Caliban's War",
+    };
+
+    private static readonly HashSet<string> StandardMusicTitles = new(StringComparer.Ordinal)
+    {
+        "Bohemian Rhapsody",
+        "You're My Best Friend",
+        "Death on Two Legs",
+    };
+
+    private static readonly HashSet<string> StandardComicTitles = new(StringComparer.Ordinal)
+    {
+        "Batman: Year One Part 1",
+        "Batman: Year One Part 2",
+    };
     /// <summary>A seed EPUB definition.</summary>
     /// <remarks>
     /// <para><c>ExpectedQid</c> — when set, the reconciliation pass asserts the
@@ -1019,6 +1044,15 @@ public static class DevSeedEndpoints
         group.MapGet("/check-keys", CheckKeysAsync)
             .WithSummary("Probe each configured provider with real credentials — confirms all API keys are valid before seeding");
 
+        group.MapPost("/reset-and-seed", ResetAndSeedAsync)
+            .WithSummary("Preserve application configuration, reset generated library data, create Standard or Stress fixtures, and queue normal ingestion");
+
+        group.MapPost("/reset-library-data", ResetLibraryDataAsync)
+            .WithSummary("Clear catalogued library, enrichment, artwork, and ingestion state while preserving application configuration and source media");
+
+        group.MapPost("/factory-reset", FactoryResetAsync)
+            .WithSummary("Reset the development database and generated state without deleting configured source media");
+
         group.MapPost("/seed-library", SeedLibraryAsync)
             .WithSummary($"Drop up to {SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length} test files into Watch Folders (?types=books,comics,… to filter; providers health-checked automatically)");
 
@@ -1085,6 +1119,81 @@ public static class DevSeedEndpoints
 
     // ── POST /dev/seed-library ───────────────────────────────────────────────
 
+    private static async Task<IResult> ResetAndSeedAsync(
+        HttpContext context,
+        DevelopmentTestService developmentTests,
+        string? fixtureSet = "standard")
+    {
+        DevelopmentFixtureSet selectedFixtureSet;
+        if (!Enum.TryParse(fixtureSet, ignoreCase: true, out selectedFixtureSet))
+        {
+            return Results.BadRequest(new { error = "Fixture set must be 'standard' or 'stress'." });
+        }
+
+        try
+        {
+            var result = await developmentTests.ResetAndSeedAsync(
+                ParseTypes(context),
+                selectedFixtureSet,
+                context.RequestAborted);
+            return Results.Accepted(value: new
+            {
+                message = result.Message,
+                files_created = result.FilesCreated,
+                media_types = result.MediaTypes,
+                fixture_set = result.FixtureSet,
+                scanned_directories = result.ScannedDirectories,
+                reset = MapResetResult(result.Reset),
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> ResetLibraryDataAsync(
+        DevelopmentTestService developmentTests,
+        CancellationToken ct)
+    {
+        try
+        {
+            var reset = await developmentTests.ResetLibraryDataAsync(ct);
+            return Results.Ok(new
+            {
+                message = "Library data reset. Application configuration and source media were preserved.",
+                reset = MapResetResult(reset),
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> FactoryResetAsync(
+        DevelopmentTestService developmentTests,
+        CancellationToken ct)
+    {
+        try
+        {
+            var reset = await developmentTests.FactoryResetAsync(ct);
+            return Results.Ok(new
+            {
+                message = "Development instance reset. Database and generated state were cleared; configured source media was preserved.",
+                reset = MapResetResult(reset),
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
+    }
+
     private static async Task<IResult> SeedLibraryAsync(
         HttpContext context,
         IOptions<IngestionOptions> options,
@@ -1096,6 +1205,7 @@ public static class DevSeedEndpoints
         var (activeTypes, skipReasons) = ResolveActiveTypes(requestedTypes, health);
 
         var created = new List<string>();
+        var createdPaths = new List<string>();
         var perTypeResults = new Dictionary<string, object>();
         int skipped = 0;
 
@@ -1118,6 +1228,7 @@ public static class DevSeedEndpoints
                     book.Series, book.SeriesPosition);
                 await File.WriteAllBytesAsync(filePath, epub);
                 created.Add(fileName);
+                createdPaths.Add(filePath);
                 booksCreated++;
                 logger.LogInformation("Seed EPUB created: {Path} [{Category}]", filePath, book.TestCategory ?? "Uncategorised");
             }
@@ -1136,6 +1247,7 @@ public static class DevSeedEndpoints
             {
                 var fixture = await CreateAudiobookFixtureAsync(audiobooksDir, ab, logger);
                 created.AddRange(fixture.RelativePaths);
+                createdPaths.AddRange(fixture.CreatedPaths);
                 audiobooksCreated += fixture.Created;
                 skipped += fixture.Skipped;
             }
@@ -1209,6 +1321,7 @@ public static class DevSeedEndpoints
                 episodeNumber: video.EpisodeNumber);
             await File.WriteAllBytesAsync(filePath, mp4);
             created.Add(fileName);
+            createdPaths.Add(filePath);
             if (video.MediaType == "TV")
             {
                 tvCreated++;
@@ -1247,6 +1360,7 @@ public static class DevSeedEndpoints
                     track.Year, track.Genre, track.TrackNumber, track.AlbumArtist);
                 await File.WriteAllBytesAsync(filePath, flac);
                 created.Add(fileName);
+                createdPaths.Add(filePath);
                 musicCreated++;
                 logger.LogInformation("Seed FLAC created: {Path} [{Category}]", filePath, track.TestCategory ?? "Uncategorised");
             }
@@ -1273,6 +1387,7 @@ public static class DevSeedEndpoints
                     comic.Year, comic.Genre, comic.Summary, comic.Publisher, comic.Penciller);
                 await File.WriteAllBytesAsync(filePath, cbz);
                 created.Add(fileName);
+                createdPaths.Add(filePath);
                 comicsCreated++;
                 logger.LogInformation("Seed CBZ created: {Path} [{Category}]", filePath, comic.TestCategory ?? "Uncategorised");
             }
@@ -1286,6 +1401,8 @@ public static class DevSeedEndpoints
         string message = totalSeeded > 0
             ? $"{totalSeeded} files dropped into Watch Folders. Ingestion will begin automatically."
             : "All seed files already exist in the Watch Folders.";
+
+        DevFixtureManifestStore.Record(options, createdPaths, logger);
 
         return Results.Ok(new
         {
@@ -1565,7 +1682,11 @@ public static class DevSeedEndpoints
         return sb.ToString();
     }
 
-    private sealed record AudiobookFixtureResult(int Created, int Skipped, IReadOnlyList<string> RelativePaths);
+    private sealed record AudiobookFixtureResult(
+        int Created,
+        int Skipped,
+        IReadOnlyList<string> RelativePaths,
+        IReadOnlyList<string> CreatedPaths);
 
     private static async Task<AudiobookFixtureResult> CreateAudiobookFixtureAsync(
         string root,
@@ -1575,6 +1696,7 @@ public static class DevSeedEndpoints
         var created = 0;
         var skipped = 0;
         var relativePaths = new List<string>();
+        var createdPaths = new List<string>();
         var directory = audiobook.PartCount > 1
             ? Path.Combine(root, SanitizeFileName(audiobook.Artist), SanitizeFileName(audiobook.Title))
             : root;
@@ -1607,6 +1729,7 @@ public static class DevSeedEndpoints
                 trackNumber: audiobook.PartCount > 1 ? part : null);
             await File.WriteAllBytesAsync(filePath, bytes);
             created++;
+            createdPaths.Add(filePath);
             logger.LogInformation("Seed MP3 created: {Path} [{Category}]", filePath, audiobook.TestCategory ?? "Uncategorised");
         }
 
@@ -1629,11 +1752,12 @@ public static class DevSeedEndpoints
                         .ToArray(),
                 };
                 await File.WriteAllTextAsync(sidecarPath, JsonSerializer.Serialize(sidecar, MediaEngineJson.Indented));
+                createdPaths.Add(sidecarPath);
                 logger.LogInformation("Seed audiobook sidecar created: {Path}", sidecarPath);
             }
         }
 
-        return new AudiobookFixtureResult(created, skipped, relativePaths);
+        return new AudiobookFixtureResult(created, skipped, relativePaths, createdPaths);
     }
 
     // ── Seed expectation model ────────────────────────────────────────────────
@@ -1679,16 +1803,18 @@ public static class DevSeedEndpoints
         IOptions<IngestionOptions> options,
         IConfigurationLoader configLoader,
         HashSet<string> activeTypes,
-        ILogger logger)
+        ILogger logger,
+        DevelopmentFixtureSet fixtureSet = DevelopmentFixtureSet.Stress)
     {
         int created = 0;
+        var createdPaths = new List<string>();
 
         // Books (EPUB)
         string? booksDir = ResolveWatchDirectory(configLoader, options, "Books");
         if (activeTypes.Contains("books") && !string.IsNullOrWhiteSpace(booksDir))
         {
             EnsureDirectory(booksDir, logger);
-            foreach (SeedBook book in SeedBooks)
+            foreach (SeedBook book in SeedBooks.Where(book => IncludeFixture(book, fixtureSet)))
             {
                 string fileName = $"{SanitizeFileName(book.Title)}.epub";
                 string filePath = Path.Combine(booksDir, fileName);
@@ -1703,6 +1829,7 @@ public static class DevSeedEndpoints
                     book.Series, book.SeriesPosition);
                 await File.WriteAllBytesAsync(filePath, bytes);
                 created++;
+                createdPaths.Add(filePath);
             }
         }
 
@@ -1710,15 +1837,16 @@ public static class DevSeedEndpoints
         string? audiobooksDir = ResolveWatchDirectory(configLoader, options, "Audiobooks");
         if (activeTypes.Contains("audiobooks") && !string.IsNullOrWhiteSpace(audiobooksDir))
         {
-            foreach (SeedAudiobook ab in SeedAudiobooks)
+            foreach (SeedAudiobook ab in SeedAudiobooks.Where(audiobook => IncludeFixture(audiobook, fixtureSet)))
             {
                 var fixture = await CreateAudiobookFixtureAsync(audiobooksDir, ab, logger);
                 created += fixture.Created;
+                createdPaths.AddRange(fixture.CreatedPaths);
             }
         }
 
         // Movies + TV (MP4) — SeedVideos carries MediaType = "Movie" or "TV"
-        foreach (SeedVideo video in SeedVideos)
+        foreach (SeedVideo video in SeedVideos.Where(video => IncludeFixture(video, fixtureSet)))
         {
             string typeKey = video.MediaType == "TV" ? "tv" : "movies";
             if (!activeTypes.Contains(typeKey))
@@ -1774,6 +1902,7 @@ public static class DevSeedEndpoints
                 episodeNumber: video.EpisodeNumber);
             await File.WriteAllBytesAsync(filePath, bytes);
             created++;
+            createdPaths.Add(filePath);
         }
 
         // Music (FLAC)
@@ -1781,7 +1910,7 @@ public static class DevSeedEndpoints
         if (activeTypes.Contains("music") && !string.IsNullOrWhiteSpace(musicDir))
         {
             EnsureDirectory(musicDir, logger);
-            foreach (SeedMusic track in SeedMusicTracks)
+            foreach (SeedMusic track in SeedMusicTracks.Where(track => IncludeFixture(track, fixtureSet)))
             {
                 string fileName = $"{SanitizeFileName(track.Artist)} - {SanitizeFileName(track.Title)}.flac";
                 string filePath = Path.Combine(musicDir, fileName);
@@ -1795,6 +1924,7 @@ public static class DevSeedEndpoints
                     track.Year, track.Genre, track.TrackNumber, track.AlbumArtist);
                 await File.WriteAllBytesAsync(filePath, bytes);
                 created++;
+                createdPaths.Add(filePath);
             }
         }
 
@@ -1803,7 +1933,7 @@ public static class DevSeedEndpoints
         if (activeTypes.Contains("comics") && !string.IsNullOrWhiteSpace(comicsDir))
         {
             EnsureDirectory(comicsDir, logger);
-            foreach (SeedComic comic in SeedComics)
+            foreach (SeedComic comic in SeedComics.Where(comic => IncludeFixture(comic, fixtureSet)))
             {
                 string fileName = $"{SanitizeFileName(comic.Title)}.cbz";
                 string filePath = Path.Combine(comicsDir, fileName);
@@ -1817,8 +1947,11 @@ public static class DevSeedEndpoints
                     comic.Year, comic.Genre, comic.Summary, comic.Publisher, comic.Penciller);
                 await File.WriteAllBytesAsync(filePath, bytes);
                 created++;
+                createdPaths.Add(filePath);
             }
         }
+
+        DevFixtureManifestStore.Record(options, createdPaths, logger);
 
         logger.LogInformation("[SeedAllAsync] {Count} seed files written across active types {Types}",
             created, string.Join(",", activeTypes));
@@ -1831,94 +1964,29 @@ public static class DevSeedEndpoints
         return created;
     }
 
-    internal static IReadOnlyList<string> GetSeedFilePaths(
-        IOptions<IngestionOptions> options,
-        IConfigurationLoader configLoader,
-        HashSet<string>? activeTypes = null)
-    {
-        activeTypes ??= new HashSet<string>(
-            ["books", "audiobooks", "movies", "tv", "music", "comics"],
-            StringComparer.OrdinalIgnoreCase);
+    private static bool IncludeFixture(SeedBook fixture, DevelopmentFixtureSet fixtureSet) =>
+        fixtureSet == DevelopmentFixtureSet.Stress || StandardBookTitles.Contains(fixture.Title);
 
-        var paths = new List<string>();
+    private static bool IncludeFixture(SeedAudiobook fixture, DevelopmentFixtureSet fixtureSet) =>
+        fixtureSet == DevelopmentFixtureSet.Stress
+        || (string.Equals(fixture.Title, "Dune", StringComparison.Ordinal)
+            && string.Equals(fixture.Narrator, "Simon Vance", StringComparison.Ordinal));
 
-        string? booksDir = ResolveWatchDirectory(configLoader, options, "Books");
-        if (activeTypes.Contains("books") && !string.IsNullOrWhiteSpace(booksDir))
-        {
-            foreach (SeedBook book in SeedBooks)
-            {
-                paths.Add(Path.Combine(booksDir, $"{SanitizeFileName(book.Title)}.epub"));
-            }
-        }
+    private static bool IncludeFixture(SeedVideo fixture, DevelopmentFixtureSet fixtureSet) =>
+        fixtureSet == DevelopmentFixtureSet.Stress
+        || (string.Equals(fixture.MediaType, "Movie", StringComparison.Ordinal)
+            && string.Equals(fixture.Title, "Blade Runner 2049", StringComparison.Ordinal))
+        || (string.Equals(fixture.MediaType, "TV", StringComparison.Ordinal)
+            && string.Equals(fixture.Series, "Breaking Bad", StringComparison.Ordinal)
+            && fixture.SeasonNumber == 1
+            && fixture.EpisodeNumber is 1 or 2
+            && string.IsNullOrWhiteSpace(fixture.FileNameOverride));
 
-        string? audiobooksDir = ResolveWatchDirectory(configLoader, options, "Audiobooks");
-        if (activeTypes.Contains("audiobooks") && !string.IsNullOrWhiteSpace(audiobooksDir))
-        {
-            foreach (SeedAudiobook ab in SeedAudiobooks)
-            {
-                if (ab.PartCount <= 1)
-                {
-                    paths.Add(Path.Combine(audiobooksDir, $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3"));
-                    continue;
-                }
+    private static bool IncludeFixture(SeedMusic fixture, DevelopmentFixtureSet fixtureSet) =>
+        fixtureSet == DevelopmentFixtureSet.Stress || StandardMusicTitles.Contains(fixture.Title);
 
-                var directory = Path.Combine(audiobooksDir, SanitizeFileName(ab.Artist), SanitizeFileName(ab.Title));
-                for (var part = 1; part <= ab.PartCount; part++)
-                {
-                    paths.Add(Path.Combine(directory, $"{part:D3} - Part {part:D2}.mp3"));
-                }
-            }
-        }
-
-        foreach (SeedVideo video in SeedVideos)
-        {
-            string typeKey = video.MediaType == "TV" ? "tv" : "movies";
-            if (!activeTypes.Contains(typeKey))
-            {
-                continue;
-            }
-
-            string category = video.MediaType == "TV" ? "TV" : "Movies";
-            string? videoDir = ResolveWatchDirectory(configLoader, options, category);
-            if (string.IsNullOrWhiteSpace(videoDir))
-            {
-                continue;
-            }
-
-            if (!string.IsNullOrWhiteSpace(video.FileNameOverride))
-            {
-                paths.Add(Path.Combine(videoDir, video.FileNameOverride.Replace('/', Path.DirectorySeparatorChar)));
-            }
-            else if (video.MediaType == "TV" && video.SeasonNumber is not null && video.EpisodeNumber is not null)
-            {
-                paths.Add(Path.Combine(videoDir, $"{SanitizeFileName(video.Series ?? video.Title)} S{video.SeasonNumber:D2}E{video.EpisodeNumber:D2}.mp4"));
-            }
-            else
-            {
-                paths.Add(Path.Combine(videoDir, $"{SanitizeFileName(video.Title)} ({video.Year}).mp4"));
-            }
-        }
-
-        string? musicDir = ResolveWatchDirectory(configLoader, options, "Music");
-        if (activeTypes.Contains("music") && !string.IsNullOrWhiteSpace(musicDir))
-        {
-            foreach (SeedMusic track in SeedMusicTracks)
-            {
-                paths.Add(Path.Combine(musicDir, $"{SanitizeFileName(track.Artist)} - {SanitizeFileName(track.Title)}.flac"));
-            }
-        }
-
-        string? comicsDir = ResolveWatchDirectory(configLoader, options, "Comics");
-        if (activeTypes.Contains("comics") && !string.IsNullOrWhiteSpace(comicsDir))
-        {
-            foreach (SeedComic comic in SeedComics)
-            {
-                paths.Add(Path.Combine(comicsDir, $"{SanitizeFileName(comic.Title)}.cbz"));
-            }
-        }
-
-        return paths;
-    }
+    private static bool IncludeFixture(SeedComic fixture, DevelopmentFixtureSet fixtureSet) =>
+        fixtureSet == DevelopmentFixtureSet.Stress || StandardComicTitles.Contains(fixture.Title);
 
     /// <summary>
     /// Returns all seed fixtures as a flat list of expectations.

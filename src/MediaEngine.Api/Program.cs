@@ -333,6 +333,7 @@ builder.Services.AddTuvimaNetworking();
 builder.Services.AddMediaEngineIngestion(config, configLoader);
 #if DEBUG
 builder.Services.AddSingleton<DevHarnessResetService>();
+builder.Services.AddSingleton<DevelopmentTestService>();
 builder.Services.AddSingleton<ViewPhotoHarnessService>();
 #endif
 builder.Services.AddSingleton<AssetStoreCleanupService>();

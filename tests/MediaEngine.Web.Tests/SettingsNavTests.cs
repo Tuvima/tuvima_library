@@ -156,7 +156,7 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Libraries, "/settings/libraries")]
     [InlineData(SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData(SettingsSection.RecentlyAdded, "/settings/recently-added")]
-    [InlineData(SettingsSection.DevHarness, "/settings/developer/options")]
+    [InlineData(SettingsSection.DevHarness, "/settings/developer")]
     [InlineData(SettingsSection.Providers, "/settings/metadata/providers")]
     [InlineData(SettingsSection.LocalAi, "/settings/ai")]
     [InlineData(SettingsSection.Plugins, "/settings/plugins")]

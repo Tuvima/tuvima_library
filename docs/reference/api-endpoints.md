@@ -563,8 +563,11 @@ Available in development environments only. These endpoints are removed in produ
 
 | Method | Path | Description |
 |---|---|---|
+| POST | `/dev/reset-and-seed` | Preserve application configuration, reset catalogued library state, create selected Standard or Stress fixtures, and queue normal ingestion. |
+| POST | `/dev/reset-library-data` | Clear catalogued media and derived state without deleting source media or application configuration. |
+| POST | `/dev/factory-reset` | Clear the development database and generated state without deleting configured source media. |
 | POST | `/dev/seed-library` | Seed the library with 22 EPUB test cases covering edge cases (pen names, foreign languages, series grouping, multi-author) |
-| POST | `/dev/wipe` | Wipe the database and staging area. Irreversible. |
+| POST | `/dev/wipe` | Lower-level automated harness reset; generated-state scope preserves configuration and unrelated source media. |
 | POST | `/dev/full-test` | Run full ingestion and enrichment pipeline on the seeded test library |
 | POST | `/dev/reingest-library` | Pause file watching, reset generated database/cache/artwork state, scan every configured library source path, and leave watching paused until restart or explicit resume. |
 | POST | `/dev/integration-test` | Run the integration test suite and return an HTML report |

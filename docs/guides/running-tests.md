@@ -166,6 +166,30 @@ without setting an API key during development.
 The following endpoints are **only registered when `ASPNETCORE_ENVIRONMENT == "Development"`**.
 They are absent in any other environment.
 
+### POST /dev/reset-and-seed
+
+This is the primary Development Tools workflow. It preserves application configuration and configured source media, clears catalogued library and derived ingestion state, creates the selected fixtures, queues them through normal ingestion, and resumes file watching. Generated fixture paths are recorded in a manifest; cleanup deletes only those recorded paths inside configured source roots.
+
+```bash
+curl -X POST "http://localhost:61495/dev/reset-and-seed?types=books,tv,music&fixtureSet=standard"
+```
+
+Use `fixtureSet=standard` for a small deterministic structural regression set or `fixtureSet=stress` for the full high-volume fixture catalog.
+
+### POST /dev/reset-library-data
+
+Clears catalogued media, relationships, enrichment, generated artwork, and ingestion/activity state while preserving accounts, profiles, configured libraries, permissions, application settings, provider configuration, and source files.
+
+```bash
+curl -X POST http://localhost:61495/dev/reset-library-data
+```
+
+### POST /dev/factory-reset
+
+Clears the development database and generated state, including accounts and profiles. Configured source media is not deleted. The Dashboard requires a strong confirmation before invoking this endpoint.
+
+The endpoints below are retained for automated and specialized harness scripts. They are no longer exposed as parallel workflows on the Development Tools page.
+
 ### POST /dev/seed-library
 
 Drops synthetic test files (EPUB, MP3, MP4, FLAC, CBZ) into configured library source folders.
@@ -179,8 +203,8 @@ Returns a summary of how many files were seeded per media type.
 
 ### POST /dev/wipe
 
-Wipes disposable generated state and configured development source contents, then re-initialises the empty database.
-Stops the ingestion engine first to avoid processing files mid-wipe.
+Wipes generated-state fixture files and catalogued data by default while preserving unrelated configured source media and application configuration. Pass the explicit legacy `wipeScope=full` option only from disposable automated harnesses that intentionally own every configured source file.
+The operation pauses file watching to avoid processing files mid-wipe.
 
 ```bash
 curl -X POST http://localhost:61495/dev/wipe
