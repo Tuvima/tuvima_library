@@ -986,32 +986,41 @@ public static class ItemCanonicalEndpoints
                 return ApiErrors.Conflict(hierarchyImpact.ConflictMessage ?? hierarchyImpact.Message);
             }
 
+            // The hierarchy transaction may have moved an episode/track under a
+            // different container. Resolve container-scoped Wikidata state only
+            // after that move, so the old show/album is never overwritten.
+            var postAlignmentWorkId = ClaimScopeCatalog.IsParentScoped(BridgeIdKeys.WikidataQid, lineage.MediaType)
+                && hierarchyImpact?.TargetRootEntityId is { } targetRootId
+                && targetRootId != Guid.Empty
+                ? targetRootId
+                : workId;
+
             // Commit the durable identity job before optional network-backed artwork or
             // manifest refreshes. A transient provider failure must never leave a match
             // confirmed without a corresponding full enrichment cycle.
             if (string.Equals(policy.TargetFieldGroup, "album", StringComparison.OrdinalIgnoreCase))
             {
-                await canonicalRepo.DeleteByKeyAsync(workId, MetadataFieldConstants.ChildEntitiesJson, ct);
-                await canonicalRepo.DeleteByKeyAsync(workId, MetadataFieldConstants.TrackCount, ct);
+                await canonicalRepo.DeleteByKeyAsync(postAlignmentWorkId, MetadataFieldConstants.ChildEntitiesJson, ct);
+                await canonicalRepo.DeleteByKeyAsync(postAlignmentWorkId, MetadataFieldConstants.TrackCount, ct);
             }
             else if (string.Equals(policy.TargetFieldGroup, "show", StringComparison.OrdinalIgnoreCase)
                      || string.Equals(policy.TargetFieldGroup, "season", StringComparison.OrdinalIgnoreCase))
             {
-                await canonicalRepo.DeleteByKeyAsync(workId, MetadataFieldConstants.ChildEntitiesJson, ct);
-                await canonicalRepo.DeleteByKeyAsync(workId, MetadataFieldConstants.SeasonCount, ct);
-                await canonicalRepo.DeleteByKeyAsync(workId, MetadataFieldConstants.EpisodeCount, ct);
+                await canonicalRepo.DeleteByKeyAsync(postAlignmentWorkId, MetadataFieldConstants.ChildEntitiesJson, ct);
+                await canonicalRepo.DeleteByKeyAsync(postAlignmentWorkId, MetadataFieldConstants.SeasonCount, ct);
+                await canonicalRepo.DeleteByKeyAsync(postAlignmentWorkId, MetadataFieldConstants.EpisodeCount, ct);
             }
 
-            var currentState = await itemCanonicalData.LoadWorkWikidataStateAsync(workId, ct);
+            var currentState = await itemCanonicalData.LoadWorkWikidataStateAsync(postAlignmentWorkId, ct);
             if (request.ClearAutoAlignedWikidata
                 && !string.IsNullOrWhiteSpace(currentState?.Qid)
                 && IsAutomationOwnedWikidataState(currentState.Status, currentState.Source, currentState.Locked))
             {
-                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.Pending, WorkWikidataMatchSource.Retail, false, "", ct: ct);
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(postAlignmentWorkId, WorkWikidataStatus.Pending, WorkWikidataMatchSource.Retail, false, "", ct: ct);
             }
             else
             {
-                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.ProviderOnly, WorkWikidataMatchSource.Retail, false, ct: ct);
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(postAlignmentWorkId, WorkWikidataStatus.ProviderOnly, WorkWikidataMatchSource.Retail, false, ct: ct);
             }
 
             var identityJobId = await pipeline.EnqueueAsync(new HarvestRequest
@@ -1062,11 +1071,11 @@ public static class ItemCanonicalEndpoints
             {
                 try
                 {
-                    var rootCanonicalValues = await canonicalRepo.GetByEntityAsync(workId, ct);
+                    var rootCanonicalValues = await canonicalRepo.GetByEntityAsync(postAlignmentWorkId, ct);
                     var existingManifest = rootCanonicalValues.FirstOrDefault(value =>
                         string.Equals(value.Key, MetadataFieldConstants.ChildEntitiesJson, StringComparison.OrdinalIgnoreCase))?.Value;
                     var refreshedManifest = await albumTrackManifestService.EnsureAlbumTrackManifestAsync(
-                        workId,
+                        postAlignmentWorkId,
                         selectedFields.GetValueOrDefault(MetadataFieldConstants.Artist)
                             ?? selectedFields.GetValueOrDefault("album_artist"),
                         selectedFields.GetValueOrDefault(MetadataFieldConstants.Album),

@@ -720,8 +720,64 @@ public sealed class HierarchyAlignmentService(IDatabaseConnection db, IHydration
     private static string BuildMembershipPath(SqliteConnection conn, Guid entityId, SqliteTransaction? tx, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        return conn.QueryFirstOrDefault<string>("SELECT COALESCE((SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'title' LIMIT 1), w.parent_key, 'Item') FROM works w WHERE w.id = @entityId LIMIT 1;", new { entityId }, tx) ?? "Item";
+        var row = conn.QueryFirstOrDefault<MembershipPathRow>("""
+            SELECT w.media_type AS MediaType,
+                   w.work_kind AS WorkKind,
+                   w.ordinal AS Ordinal,
+                   COALESCE((SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('title', 'episode_title', 'album', 'series') ORDER BY CASE key WHEN 'title' THEN 0 WHEN 'episode_title' THEN 1 ELSE 2 END LIMIT 1), w.parent_key) AS LeafLabel,
+                   CASE WHEN p.id IS NULL THEN 0 ELSE 1 END AS HasParent,
+                   p.ordinal AS ParentOrdinal,
+                   COALESCE((SELECT value FROM canonical_values WHERE entity_id = p.id AND key IN ('title', 'show_name', 'album', 'series') ORDER BY CASE key WHEN 'title' THEN 0 WHEN 'show_name' THEN 1 ELSE 2 END LIMIT 1), p.parent_key) AS ParentLabel,
+                   CASE WHEN gp.id IS NULL THEN 0 ELSE 1 END AS HasRoot,
+                   COALESCE((SELECT value FROM canonical_values WHERE entity_id = gp.id AND key IN ('title', 'show_name', 'album', 'series') ORDER BY CASE key WHEN 'title' THEN 0 WHEN 'show_name' THEN 1 ELSE 2 END LIMIT 1), gp.parent_key) AS RootLabel
+            FROM works w
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            WHERE w.id = @entityId
+            LIMIT 1;
+            """, new { entityId }, tx);
+        if (row is null)
+        {
+            return "Item";
+        }
+
+        var path = new List<string>();
+        if (row.HasRoot)
+        {
+            path.Add(FirstNonBlank(row.RootLabel, "Container"));
+        }
+        if (row.HasParent)
+        {
+            path.Add(string.Equals(row.MediaType, "TV", StringComparison.OrdinalIgnoreCase) && row.HasRoot
+                ? $"Season {row.ParentOrdinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"
+                : FirstNonBlank(row.ParentLabel, "Container"));
+        }
+
+        path.Add(BuildMembershipLeafLabel(row));
+        return string.Join(" / ", path);
     }
+
+    private static string BuildMembershipLeafLabel(MembershipPathRow row)
+    {
+        if (string.Equals(row.MediaType, "TV", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Equals(row.WorkKind, "child", StringComparison.OrdinalIgnoreCase)
+                ? $"Episode {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"
+                : row.HasParent
+                    ? $"Season {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"
+                    : FirstNonBlank(row.LeafLabel, "Show");
+        }
+        if (string.Equals(row.MediaType, "Music", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(row.WorkKind, "child", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"Track {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}";
+        }
+
+        return FirstNonBlank(row.LeafLabel, row.WorkKind, "Item");
+    }
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? "Item";
 
     private static Guid ResolveRootWorkId(SqliteConnection conn, Guid entityId, SqliteTransaction? tx, CancellationToken ct)
     {
@@ -1106,6 +1162,18 @@ public sealed class HierarchyAlignmentService(IDatabaseConnection db, IHydration
         public Guid WorkId => Guid.Parse(WorkIdValue);
         public Guid? ParentWorkId => string.IsNullOrWhiteSpace(ParentWorkIdValue) ? null : Guid.Parse(ParentWorkIdValue);
         public Guid RootWorkId => Guid.Parse(RootWorkIdValue);
+    }
+    private sealed class MembershipPathRow
+    {
+        public string MediaType { get; set; } = string.Empty;
+        public string WorkKind { get; set; } = string.Empty;
+        public int? Ordinal { get; set; }
+        public string? LeafLabel { get; set; }
+        public bool HasParent { get; set; }
+        public int? ParentOrdinal { get; set; }
+        public string? ParentLabel { get; set; }
+        public bool HasRoot { get; set; }
+        public string? RootLabel { get; set; }
     }
     private sealed record MembershipPlan(string Action, string MediaType, Guid CurrentEntityId, Guid? CurrentParentEntityId, Guid CurrentRootEntityId, int? CurrentOrdinal, string? RequestedTitle, string? RequestedParentLabel, string? RequestedSecondaryLabel, string? RequestedParentKey, int? RequestedOrdinal, Guid? SelectedPrimaryTargetId, Guid? SelectedSecondaryTargetId);
     private sealed record ResolvedMoveTarget(string Action, Guid? TargetParentEntityId, string TargetPath, bool RequiresNewTarget, bool CanApply, string Message, string? ConflictMessage, Guid? Stage2TargetEntityId = null);

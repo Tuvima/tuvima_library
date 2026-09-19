@@ -105,6 +105,9 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("BuildHierarchyAlignmentRequest", canonical, StringComparison.Ordinal);
         Assert.Contains("ResolveWorkIdForAssetAsync(context.AssetId, ct)", canonical, StringComparison.Ordinal);
         Assert.Contains("HierarchyExternalIdentifierMutation", canonical + ReadSource("src/MediaEngine.Application/ReadModels/MediaEditorReadModels.cs"), StringComparison.Ordinal);
+        Assert.Contains("var postAlignmentWorkId = ClaimScopeCatalog.IsParentScoped(BridgeIdKeys.WikidataQid, lineage.MediaType)", canonical, StringComparison.Ordinal);
+        Assert.Contains("LoadWorkWikidataStateAsync(postAlignmentWorkId, ct)", canonical, StringComparison.Ordinal);
+        Assert.Contains("UpdateWorkWikidataMatchStateAsync(postAlignmentWorkId", canonical, StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"hierarchy_changed\")", models, StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"previous_path\")", models, StringComparison.Ordinal);
         Assert.Contains("BridgeIdKeys.TmdbEpisodeId", canonical, StringComparison.Ordinal);

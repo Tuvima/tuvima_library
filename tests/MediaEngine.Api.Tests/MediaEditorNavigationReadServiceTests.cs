@@ -430,6 +430,7 @@ public sealed class MediaEditorNavigationReadServiceTests : IDisposable
         Assert.Equal(episodeId, result.SelectedEntityId);
         Assert.Equal(showBId, result.TargetRootEntityId);
         Assert.Equal(seasonBId, result.TargetParentEntityId);
+        Assert.Equal("Show A / Season 1 / Episode 1", result.CurrentPath);
         Assert.Equal("Show B / Season 2 / Episode 4", result.TargetPath);
 
         using var verification = _database.CreateConnection();
