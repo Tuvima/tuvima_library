@@ -31,6 +31,11 @@ public static class SharedEntityEditorEndpoints
         group.MapGet("/universes/{qid}/artwork", GetUniverseArtworkAsync).RequireClientScope(ApplicationPermissionIds.ArtworkRead.Value);
         group.MapPut("/universes/{qid}/artwork", UpdateUniverseArtworkAsync).RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value);
         group.MapGet("/universes/{qid}/history", GetUniverseHistoryAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapGet("/universes/{qid}/relationships", GetUniverseRelationshipsAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapGet("/universes/{qid}/timeline", GetUniverseTimelineAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapGet("/universes/{qid}/sources", GetUniverseSourcesAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapGet("/universes/{qid}/enrichment", GetUniverseEnrichmentAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapPost("/universes/{qid}/refresh", RefreshUniverseAsync).RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRun).RequireClientScope(ApplicationPermissionIds.MetadataEnrichmentRun.Value);
         group.MapGet("/universes/{qid}/entities/{id:guid}/context", GetEntityContextAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
         group.MapGet("/universes/{qid}/entities/{id:guid}/details", GetEntityDetailsAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
         group.MapPut("/universes/{qid}/entities/{id:guid}/details", UpdateEntityDetailsAsync).RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value);
@@ -120,6 +125,47 @@ public static class SharedEntityEditorEndpoints
         return Results.Ok((await timeline.GetEventsByEntityAsync(RootHistoryId(root.Qid), ct)).Select(evt => new SharedEntityHistoryEntryDto(evt.Id, evt.EventType, evt.OccurredAt, evt.Detail)));
     }
 
+    private static async Task<IResult> GetUniverseRelationshipsAsync(string qid, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IEntityRelationshipRepository relationships, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
+    {
+        if (await AuthorizedRootAsync(qid, http, roots, entities, display, authorization, ApplicationPermissionIds.MetadataRead, ct) is null) return ApiErrors.NotFound("Universe not found.");
+        var visible = await VisibleWorksAsync(display, ct);
+        var entityQids = (await entities.SearchVisibleByUniverseAsync(qid, visible, null, null, 0, 100, ct)).Items.Select(entity => entity.WikidataQid).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var rows = await relationships.GetByUniverseAsync(entityQids, ct);
+        return Results.Ok(rows.Where(row => string.IsNullOrWhiteSpace(row.ContextWorkQid) || visible.Contains(row.ContextWorkQid!)).Select(row => new SharedEntityRelationshipDto(row.StatementKey, row.SubjectQid, row.RelationshipTypeValue, row.ObjectQid, row.Provenance, row.ContextWorkQid, row.Qualifiers.Select(q => new UniverseGraphQualifierDto(q.QualifierType, q.Value, q.ValueKind, q.Provenance, q.IsSupplemental, q.SourceProvider, q.Confidence)).ToList())));
+    }
+
+    private static async Task<IResult> GetUniverseTimelineAsync(string qid, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
+    {
+        if (await AuthorizedRootAsync(qid, http, roots, entities, display, authorization, ApplicationPermissionIds.MetadataRead, ct) is null) return ApiErrors.NotFound("Universe not found.");
+        var visible = await VisibleWorksAsync(display, ct);
+        var page = await entities.SearchVisibleByUniverseAsync(qid, visible, null, null, 0, 100, ct);
+        var links = await entities.GetWorkLinksAsync(page.Items.Select(entity => entity.Id), ct);
+        return Results.Ok(links.Where(link => visible.Contains(link.WorkQid) && (!string.IsNullOrWhiteSpace(link.NarrativeTimeIndex) || !string.IsNullOrWhiteSpace(link.StartTime) || !string.IsNullOrWhiteSpace(link.EndTime))).Select(link => new SharedEntityTimelineEntryDto("appearance", link.NarrativeTimeIndex ?? link.WorkLabel ?? link.WorkQid, link.StartTime, link.EndTime, link.WorkQid, link.Provenance)));
+    }
+
+    private static async Task<IResult> GetUniverseSourcesAsync(string qid, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
+    {
+        if (await AuthorizedRootAsync(qid, http, roots, entities, display, authorization, ApplicationPermissionIds.MetadataRead, ct) is null) return ApiErrors.NotFound("Universe not found.");
+        var visible = await VisibleWorksAsync(display, ct);
+        var page = await entities.SearchVisibleByUniverseAsync(qid, visible, null, null, 0, 100, ct);
+        var links = await entities.GetWorkLinksAsync(page.Items.Select(entity => entity.Id), ct);
+        return Results.Ok(links.Where(link => visible.Contains(link.WorkQid)).Select(link => new SharedEntitySourceDto("appearance", link.AppearanceKey ?? link.WorkQid, link.Provenance, link.SourceProvider, link.WorkQid)));
+    }
+
+    private static async Task<IResult> GetUniverseEnrichmentAsync(string qid, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
+    {
+        if (await AuthorizedRootAsync(qid, http, roots, entities, display, authorization, ApplicationPermissionIds.MetadataRead, ct) is null) return ApiErrors.NotFound("Universe not found.");
+        var page = await entities.SearchVisibleByUniverseAsync(qid, await VisibleWorksAsync(display, ct), null, null, 0, 1, ct);
+        return Results.Ok(new SharedEntityEnrichmentStatusDto(page.Total == 0 ? "pending" : "available", null, null));
+    }
+
+    private static async Task<IResult> RefreshUniverseAsync(string qid, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, IMetadataHarvestingService harvesting, CancellationToken ct)
+    {
+        if (await AuthorizedRootAsync(qid, http, roots, entities, display, authorization, ApplicationPermissionIds.MetadataEnrichmentRun, ct) is null) return ApiErrors.NotFound("Universe not found.");
+        await harvesting.EnqueueAsync(new HarvestRequest { EntityId = Guid.Empty, EntityType = EntityType.Character, MediaType = MediaType.Unknown, Hints = new Dictionary<string, string> { ["universe_qid"] = qid, ["refresh"] = "shared_editor" } }, ct);
+        return Results.Ok(new SharedEntityRefreshDto(true, "Universe enrichment refresh queued."));
+    }
+
     private static async Task<IResult> GetEntityDetailsAsync(string qid, Guid id, HttpContext http, IFictionalEntityRepository entities, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
     {
         var entity = await AuthorizedEntityAsync(qid, id, http, entities, display, authorization, ApplicationPermissionIds.MetadataRead, ct);
@@ -207,7 +253,7 @@ public static class SharedEntityEditorEndpoints
     private static async Task<NarrativeRoot?> AuthorizedRootAsync(string qid, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, ApplicationPermissionId permission, CancellationToken ct)
     {
         var root = await roots.FindByQidAsync(qid, ct);
-        if (root is null || await authorization.EvaluateQidAsync(http, qid, permission, ct) != CatalogueResourceAccess.Allowed) return null;
+        if (root is null) return null;
         // A root may be valid before Stage 3 has discovered its first entity. Authorize
         // through the owned work that carries its canonical narrative provenance, never
         // merely because a caller supplied a raw root QID.
