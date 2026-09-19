@@ -41,6 +41,8 @@ public sealed partial class ReconciliationAdapter
             {
                 EntityType.Location => "Location",
                 EntityType.Organization => "Organization",
+                EntityType.Event => "Event",
+                EntityType.Object => "Object",
                 _ => "Character",
             };
 
@@ -110,13 +112,7 @@ public sealed partial class ReconciliationAdapter
         }
 
         // Select property group based on entity sub-type.
-        var propGroup = entitySubType switch
-        {
-            "Character" => _config.DataExtension.CharacterProperties,
-            "Location" => _config.DataExtension.LocationProperties,
-            "Organization" => _config.DataExtension.OrganizationProperties,
-            _ => null,
-        };
+        var propGroup = GetFictionalEntityPropertyGroup(entitySubType);
 
         if (propGroup is null || propGroup.Core.Count == 0)
         {
@@ -156,6 +152,126 @@ public sealed partial class ReconciliationAdapter
         _logger.LogDebug("Fictional entity {Qid} ({SubType}): {Count} claims extracted", qid, entitySubType, claims.Count);
         return claims;
     }
+
+    /// <inheritdoc />
+    public async Task<FictionalEntityGraphEvidence?> FetchFictionalEntityGraphEvidenceAsync(
+        string qid,
+        string entitySubType,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(qid);
+        ArgumentException.ThrowIfNullOrWhiteSpace(entitySubType);
+
+        if (_reconciler is null)
+        {
+            return null;
+        }
+
+        var propertyGroup = GetFictionalEntityPropertyGroup(entitySubType);
+        if (propertyGroup is null || propertyGroup.Core.Count == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
+            var entities = await _reconciler.GetEntitiesAsync([qid], language, ct).ConfigureAwait(false);
+            return !entities.TryGetValue(qid, out var entity)
+                ? null
+                : BuildFictionalEntityGraphEvidence(entity, propertyGroup, _config.DataExtension.PropertyLabels);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "{Provider}: graph evidence fetch failed for fictional entity {Qid}", Name, qid);
+            return null;
+        }
+    }
+
+    internal static FictionalEntityGraphEvidence BuildFictionalEntityGraphEvidence(
+        WikidataEntityInfo entity,
+        DataExtensionPropertyGroup propertyGroup,
+        IReadOnlyDictionary<string, string> propertyLabels)
+    {
+        var configuredProperties = propertyGroup.Core
+            .Concat(propertyGroup.Bridges)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var statements = new List<FictionalEntityRelationshipStatement>();
+        string? universeQid = null;
+        string? universeLabel = null;
+
+        foreach (var (propertyId, claims) in entity.Claims)
+        {
+            if (!configuredProperties.Contains(propertyId)
+                || !propertyLabels.TryGetValue(propertyId, out var claimKey))
+            {
+                continue;
+            }
+
+            foreach (var claim in claims.Where(claim =>
+                         !string.Equals(claim.Rank, "deprecated", StringComparison.OrdinalIgnoreCase)
+                         && !string.IsNullOrWhiteSpace(claim.Value?.EntityId)))
+            {
+                var target = claim.Value!;
+                if (string.Equals(propertyId, "P1080", StringComparison.OrdinalIgnoreCase))
+                {
+                    universeQid ??= target.EntityId;
+                    universeLabel ??= target.EntityLabel;
+                    continue;
+                }
+
+                statements.Add(new FictionalEntityRelationshipStatement(
+                    ClaimKey: $"{claimKey}_qid",
+                    TargetQid: target.EntityId!,
+                    TargetLabel: target.EntityLabel,
+                    Confidence: 0.9,
+                    Qualifiers: claim.Qualifiers
+                        .SelectMany(pair => pair.Value.Select(value => new FictionalEntityStatementQualifier(
+                            pair.Key,
+                            GetGraphValue(value),
+                            GetGraphValueKind(value))))
+                        .Where(qualifier => !string.IsNullOrWhiteSpace(qualifier.Value))
+                        .ToList()));
+            }
+        }
+
+        return new FictionalEntityGraphEvidence(
+            SourceProvider: "wikidata",
+            Provenance: "Wikidata",
+            NarrativeUniverseQid: universeQid,
+            NarrativeUniverseLabel: universeLabel,
+            Statements: statements);
+    }
+
+    private DataExtensionPropertyGroup? GetFictionalEntityPropertyGroup(string entitySubType) =>
+        entitySubType switch
+        {
+            "Character" => _config.DataExtension.CharacterProperties,
+            "Location" => _config.DataExtension.LocationProperties,
+            "Organization" => _config.DataExtension.OrganizationProperties,
+            "Event" => _config.DataExtension.EventProperties,
+            "Object" => _config.DataExtension.ObjectProperties,
+            _ => null,
+        };
+
+    private static string GetGraphValue(WikidataValue value) =>
+        value.Kind == WikidataValueKind.EntityId
+            ? value.EntityId ?? value.RawValue
+            : value.Amount?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? value.RawValue;
+
+    private static string GetGraphValueKind(WikidataValue value) => value.Kind switch
+    {
+        WikidataValueKind.EntityId => "WikidataQid",
+        WikidataValueKind.Time => "Time",
+        WikidataValueKind.Quantity => "Quantity",
+        WikidataValueKind.GlobeCoordinate => "Coordinate",
+        WikidataValueKind.MonolingualText => "MonolingualText",
+        _ => "Text",
+    };
 
     internal static TvManifestProjection BuildTvManifestProjection(
         ChildEntityManifest manifest)

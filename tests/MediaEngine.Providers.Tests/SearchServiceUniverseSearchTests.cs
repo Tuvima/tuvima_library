@@ -193,7 +193,8 @@ public sealed class SearchServiceUniverseSearchTests
         var dir = Path.GetDirectoryName(typeof(SearchServiceUniverseSearchTests).Assembly.Location);
         while (dir != null)
         {
-            if (Directory.Exists(Path.Combine(dir, ".git")))
+            var gitMarker = Path.Combine(dir, ".git");
+            if (Directory.Exists(gitMarker) || File.Exists(gitMarker))
             {
                 return dir;
             }

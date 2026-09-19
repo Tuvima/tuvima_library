@@ -179,6 +179,14 @@ public class ClaimScopeCatalogTests
             ClaimScopeCatalog.GetScope(MetadataFieldConstants.NarrativeLocation, mediaType));
         Assert.Equal(ClaimScope.Parent,
             ClaimScopeCatalog.GetScope("narrative_location_qid", mediaType));
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeCatalog.GetScope(MetadataFieldConstants.NarrativeEvent, mediaType));
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeCatalog.GetScope("narrative_event_qid", mediaType));
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeCatalog.GetScope(MetadataFieldConstants.NarrativeObject, mediaType));
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeCatalog.GetScope("narrative_object_qid", mediaType));
     }
 
     // ── Comics ───────────────────────────────────────────────────────────

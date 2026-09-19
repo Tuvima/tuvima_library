@@ -1,6 +1,7 @@
 using Dapper;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -71,6 +72,14 @@ public sealed class FictionalEntityWorkerTests : IDisposable
         [
             new CanonicalArrayEntry { Ordinal = 0, Value = "Rocinante", ValueQid = "QLOC1" },
         ]);
+        await _canonicalArrayRepo.SetValuesAsync(showWorkId, MetadataFieldConstants.NarrativeEvent,
+        [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "The Canterbury incident", ValueQid = "QEVENT1" },
+        ]);
+        await _canonicalArrayRepo.SetValuesAsync(showWorkId, MetadataFieldConstants.NarrativeObject,
+        [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "The protomolecule", ValueQid = "QOBJECT1" },
+        ]);
 
         var harvesting = new RecordingMetadataHarvestingService();
         var resolver = new NarrativeRootResolver(
@@ -94,15 +103,17 @@ public sealed class FictionalEntityWorkerTests : IDisposable
 
         await worker.EnrichAsync(assetId, "QSHOW", CancellationToken.None);
 
-        Assert.Equal(3, await _fictionalEntityRepo.CountAsync());
+        Assert.Equal(5, await _fictionalEntityRepo.CountAsync());
 
         var linkedEntities = await _fictionalEntityRepo.GetByWorkQidAsync("QSHOW");
-        Assert.Equal(3, linkedEntities.Count);
+        Assert.Equal(5, linkedEntities.Count);
         Assert.Contains(linkedEntities, entity => entity.WikidataQid == "QCHAR1");
         Assert.Contains(linkedEntities, entity => entity.WikidataQid == "QCHAR2");
         Assert.Contains(linkedEntities, entity => entity.WikidataQid == "QLOC1");
+        Assert.Contains(linkedEntities, entity => entity.WikidataQid == "QEVENT1" && entity.EntitySubType == FictionalEntityType.Event);
+        Assert.Contains(linkedEntities, entity => entity.WikidataQid == "QOBJECT1" && entity.EntitySubType == FictionalEntityType.Object);
 
-        Assert.Equal(3, harvesting.Requests.Count);
+        Assert.Equal(5, harvesting.Requests.Count);
         Assert.All(harvesting.Requests, request => Assert.Equal(MediaType.Unknown, request.MediaType));
     }
 

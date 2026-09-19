@@ -265,6 +265,26 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
     }
 
     /// <inheritdoc/>
+    public Task UpdateUniverseAsync(
+        Guid entityId,
+        string universeQid,
+        string? universeLabel,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(universeQid);
+
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            UPDATE fictional_entities
+            SET fictional_universe_qid = @universeQid,
+                fictional_universe_label = COALESCE(NULLIF(TRIM(@universeLabel), ''), fictional_universe_label)
+            WHERE id = @entityId;
+            """, new { entityId, universeQid, universeLabel });
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
     public Task LinkToWorkAsync(FictionalEntityWorkLink appearance, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

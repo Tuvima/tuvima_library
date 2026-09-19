@@ -101,6 +101,8 @@ public static class MetadataFieldConstants
     public const string FictionalUniverse = "fictional_universe";
     public const string Characters = "characters";
     public const string NarrativeLocation = "narrative_location";
+    public const string NarrativeEvent = "narrative_event";
+    public const string NarrativeObject = "narrative_object";
 
     // ── Child entity discovery claims ────────────────────────────────────────
     public const string SeasonCount = "season_count";
@@ -150,6 +152,8 @@ public static class MetadataFieldConstants
         "cast_member",
         "voice_actor",
         "narrative_location",
+        "narrative_event",
+        "narrative_object",
         "main_subject",
         "composer",
         "screenwriter",
@@ -202,6 +206,8 @@ public static class MetadataFieldConstants
         "cast_member_qid",
         "voice_actor_qid",
         "narrative_location_qid",
+        "narrative_event_qid",
+        "narrative_object_qid",
         "main_subject_qid",
         "composer_qid",
         "screenwriter_qid",

@@ -60,6 +60,8 @@ public static class StructuredDiscoveryFieldCatalog
             Set(MediaType.Books, MediaType.Comics, MediaType.Audiobooks)),
         Entity(MetadataFieldConstants.RecordLabel, "Record label", "People & Organizations", "P264", Listen),
         Entity(MetadataFieldConstants.NarrativeLocation, "Narrative location", "Story & World", "P840"),
+        Entity(MetadataFieldConstants.NarrativeEvent, "Narrative event", "Story & World", "P793"),
+        Entity(MetadataFieldConstants.NarrativeObject, "Narrative object", "Story & World"),
         Entity(MetadataFieldConstants.SetInPeriod, "Set in period", "Story & World", "P2408"),
         Entity(MetadataFieldConstants.MainSubject, "Main subject", "Story & World", "P921"),
         Entity(MetadataFieldConstants.BasedOn, "Based on", "Story & World", "P144"),
@@ -91,6 +93,8 @@ public static class StructuredDiscoveryFieldCatalog
         MetadataFieldConstants.Illustrator,
         MetadataFieldConstants.Characters,
         MetadataFieldConstants.FictionalUniverse,
+        MetadataFieldConstants.NarrativeEvent,
+        MetadataFieldConstants.NarrativeObject,
     }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     public static bool TryGet(string key, out StructuredDiscoveryFieldDefinition definition) =>
