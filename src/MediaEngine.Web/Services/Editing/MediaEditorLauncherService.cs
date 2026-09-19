@@ -1,3 +1,4 @@
+using MediaEngine.Contracts.Universe;
 using MediaEngine.Web.Components.MediaEditor;
 using MediaEngine.Web.Services.Integration;
 using MudBlazor;
@@ -19,7 +20,14 @@ public sealed class MediaEditorLauncherService
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.EntityIds.Count == 0)
+        var sharedTarget = request.SharedEntityTarget;
+        if (sharedTarget is null && request.EntityIds.Count == 0)
+        {
+            return false;
+        }
+
+        if (sharedTarget is not null
+            && (request.Mode != SharedMediaEditorMode.Normal || !IsValidSharedTarget(sharedTarget)))
         {
             return false;
         }
@@ -104,5 +112,23 @@ public sealed class MediaEditorLauncherService
 
         var result = await dialog.Result;
         return result is not null && !result.Canceled;
+    }
+
+    private static bool IsValidSharedTarget(SharedEntityEditorTargetDto target)
+    {
+        if (string.IsNullOrWhiteSpace(target.UniverseQid))
+        {
+            return false;
+        }
+
+        if (string.Equals(target.Kind, SharedEntityEditorTargetKinds.Universe, StringComparison.OrdinalIgnoreCase))
+        {
+            return !target.FictionalEntityId.HasValue
+                && string.Equals(target.Qid, target.UniverseQid, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return string.Equals(target.Kind, SharedEntityEditorTargetKinds.FictionalEntity, StringComparison.OrdinalIgnoreCase)
+            && target.FictionalEntityId.HasValue
+            && !string.IsNullOrWhiteSpace(target.Qid);
     }
 }

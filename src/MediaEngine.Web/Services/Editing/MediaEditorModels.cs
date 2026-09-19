@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Universe;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Editing;
@@ -26,6 +27,7 @@ public enum MediaEditorIdentityIntent
 
 public sealed class MediaEditorLaunchRequest
 {
+    public SharedEntityEditorTargetDto? SharedEntityTarget { get; init; }
     public List<Guid> EntityIds { get; init; } = [];
     public Guid? LaunchEntityId { get; init; }
     public string? LaunchEntityKind { get; init; }
