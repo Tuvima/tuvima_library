@@ -736,8 +736,8 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         public Task<IReadOnlyList<FictionalEntity>> GetByWorkQidAsync(string workQid, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<FictionalEntity>>([]);
         public Task CreateAsync(FictionalEntity entity, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateEnrichmentAsync(Guid entityId, string? description, string? imageUrl, DateTimeOffset enrichedAt, CancellationToken ct = default) => Task.CompletedTask;
-        public Task LinkToWorkAsync(Guid entityId, string workQid, string? workLabel, string linkType = "appears_in", CancellationToken ct = default) => Task.CompletedTask;
-        public Task<IReadOnlyList<(string WorkQid, string? WorkLabel, string LinkType)>> GetWorkLinksAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<(string WorkQid, string? WorkLabel, string LinkType)>>([]);
+        public Task LinkToWorkAsync(FictionalEntityWorkLink appearance, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<FictionalEntityWorkLink>> GetWorkLinksAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<FictionalEntityWorkLink>>([]);
         public Task<IReadOnlyList<FictionalEntityWorkLink>> GetWorkLinksAsync(IEnumerable<Guid> entityIds, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<FictionalEntityWorkLink>>([]);
         public Task<int> CountAsync(CancellationToken ct = default) => Task.FromResult(0);
         public Task UpdateRevisionAsync(Guid entityId, long revisionId, CancellationToken ct = default) => Task.CompletedTask;

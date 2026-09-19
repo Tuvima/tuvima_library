@@ -364,8 +364,9 @@ public sealed class AuthorizedDisplayProjectionReadServiceTests : IDisposable
                     (id, wikidata_qid, label, entity_sub_type, fictional_universe_qid, created_at)
                 VALUES (@allowedCharacter, 'Q3201', 'Allowed Character', 'Character', 'Q3001', CURRENT_TIMESTAMP),
                        (@deniedCharacter, 'Q3202', 'Denied Character', 'Character', 'Q3002', CURRENT_TIMESTAMP);
-                INSERT INTO fictional_entity_work_links (entity_id, work_qid)
-                VALUES (@allowedCharacter, 'Q3101'), (@deniedCharacter, 'Q3102');
+                INSERT INTO fictional_entity_work_links (id, appearance_key, entity_id, work_qid)
+                VALUES (randomblob(16), 'allowed-character-q3101', @allowedCharacter, 'Q3101'),
+                       (randomblob(16), 'denied-character-q3102', @deniedCharacter, 'Q3102');
                 INSERT INTO character_portraits
                     (id, person_id, fictional_entity_id, image_url, created_at)
                 VALUES (@allowedPortrait, @actorId, @allowedCharacter, '/allowed.jpg', CURRENT_TIMESTAMP),
@@ -772,8 +773,9 @@ public sealed class AuthorizedDisplayProjectionReadServiceTests : IDisposable
                     (id, wikidata_qid, label, entity_sub_type, fictional_universe_qid, created_at)
                 VALUES (@visibleCharacter, 'Q2001', 'Visible Character', 'Character', 'Q1000', CURRENT_TIMESTAMP),
                        (@hiddenCharacter, 'Q2002', 'Hidden Character', 'Character', 'Q1000', CURRENT_TIMESTAMP);
-                INSERT INTO fictional_entity_work_links (entity_id, work_qid)
-                VALUES (@visibleCharacter, 'Q1001'), (@hiddenCharacter, 'Q1002');
+                INSERT INTO fictional_entity_work_links (id, appearance_key, entity_id, work_qid)
+                VALUES (randomblob(16), 'visible-character-q1001', @visibleCharacter, 'Q1001'),
+                       (randomblob(16), 'hidden-character-q1002', @hiddenCharacter, 'Q1002');
                 """,
                 new
                 {

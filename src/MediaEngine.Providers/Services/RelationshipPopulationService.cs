@@ -282,6 +282,7 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
                 FictionalEntityType.Location => EntityType.Location,
                 FictionalEntityType.Organization => EntityType.Organization,
                 FictionalEntityType.Event => EntityType.Event,
+                FictionalEntityType.Object => EntityType.Object,
                 _ => EntityType.Character,
             };
 

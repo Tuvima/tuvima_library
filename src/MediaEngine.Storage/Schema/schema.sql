@@ -1,6 +1,6 @@
 ﻿-- =============================================================================
 -- Tuvima Library - SQLite initialization script
--- Current storage epoch: guid-blob-v7-access-authority
+-- Current storage epoch: guid-blob-v8-graph-facts
 --
 -- Internal UUIDs are stored as 16-byte BLOBs where the current domain model owns
 -- the identifier. External provider identifiers, QIDs, hashes, URLs, and file
@@ -278,13 +278,30 @@ CREATE TABLE IF NOT EXISTS entity_field_changes (
 
 CREATE TABLE IF NOT EXISTS entity_relationships (
     id                      BLOB NOT NULL PRIMARY KEY,
+    statement_key           TEXT NOT NULL UNIQUE,
     subject_qid             TEXT NOT NULL,
     relationship_type       TEXT NOT NULL,
     object_qid              TEXT NOT NULL,
     confidence              REAL NOT NULL DEFAULT 0.9,
     context_work_qid        TEXT,
-    discovered_at           TEXT NOT NULL, start_time TEXT, end_time TEXT,
-    UNIQUE (subject_qid, relationship_type, object_qid)
+    source_provider         TEXT,
+    provenance              TEXT NOT NULL DEFAULT 'Wikidata',
+    is_supplemental         INTEGER NOT NULL DEFAULT 0 CHECK (is_supplemental IN (0, 1)),
+    discovered_at           TEXT NOT NULL,
+    start_time              TEXT,
+    end_time                TEXT
+);
+
+CREATE TABLE IF NOT EXISTS entity_relationship_qualifiers (
+    id                      BLOB NOT NULL PRIMARY KEY,
+    relationship_id         BLOB NOT NULL REFERENCES entity_relationships(id) ON DELETE CASCADE,
+    qualifier_type          TEXT NOT NULL,
+    value                   TEXT NOT NULL,
+    value_kind              TEXT NOT NULL DEFAULT 'Text',
+    source_provider         TEXT,
+    provenance              TEXT NOT NULL DEFAULT 'Wikidata',
+    is_supplemental         INTEGER NOT NULL DEFAULT 0 CHECK (is_supplemental IN (0, 1)),
+    confidence              REAL
 );
 
 CREATE TABLE IF NOT EXISTS fictional_entities (
@@ -293,7 +310,7 @@ CREATE TABLE IF NOT EXISTS fictional_entities (
     label                    TEXT NOT NULL,
     description              TEXT,
     entity_sub_type          TEXT NOT NULL
-                                 CHECK (entity_sub_type IN ('Character', 'Location', 'Organization', 'Event')),
+                                 CHECK (entity_sub_type IN ('Character', 'Location', 'Organization', 'Event', 'Object')),
     fictional_universe_qid   TEXT,
     fictional_universe_label TEXT,
     image_url                TEXT,
@@ -303,11 +320,24 @@ CREATE TABLE IF NOT EXISTS fictional_entities (
 , wikidata_revision_id INTEGER);
 
 CREATE TABLE IF NOT EXISTS fictional_entity_work_links (
-    entity_id   BLOB NOT NULL REFERENCES fictional_entities(id) ON DELETE CASCADE,
-    work_qid    TEXT NOT NULL,
-    work_label  TEXT,
-    link_type   TEXT NOT NULL DEFAULT 'appears_in',
-    PRIMARY KEY (entity_id, work_qid, link_type)
+    id                   BLOB NOT NULL PRIMARY KEY,
+    appearance_key       TEXT NOT NULL UNIQUE,
+    entity_id            BLOB NOT NULL REFERENCES fictional_entities(id) ON DELETE CASCADE,
+    work_qid             TEXT NOT NULL,
+    work_label           TEXT,
+    link_type            TEXT NOT NULL DEFAULT 'appears_in',
+    appearance_role      TEXT,
+    work_context         TEXT,
+    anchor_kind          TEXT,
+    anchor_value         TEXT,
+    narrative_time_index TEXT,
+    start_time           TEXT,
+    end_time             TEXT,
+    spoiler_for_work_qid TEXT,
+    source_provider      TEXT,
+    provenance           TEXT NOT NULL DEFAULT 'Wikidata',
+    is_supplemental      INTEGER NOT NULL DEFAULT 0 CHECK (is_supplemental IN (0, 1)),
+    confidence           REAL
 );
 
 -- Durable provenance and orchestration state for generated AI features.
@@ -1939,7 +1969,7 @@ CREATE TABLE IF NOT EXISTS storage_metadata (
 );
 
 INSERT OR REPLACE INTO storage_metadata (key, value)
-VALUES ('storage_epoch', 'guid-blob-v7-access-authority');
+VALUES ('storage_epoch', 'guid-blob-v8-graph-facts');
 
 -- Seed the built-in native-client Application once for a new access epoch. The
 -- marker preserves later administrative disable, delete, permission, and binding edits.
@@ -2222,6 +2252,15 @@ CREATE INDEX IF NOT EXISTS idx_entity_rel_object
 CREATE INDEX IF NOT EXISTS idx_entity_rel_subject
     ON entity_relationships (subject_qid);
 
+CREATE INDEX IF NOT EXISTS idx_entity_rel_context_work
+    ON entity_relationships (context_work_qid);
+
+CREATE INDEX IF NOT EXISTS idx_entity_rel_qualifier_lookup
+    ON entity_relationship_qualifiers (qualifier_type, value);
+
+CREATE INDEX IF NOT EXISTS idx_entity_rel_qualifier_relationship
+    ON entity_relationship_qualifiers (relationship_id);
+
 CREATE INDEX IF NOT EXISTS idx_events_entity ON entity_events(entity_id);
 
 CREATE INDEX IF NOT EXISTS idx_events_entity_stage ON entity_events(entity_id, stage);
@@ -2236,6 +2275,9 @@ CREATE INDEX IF NOT EXISTS idx_events_type ON entity_events(event_type);
 
 CREATE INDEX IF NOT EXISTS idx_fewl_work_qid
     ON fictional_entity_work_links (work_qid);
+
+CREATE INDEX IF NOT EXISTS idx_fewl_entity_work
+    ON fictional_entity_work_links (entity_id, work_qid);
 
 CREATE INDEX IF NOT EXISTS idx_fictional_entities_type
     ON fictional_entities (entity_sub_type);

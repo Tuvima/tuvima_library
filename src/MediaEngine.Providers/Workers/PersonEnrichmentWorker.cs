@@ -636,7 +636,11 @@ public sealed class PersonEnrichmentWorker
                     await _fictionalEntityRepo.CreateAsync(fictionalEntity, ct).ConfigureAwait(false);
                 }
 
-                await _fictionalEntityRepo.LinkToWorkAsync(fictionalEntity.Id, workQid, null, "portrayed_in", ct)
+                await _fictionalEntityRepo.LinkToWorkAsync(new FictionalEntityWorkLink(
+                    fictionalEntity.Id,
+                    workQid,
+                    null,
+                    "portrayed_in"), ct)
                     .ConfigureAwait(false);
 
                 await _personRepo.LinkToCharacterAsync(person.Id, fictionalEntity.Id, workQid, ct).ConfigureAwait(false);

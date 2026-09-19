@@ -18,6 +18,9 @@ public static class FictionalEntityType
     /// <summary>A narrative event (e.g. Battle of Helm's Deep, Clone Wars, Infinity War).</summary>
     public const string Event = "Event";
 
+    /// <summary>An important fictional object, artifact, vehicle, device, or document.</summary>
+    public const string Object = "Object";
+
     /// <summary>All valid sub-type values for CHECK constraint generation.</summary>
-    public static readonly IReadOnlyList<string> All = [Character, Location, Organization, Event];
+    public static readonly IReadOnlyList<string> All = [Character, Location, Organization, Event, Object];
 }

@@ -81,7 +81,19 @@ public sealed record UniverseGraphEdgeDto(
     bool supplemental,
     string provenance,
     string? source_plugin,
-    string? source_url);
+    string? source_url,
+    string? statement_key = null,
+    IReadOnlyList<UniverseGraphQualifierDto>? qualifiers = null);
+
+/// <summary>Wire representation of a queryable qualifier retained on a graph fact.</summary>
+public sealed record UniverseGraphQualifierDto(
+    string type,
+    string value,
+    string value_kind,
+    string provenance,
+    bool supplemental,
+    string? source_provider,
+    double? confidence);
 
 public sealed record UniverseDeepEnrichResponse(
     string entity_qid,

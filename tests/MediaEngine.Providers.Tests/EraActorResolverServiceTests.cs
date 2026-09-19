@@ -131,14 +131,15 @@ public sealed class EraActorResolverServiceTests : IDisposable
     {
         conn.Execute("""
             INSERT INTO entity_relationships
-                (id, subject_qid, relationship_type, object_qid,
+                (id, statement_key, subject_qid, relationship_type, object_qid,
                  confidence, discovered_at, start_time, end_time)
             VALUES
-                (@Id, @SubjectQid, @RelationshipType, @ObjectQid,
+                (@Id, @StatementKey, @SubjectQid, @RelationshipType, @ObjectQid,
                  1.0, @DiscoveredAt, @StartTime, @EndTime);
             """, new
         {
             Id = GuidSql.ToBlob(Guid.NewGuid()),
+            StatementKey = $"{actorQid}:{characterQid}:{startTime}:{endTime}",
             SubjectQid = actorQid,
             RelationshipType = RelationshipType.Performer,
             ObjectQid = characterQid,

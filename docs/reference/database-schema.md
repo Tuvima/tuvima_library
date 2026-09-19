@@ -14,10 +14,10 @@ tags:
 
 SQLite database located at `.data/database/library.db` (path set in `config/core.json`).
 
-Latest storage epoch: **guid-blob-v6-shared-library-contributions**. Fresh databases are initialized from
-`src/MediaEngine.Storage/Schema/schema.sql`; startup migrations remain
-idempotent inside the current epoch, but obsolete development epochs are not
-read in place.
+Latest storage epoch: **guid-blob-v8-graph-facts**. Fresh databases are initialized from
+`src/MediaEngine.Storage/Schema/schema.sql`; obsolete development epochs are
+rejected until an explicit destructive reset and reingest, rather than being
+partially migrated in place.
 
 **Conventions:**
 - Internal UUIDs are stored as 16-byte SQLite `BLOB` values in RFC4122/network byte order. API JSON still serializes GUIDs as strings.
@@ -449,7 +449,9 @@ Links fictional characters to the real-world performers who portray them.
 
 ### fictional_entities
 
-Characters, locations, factions, and other fictional elements within Universes.
+Characters, locations, factions, events, objects/artifacts, and other fictional
+elements within Universes. `entity_sub_type` is a strong discriminator; Objects
+are not overloaded as locations or organizations.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -463,25 +465,49 @@ Characters, locations, factions, and other fictional elements within Universes.
 
 ### fictional_entity_work_links
 
-Which works a fictional entity appears in.
+First-class fictional-entity appearances in works. Each appearance keeps its
+role/type, work-specific context, optional chapter/episode/scene anchor,
+narrative or temporal context, spoiler boundary, and provenance.
 
 | Column | Type | Notes |
 |---|---|---|
-| `entity_id` | TEXT | FK -> `fictional_entities.id` |
-| `work_id` | TEXT | FK -> `works.id` |
-| `appearance_type` | TEXT | `"primary"`, `"supporting"`, `"mention"` |
+| `id` | BLOB | Appearance identifier |
+| `appearance_key` | TEXT | Stable complete-appearance idempotency key |
+| `entity_id` | BLOB | FK -> `fictional_entities.id` |
+| `work_qid` | TEXT | Canonical work identity |
+| `link_type`, `appearance_role` | TEXT | Appearance type and role |
+| `work_context`, `anchor_kind`, `anchor_value` | TEXT | Adaptation and precise local anchor |
+| `narrative_time_index`, `start_time`, `end_time` | TEXT | In-universe chronology without coercing it to Gregorian dates |
+| `spoiler_for_work_qid` | TEXT | Optional spoiler boundary |
+| `source_provider`, `provenance`, `is_supplemental`, `confidence` | TEXT / INTEGER / REAL | Source distinction and reliability |
 
 ### entity_relationships
 
-Directed relationships between fictional entities (e.g., "Frodo" -> `parent_of` -> "Sam").
+Directed graph facts between fictional entities (e.g., "Frodo" -> `parent_of`
+-> "Sam"). Facts are statements: the same triple may legitimately occur in
+multiple adaptations, time periods, or spoiler scopes.
 
 | Column | Type | Notes |
 |---|---|---|
-| `source_entity_id` | TEXT | FK -> `fictional_entities.id` |
-| `target_entity_id` | TEXT | FK -> `fictional_entities.id` |
-| `relationship_type` | TEXT | Relationship label |
-| `temporal_qualifier` | TEXT | Era or time scope for this relationship |
-| `lore_delta_type` | TEXT | Canon discrepancy flag (e.g., `"adaptation_change"`) |
+| `id` | BLOB | Fact identifier |
+| `statement_key` | TEXT | Stable complete-statement idempotency key |
+| `subject_qid`, `object_qid` | TEXT | Canonical graph endpoints |
+| `relationship_type` | TEXT | Wikidata-aligned predicate |
+| `context_work_qid`, `start_time`, `end_time` | TEXT | Common query projections for scoped facts |
+| `source_provider`, `provenance`, `is_supplemental`, `confidence` | TEXT / INTEGER / REAL | Source distinction and reliability |
+
+### entity_relationship_qualifiers
+
+Normalized, queryable qualifier rows for graph facts. This preserves source
+statement semantics such as applies-to-work, fictional time index, spoiler-for,
+statement nature, source/reference, and confidence without adding one column per
+Wikidata qualifier.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id`, `relationship_id` | BLOB | Qualifier and owning fact IDs |
+| `qualifier_type`, `value`, `value_kind` | TEXT | Typed, searchable qualifier value |
+| `source_provider`, `provenance`, `is_supplemental`, `confidence` | TEXT / INTEGER / REAL | Per-qualifier provenance |
 
 ### narrative_roots
 

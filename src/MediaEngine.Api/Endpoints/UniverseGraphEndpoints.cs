@@ -325,10 +325,19 @@ public static class UniverseGraphEndpoints
                 context_work: r.ContextWorkQid,
                 start_time: r.StartTime,
                 end_time: r.EndTime,
-                supplemental: false,
-                provenance: "wikidata",
+                supplemental: r.IsSupplemental,
+                provenance: r.Provenance,
                 source_plugin: (string?)null,
-                source_url: (string?)null)).ToList();
+                source_url: (string?)null,
+                statement_key: r.StatementKey,
+                qualifiers: r.Qualifiers.Select(qualifier => new UniverseGraphQualifierDto(
+                    type: qualifier.QualifierType,
+                    value: qualifier.Value,
+                    value_kind: qualifier.ValueKind,
+                    provenance: qualifier.Provenance,
+                    supplemental: qualifier.IsSupplemental,
+                    source_provider: qualifier.SourceProvider,
+                    confidence: qualifier.Confidence)).ToList())).ToList();
 
             if (include_supplemental_lore == true
                 && string.IsNullOrWhiteSpace(work)

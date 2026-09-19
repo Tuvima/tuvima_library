@@ -1,4 +1,6 @@
 using Dapper;
+using MediaEngine.Domain.Constants;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage;
 
@@ -36,8 +38,8 @@ public sealed class UniverseGraphBatchRepositoryTests : IDisposable
                     VALUES (@Id, @Qid, @Label, 'Character', @CreatedAt);
 
                     INSERT INTO fictional_entity_work_links
-                        (entity_id, work_qid, work_label, link_type)
-                    VALUES (@Id, @WorkQid, @WorkLabel, 'appears_in');
+                        (id, appearance_key, entity_id, work_qid, work_label, link_type)
+                    VALUES (@AppearanceId, @AppearanceKey, @Id, @WorkQid, @WorkLabel, 'appears_in');
 
                     INSERT INTO persons
                         (id, name, wikidata_qid, headshot_url, created_at)
@@ -50,6 +52,8 @@ public sealed class UniverseGraphBatchRepositoryTests : IDisposable
                     CreatedAt = createdAt,
                     WorkQid = $"W{index}",
                     WorkLabel = $"Work {index}",
+                    AppearanceId = GuidSql.ToBlob(Guid.NewGuid()),
+                    AppearanceKey = $"appearance-{index}",
                     PersonId = GuidSql.ToBlob(personIds[index]),
                     PersonName = $"Actor {index}",
                     PersonQid = $"P{index}",
@@ -116,6 +120,84 @@ public sealed class UniverseGraphBatchRepositoryTests : IDisposable
         var incomingEdges = await repository.GetByObjectsAsync(
             universeQids.Select(qid => qid.ToLowerInvariant()));
         Assert.Contains(incomingEdges, edge => edge.SubjectQid == "P1" && edge.ObjectQid == "Q700");
+    }
+
+    [Fact]
+    public async Task RelationshipFacts_PreserveScopedStatementsAndQueryableQualifiers()
+    {
+        var repository = new EntityRelationshipRepository(_db);
+        var canonical = Edge("Q1", "Q2", "student_of");
+        canonical.ContextWorkQid = "QMovie";
+        canonical.SourceProvider = "wikidata";
+        canonical.Qualifiers = new List<EntityRelationshipQualifier>
+        {
+            new EntityRelationshipQualifier
+            {
+                QualifierType = GraphQualifierType.SpoilerForWork,
+                Value = "QMovie",
+                ValueKind = "Qid",
+            },
+            new EntityRelationshipQualifier
+            {
+                QualifierType = GraphQualifierType.TimeIndex,
+                Value = "chapter-12",
+                ValueKind = "NarrativeIndex",
+            },
+        };
+        var adaptation = Edge("Q1", "Q2", "student_of");
+        adaptation.ContextWorkQid = "QBook";
+        adaptation.StartTime = "+0010-00-00T00:00:00Z";
+        adaptation.Provenance = "Plugin";
+        adaptation.IsSupplemental = true;
+
+        await repository.CreateAsync(canonical);
+        await repository.CreateAsync(adaptation);
+        await repository.CreateAsync(canonical);
+
+        var facts = await repository.GetBySubjectAsync("Q1");
+        Assert.Equal(2, facts.Count);
+        Assert.NotEqual(canonical.StatementKey, adaptation.StatementKey);
+        Assert.Contains(facts, fact => fact.ContextWorkQid == "QMovie"
+            && fact.Qualifiers.Any(qualifier => qualifier.QualifierType == GraphQualifierType.SpoilerForWork));
+        Assert.Single(await repository.GetByQualifierAsync(GraphQualifierType.TimeIndex, "chapter-12"));
+        Assert.Equal(2, await repository.CountAsync());
+    }
+
+    [Fact]
+    public async Task WorkLinks_PreserveRichAppearanceContext()
+    {
+        var entity = new FictionalEntity
+        {
+            Id = Guid.NewGuid(),
+            WikidataQid = "Q999",
+            Label = "Artifact",
+            EntitySubType = FictionalEntityType.Object,
+        };
+        var repository = new FictionalEntityRepository(_db);
+        await repository.CreateAsync(entity);
+
+        var appearance = new FictionalEntityWorkLink(
+            entity.Id,
+            "QWork",
+            "The Work",
+            "appears_in",
+            AppearanceRole: "carried",
+            WorkContext: "film-adaptation",
+            AnchorKind: "scene",
+            AnchorValue: "scene-14",
+            NarrativeTimeIndex: "year-3",
+            SpoilerForWorkQid: "QWork",
+            SourceProvider: "wikidata",
+            Provenance: "Wikidata");
+
+        await repository.LinkToWorkAsync(appearance);
+        await repository.LinkToWorkAsync(appearance);
+
+        var stored = Assert.Single(await repository.GetWorkLinksAsync(entity.Id));
+        Assert.Equal("carried", stored.AppearanceRole);
+        Assert.Equal("scene-14", stored.AnchorValue);
+        Assert.Equal("QWork", stored.SpoilerForWorkQid);
+        Assert.Equal(FictionalEntityType.Object, (await repository.FindByIdAsync(entity.Id))!.EntitySubType);
     }
 
     public void Dispose()

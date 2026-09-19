@@ -3,13 +3,28 @@ using MediaEngine.Domain.Entities;
 namespace MediaEngine.Domain.Contracts;
 
 /// <summary>
-/// A stored link between a fictional entity and a work in which it participates.
+/// A first-class appearance of a fictional entity in a work. It retains work-local
+/// anchors, narrative context, spoiler boundaries, and provenance instead of
+/// reducing an appearance to a bare entity/work pair.
 /// </summary>
 public sealed record FictionalEntityWorkLink(
     Guid FictionalEntityId,
     string WorkQid,
     string? WorkLabel,
-    string LinkType);
+    string LinkType,
+    string? AppearanceRole = null,
+    string? WorkContext = null,
+    string? AnchorKind = null,
+    string? AnchorValue = null,
+    string? NarrativeTimeIndex = null,
+    string? StartTime = null,
+    string? EndTime = null,
+    string? SpoilerForWorkQid = null,
+    string? SourceProvider = null,
+    string Provenance = "Wikidata",
+    bool IsSupplemental = false,
+    double? Confidence = null,
+    string? AppearanceKey = null);
 
 /// <summary>
 /// CRUD operations for <see cref="FictionalEntity"/> records and their
@@ -62,27 +77,16 @@ public interface IFictionalEntityRepository
         CancellationToken ct = default);
 
     /// <summary>
-    /// Link a fictional entity to a work. Idempotent — duplicate links are ignored.
+    /// Persist a fictional-entity appearance. Idempotency is scoped to the complete
+    /// appearance statement, including its work-local and spoiler context.
     /// </summary>
-    /// <param name="entityId">The fictional entity's database ID.</param>
-    /// <param name="workQid">The Wikidata QID of the work.</param>
-    /// <param name="workLabel">Human-readable work label.</param>
-    /// <param name="linkType">
-    /// How the entity relates to the work: <c>"appears_in"</c>, <c>"set_in"</c>,
-    /// <c>"features"</c>, etc.
-    /// </param>
-    Task LinkToWorkAsync(
-        Guid entityId,
-        string workQid,
-        string? workLabel,
-        string linkType = "appears_in",
-        CancellationToken ct = default);
+    Task LinkToWorkAsync(FictionalEntityWorkLink appearance, CancellationToken ct = default);
 
     /// <summary>
     /// Return all work QIDs linked to a fictional entity.
     /// </summary>
-    Task<IReadOnlyList<(string WorkQid, string? WorkLabel, string LinkType)>>
-        GetWorkLinksAsync(Guid entityId, CancellationToken ct = default);
+    Task<IReadOnlyList<FictionalEntityWorkLink>> GetWorkLinksAsync(
+        Guid entityId, CancellationToken ct = default);
 
     /// <summary>
     /// Return all work links for the supplied fictional entities in bounded batches.

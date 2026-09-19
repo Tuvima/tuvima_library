@@ -32,4 +32,7 @@ public enum EntityType
 
     /// <summary>A narrative event in a fictional universe.</summary>
     Event,
+
+    /// <summary>An important fictional object or artifact in a narrative universe.</summary>
+    Object,
 }
