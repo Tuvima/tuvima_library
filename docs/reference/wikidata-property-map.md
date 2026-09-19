@@ -85,7 +85,7 @@ Stage 3 uses first-class `Character`, `Location`, `Organization`, `Event`, and `
 |--------|-----------|--------------|-------|
 | P1080 | `narrative_universe` | All fictional entity types | Authoritative narrative-universe identity |
 | P1441 | `present_in_work` | All fictional entity types | First-class work appearance with contextual qualifiers |
-| P4584 | `first_appearance` | Character, Location, Organization, Object | First appearance work link |
+| P4584 | `first_appearance` | Character, Location, Object | First appearance work link |
 | P585 | `point_in_time` | Event | Time-indexed event point |
 | P580 / P582 | `start_time` / `end_time` | Event and relationships | Temporal scope |
 | P276 | `event_location` | Event | Event location edge |
