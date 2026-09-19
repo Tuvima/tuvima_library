@@ -35,26 +35,26 @@ public static class SharedEntityEditorEndpoints
         group.MapPut("/universes/{qid}/details", UpdateUniverseDetailsAsync).Produces<SharedEntityDetailsDto>().RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value);
         group.MapGet("/universes/{qid}/artwork", GetUniverseArtworkAsync).Produces<IReadOnlyList<SharedEntityArtworkDto>>().RequireClientScope(ApplicationPermissionIds.ArtworkRead.Value);
         group.MapPut("/universes/{qid}/artwork", UpdateUniverseArtworkAsync).RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value);
-        group.MapPost("/universes/{qid}/artwork/upload", UploadUniverseArtworkAsync).Accepts<IFormFile>("multipart/form-data").RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value).DisableAntiforgery();
-        group.MapGet("/universes/{qid}/history", GetUniverseHistoryAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
-        group.MapGet("/universes/{qid}/relationships", GetUniverseRelationshipsAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
-        group.MapGet("/universes/{qid}/timeline", GetUniverseTimelineAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
-        group.MapGet("/universes/{qid}/sources", GetUniverseSourcesAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
-        group.MapGet("/universes/{qid}/enrichment", GetUniverseEnrichmentAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
-        group.MapPost("/universes/{qid}/refresh", RefreshUniverseAsync).RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRun).RequireClientScope(ApplicationPermissionIds.MetadataEnrichmentRun.Value);
+        group.MapPost("/universes/{qid}/artwork/{assetType}/upload", UploadUniverseArtworkAsync).Accepts<IFormFile>("multipart/form-data").Produces<IReadOnlyList<SharedEntityArtworkDto>>().RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value).DisableAntiforgery();
+        group.MapGet("/universes/{qid}/history", GetUniverseHistoryAsync).Produces<IEnumerable<SharedEntityHistoryEntryDto>>().RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapGet("/universes/{qid}/relationships", GetUniverseRelationshipsAsync).Produces<IEnumerable<SharedEntityRelationshipDto>>().RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapGet("/universes/{qid}/timeline", GetUniverseTimelineAsync).Produces<IEnumerable<SharedEntityTimelineEntryDto>>().RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapGet("/universes/{qid}/sources", GetUniverseSourcesAsync).Produces<IEnumerable<SharedEntitySourceDto>>().RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapGet("/universes/{qid}/enrichment", GetUniverseEnrichmentAsync).Produces<SharedEntityEnrichmentStatusDto>().RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapPost("/universes/{qid}/refresh", RefreshUniverseAsync).Produces<SharedEntityRefreshDto>().RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRun).RequireClientScope(ApplicationPermissionIds.MetadataEnrichmentRun.Value);
         group.MapGet("/universes/{qid}/entities/{id:guid}/context", GetEntityContextAsync).Produces<SharedEntityEditorContextDto>().RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
         group.MapGet("/universes/{qid}/entities/{id:guid}/details", GetEntityDetailsAsync).Produces<SharedEntityDetailsDto>().RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
         group.MapPut("/universes/{qid}/entities/{id:guid}/details", UpdateEntityDetailsAsync).RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value);
         group.MapGet("/universes/{qid}/entities/{id:guid}/artwork", GetEntityArtworkAsync).RequireClientScope(ApplicationPermissionIds.ArtworkRead.Value);
         group.MapPut("/universes/{qid}/entities/{id:guid}/artwork", UpdateEntityArtworkAsync).RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value);
-        group.MapPost("/universes/{qid}/entities/{id:guid}/artwork/upload", UploadEntityArtworkAsync).Accepts<IFormFile>("multipart/form-data").RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value).DisableAntiforgery();
-        group.MapGet("/universes/{qid}/entities/{id:guid}/appearances", GetAppearancesAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
-        group.MapGet("/universes/{qid}/entities/{id:guid}/relationships", GetRelationshipsAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
-        group.MapGet("/universes/{qid}/entities/{id:guid}/timeline", GetTimelineAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
-        group.MapGet("/universes/{qid}/entities/{id:guid}/sources", GetSourcesAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
-        group.MapGet("/universes/{qid}/entities/{id:guid}/history", GetHistoryAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
-        group.MapGet("/universes/{qid}/entities/{id:guid}/enrichment", GetEnrichmentAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
-        group.MapPost("/universes/{qid}/entities/{id:guid}/refresh", RefreshEntityAsync).RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRun).RequireClientScope(ApplicationPermissionIds.MetadataEnrichmentRun.Value);
+        group.MapPost("/universes/{qid}/entities/{id:guid}/artwork/{assetType}/upload", UploadEntityArtworkAsync).Accepts<IFormFile>("multipart/form-data").Produces<IReadOnlyList<SharedEntityArtworkDto>>().RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value).DisableAntiforgery();
+        group.MapGet("/universes/{qid}/entities/{id:guid}/appearances", GetAppearancesAsync).Produces<IEnumerable<SharedEntityAppearanceDto>>().RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapGet("/universes/{qid}/entities/{id:guid}/relationships", GetRelationshipsAsync).Produces<IEnumerable<SharedEntityRelationshipDto>>().RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapGet("/universes/{qid}/entities/{id:guid}/timeline", GetTimelineAsync).Produces<IEnumerable<SharedEntityTimelineEntryDto>>().RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapGet("/universes/{qid}/entities/{id:guid}/sources", GetSourcesAsync).Produces<IEnumerable<SharedEntitySourceDto>>().RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapGet("/universes/{qid}/entities/{id:guid}/history", GetHistoryAsync).Produces<IEnumerable<SharedEntityHistoryEntryDto>>().RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapGet("/universes/{qid}/entities/{id:guid}/enrichment", GetEnrichmentAsync).Produces<SharedEntityEnrichmentStatusDto>().RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
+        group.MapPost("/universes/{qid}/entities/{id:guid}/refresh", RefreshEntityAsync).Produces<SharedEntityRefreshDto>().RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRun).RequireClientScope(ApplicationPermissionIds.MetadataEnrichmentRun.Value);
         return app;
     }
 
@@ -176,7 +176,7 @@ public static class SharedEntityEditorEndpoints
     private static async Task<IResult> RefreshUniverseAsync(string qid, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, IMetadataHarvestingService harvesting, CancellationToken ct)
     {
         if (await AuthorizedRootAsync(qid, http, roots, entities, display, authorization, ApplicationPermissionIds.MetadataEnrichmentRun, ct) is null) return ApiErrors.NotFound("Universe not found.");
-        await harvesting.EnqueueAsync(new HarvestRequest { EntityId = Guid.Empty, EntityType = EntityType.Character, MediaType = MediaType.Unknown, Hints = new Dictionary<string, string> { ["universe_qid"] = qid, ["refresh"] = "shared_editor" } }, ct);
+        await harvesting.EnqueueAsync(new HarvestRequest { EntityId = Guid.Empty, EntityType = EntityType.Character, MediaType = MediaType.Unknown, Hints = new Dictionary<string, string> { ["trigger_type"] = "universe_sweep", ["universe_qid"] = qid, ["requested_by"] = "shared_editor" } }, ct);
         return Results.Ok(new SharedEntityRefreshDto(true, "Universe enrichment refresh queued."));
     }
 
