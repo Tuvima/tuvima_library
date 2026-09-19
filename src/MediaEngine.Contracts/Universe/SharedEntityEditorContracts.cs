@@ -19,6 +19,7 @@ public static class SharedEntityEditorTargetKinds
 /// <summary>Stable graph-editor section identifiers. Graph targets deliberately have no Files tab.</summary>
 public static class SharedEntityEditorSections
 {
+    public const string Entities = "entities";
     public const string Details = "details";
     public const string Artwork = "artwork";
     public const string Appearances = "appearances";
