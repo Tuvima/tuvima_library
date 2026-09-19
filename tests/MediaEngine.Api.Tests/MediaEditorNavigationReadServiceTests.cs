@@ -516,21 +516,119 @@ public sealed class MediaEditorNavigationReadServiceTests : IDisposable
         Assert.Equal(0, verification.QuerySingle<int>("SELECT COUNT(*) FROM metadata_claims WHERE entity_id = @bookId AND claim_key = 'title';", new { bookId }));
     }
 
-    [Theory]
-    [InlineData("TV")]
-    [InlineData("Music")]
-    [InlineData("Movies")]
-    [InlineData("Books")]
-    [InlineData("Audiobooks")]
-    [InlineData("Comics")]
-    public void HierarchyAlignmentPlanner_DeclaresSupportedMediaFamilies(string mediaType)
-    {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Api", "Services", "ReadServices", "HierarchyAlignmentService.cs"));
+    [Fact]
+    public Task HierarchyAlignment_TrackReparent_RetainsEditionAssetAndDoesNotDuplicateLeaf() =>
+        AssertSimpleLeafMoveAsync(
+            "Music",
+            new Dictionary<string, string?>
+            {
+                ["album"] = "Target Album",
+                ["artist"] = "Target Artist",
+                ["track_number"] = "2",
+                ["title"] = "Retained Track",
+            },
+            "album",
+            "music/retained-track.flac");
 
-        var expectedBranch = mediaType is "TV" or "Music"
-            ? $"mediaType == \"{mediaType}\""
-            : $"\"{mediaType}\"";
-        Assert.Contains(expectedBranch, source, StringComparison.Ordinal);
+    [Fact]
+    public Task HierarchyAlignment_MovieReparent_RetainsEditionAssetAndDoesNotDuplicateLeaf() =>
+        AssertSimpleLeafMoveAsync(
+            "Movies",
+            new Dictionary<string, string?>
+            {
+                ["series"] = "Target Film Series",
+                ["director"] = "Director",
+                ["series_position"] = "2",
+                ["title"] = "Retained Movie",
+            },
+            "series",
+            "movies/retained-movie.mkv");
+
+    [Fact]
+    public Task HierarchyAlignment_ComicReparent_RetainsEditionAssetAndDoesNotDuplicateLeaf() =>
+        AssertSimpleLeafMoveAsync(
+            "Comics",
+            new Dictionary<string, string?>
+            {
+                ["series"] = "Target Comic Series",
+                ["author"] = "Creator",
+                ["series_position"] = "2",
+                ["title"] = "Retained Issue",
+            },
+            "series",
+            "comics/retained-issue.cbz");
+
+    private async Task AssertSimpleLeafMoveAsync(
+        string mediaType,
+        Dictionary<string, string?> fieldValues,
+        string targetKey,
+        string assetPath)
+    {
+        var oldParentId = Guid.NewGuid();
+        var targetParentId = Guid.NewGuid();
+        var leafId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+
+        using (var connection = _database.CreateConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO works (id, media_type, work_kind, ownership, parent_key)
+                VALUES ($oldParentId, $mediaType, 'parent', 'Owned', 'old|parent');
+
+                INSERT INTO works (id, media_type, work_kind, ownership, parent_key)
+                VALUES ($targetParentId, $mediaType, 'parent', 'Owned', 'target|parent');
+
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, ordinal, ownership)
+                VALUES ($leafId, $mediaType, 'child', $oldParentId, 1, 'Owned');
+
+                INSERT INTO editions (id, work_id, format_label)
+                VALUES ($editionId, $leafId, 'Test format');
+
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES ($assetId, $editionId, $assetPath, $assetPath);
+                """;
+            command.Parameters.AddWithValue("$oldParentId", GuidSql.ToBlob(oldParentId));
+            command.Parameters.AddWithValue("$targetParentId", GuidSql.ToBlob(targetParentId));
+            command.Parameters.AddWithValue("$leafId", GuidSql.ToBlob(leafId));
+            command.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));
+            command.Parameters.AddWithValue("$assetId", GuidSql.ToBlob(assetId));
+            command.Parameters.AddWithValue("$mediaType", mediaType);
+            command.Parameters.AddWithValue("$assetPath", assetPath);
+            command.ExecuteNonQuery();
+        }
+
+        var service = new HierarchyAlignmentService(_database, null!);
+        var request = new MembershipPreviewRequest(
+            ScopeId: null,
+            FieldValues: fieldValues,
+            SelectedTargetIds: new Dictionary<string, Guid?> { [targetKey] = targetParentId },
+            SelectedSuggestions: null);
+
+        var preview = await service.PreviewAsync(leafId, request, CancellationToken.None);
+        var applied = await service.ApplyAsync(leafId, request, CancellationToken.None);
+
+        Assert.NotNull(preview);
+        Assert.Equal("move_child", preview.Action);
+        Assert.True(preview.CanApply);
+        Assert.NotNull(applied);
+        Assert.True(applied.Applied);
+        Assert.Equal(targetParentId, applied.TargetParentEntityId);
+
+        using var verification = _database.CreateConnection();
+        var retained = verification.QuerySingle<(Guid ParentId, Guid EditionId, Guid AssetId, string Path)>("""
+            SELECT w.parent_work_id AS ParentId, e.id AS EditionId, ma.id AS AssetId, ma.file_path_root AS Path
+            FROM works w
+            INNER JOIN editions e ON e.work_id = w.id
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE w.id = @leafId;
+            """, new { leafId });
+        Assert.Equal(targetParentId, retained.ParentId);
+        Assert.Equal(editionId, retained.EditionId);
+        Assert.Equal(assetId, retained.AssetId);
+        Assert.Equal(assetPath, retained.Path);
+        Assert.Equal(1, verification.QuerySingle<int>("SELECT COUNT(*) FROM works WHERE id = @leafId;", new { leafId }));
     }
 
     public void Dispose()

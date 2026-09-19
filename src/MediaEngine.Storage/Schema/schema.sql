@@ -1,6 +1,6 @@
 ﻿-- =============================================================================
 -- Tuvima Library - SQLite initialization script
--- Current storage epoch: guid-blob-v9-shared-entity-editor
+-- Current storage epoch: guid-blob-v10-graph-timeline-lore
 --
 -- Internal UUIDs are stored as 16-byte BLOBs where the current domain model owns
 -- the identifier. External provider identifiers, QIDs, hashes, URLs, and file
@@ -416,7 +416,7 @@ CREATE TABLE IF NOT EXISTS plugin_lore_entities (
     label           TEXT NOT NULL,
     description     TEXT,
     entity_type     TEXT NOT NULL DEFAULT 'Unknown'
-                        CHECK (entity_type IN ('Character', 'Location', 'Organization', 'Event', 'Unknown')),
+                        CHECK (entity_type IN ('Character', 'Location', 'Organization', 'Event', 'Object', 'Unknown')),
     aliases_json    TEXT NOT NULL DEFAULT '[]',
     source_url      TEXT NOT NULL,
     confidence      REAL NOT NULL DEFAULT 0.0,
@@ -1985,7 +1985,7 @@ CREATE TABLE IF NOT EXISTS storage_metadata (
 );
 
 INSERT OR REPLACE INTO storage_metadata (key, value)
-VALUES ('storage_epoch', 'guid-blob-v9-shared-entity-editor');
+VALUES ('storage_epoch', 'guid-blob-v10-graph-timeline-lore');
 
 -- Seed the built-in native-client Application once for a new access epoch. The
 -- marker preserves later administrative disable, delete, permission, and binding edits.

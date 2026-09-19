@@ -88,4 +88,24 @@ public sealed class PluginLoreRepositoryTests : IDisposable
         Assert.Empty(await repo.GetEntitiesAsync("Q42"));
         Assert.Equal(2, (await repo.GetEntitiesAsync("Q42", approvedOnly: false)).Count);
     }
+
+    [Fact]
+    public async Task UpsertExtractionResultAsync_PreservesObjectSubtype()
+    {
+        var repo = new PluginLoreRepository(_db);
+        var source = await repo.AddManualSourceAsync("Q42", "tuvima.fandom-lore", "Dune Fandom", "https://dune.fandom.com", "https://dune.fandom.com/api.php");
+        await repo.UpsertExtractionResultAsync(source,
+        [
+            new PluginLoreEntityRecord
+            {
+                SourceId = source.Id, UniverseQid = source.UniverseQid, PluginId = source.PluginId,
+                ExternalKey = "page:crysknife", Label = "Crysknife", EntityType = "Object",
+                SourceUrl = "https://dune.fandom.com/wiki/Crysknife", Confidence = 0.9,
+            },
+        ], []);
+        await repo.SetSourceStatusAsync(source.Id, PluginLoreSourceStatus.Approved, "admin");
+
+        var entity = Assert.Single(await repo.GetEntitiesAsync("Q42"));
+        Assert.Equal("Object", entity.EntityType);
+    }
 }

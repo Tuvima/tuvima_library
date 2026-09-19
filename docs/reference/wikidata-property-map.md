@@ -93,7 +93,7 @@ Stage 3 uses first-class `Character`, `Location`, `Organization`, `Event`, and `
 | P828 / P1542 | `cause` / `effect` | Event | Causal event edges |
 | P5800 | `narrative_role` | Object and work links | Role within a work or narrative |
 
-P171 is taxon parent and is deliberately not treated as a fictional-character species relationship. P169 is `chief_executive_officer`; it must not be represented as a generic `head_of` relationship. Statement qualifiers P10663 (work scope), P580/P582/P585 (time), P4895 (narrative time index), and P7528 (spoiler boundary) are normalized into queryable graph facts and appearance rows with source/provenance retained.
+P171 is taxon parent and is deliberately not treated as a fictional-character species relationship. P169 is `chief_executive_officer`; it must not be represented as a generic `head_of` relationship. Statement qualifiers P10663 (work scope), P580/P582/P585 (time), P4895 (narrative time index), and P7528 (spoiler boundary) are normalized into queryable graph facts and appearance rows with source/provenance retained. Direct scalar Event P585/P580/P582/P4895 values are retained as canonical Stage 3 facts and projected into the in-universe Timeline; they are not discarded merely because they lack an entity target.
 
 ## Structured Discovery Properties
 

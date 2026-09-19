@@ -183,7 +183,7 @@ Stage 6-8 providers and services include:
 
 | Service/provider | Output |
 | --- | --- |
-| Wikidata graph/property expansion | Narrative roots, series/franchise/universe QIDs, fictional entity references, relationship edges. |
+| Wikidata graph/property expansion | Narrative roots, series/franchise/universe QIDs, fictional entity references, relationship edges, and Event P585/P580/P582/P4895 in-universe chronology. |
 | Recursive identity enrichment | QID-backed people records and person-media links. |
 | Metadata harvesting | Person biography, birth/death/nationality/occupation, pseudonym and group relationships, headshots. |
 | TMDB artwork and tagged images | Movie/TV posters, backdrops, logos, network/studio logos, season art, episode stills, and cast/character portrait seeds when available. |

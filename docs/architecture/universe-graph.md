@@ -188,7 +188,7 @@ The imported rows live in:
 | Table | Purpose |
 |---|---|
 | `plugin_lore_sources` | Candidate, approved, and rejected external lore sources per universe and plugin. |
-| `plugin_lore_entities` | Supplemental characters, locations, organizations, and events with source attribution. |
+| `plugin_lore_entities` | Supplemental characters, locations, organizations, events, and objects with source attribution. |
 | `plugin_lore_relationships` | Supplemental relationships between approved plugin lore entities. |
 
 Stage 3 universe enrichment runs plugin lore after the core Wikidata enhancer pass. Plugin failures are logged but do not block ingestion readiness.
@@ -224,7 +224,8 @@ editor for graph targets; it does not introduce a second editor surface. A
 Universe target is identified by its authoritative `narrative_roots.qid`. A
 fictional-entity target carries both its internal GUID and Wikidata QID.
 
-Only `details` and `artwork` capabilities are editable. Relationship,
+Only `details` and `artwork` capabilities are editable. Organization member and
+Event participant projections are subtype-aware. Relationship,
 appearance, in-universe timeline, source, history, and enrichment sections are
 read or refresh projections. User detail edits are stored separately from
 provider-enriched values and EntityAsset user overrides remain preferred through
@@ -234,6 +235,9 @@ fictional-entity artwork is owned by `FictionalEntity` + internal GUID.
 Every root and entity route is constrained by an owned work carrying canonical
 `narrative_root_qid`/`fictional_universe_qid` provenance and the normal
 resource-authorization policy. A caller-supplied raw QID is not access proof.
+Direct Event P585/P580/P582 and P4895 canonical facts are projected into the
+in-universe Timeline separately from media release dates. Approved plugin-lore
+sources remain supplemental and appear in Sources with their plugin and URL.
 
 | Key | Default | Purpose |
 |---|---|---|
