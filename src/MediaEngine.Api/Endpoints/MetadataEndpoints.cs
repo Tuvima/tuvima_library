@@ -2125,7 +2125,7 @@ public static partial class MetadataEndpoints
             launch.MediaType,
             editorMode,
             BuildEditorAvailableTabs(editorMode, launch.MediaType, initialScopeResolution.ScopeId, initialScopeResolution.CanEditArtwork, launch.RepresentativeMediaFilePath),
-            BuildContentTabLabel(editorMode, launch.MediaType),
+            null,
             !string.Equals(editorMode, "container", StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrWhiteSpace(launch.RepresentativeMediaFilePath),
             BuildFileMetadataSyncStatus(launch.RepresentativeMediaFilePath, launch.RepresentativeWritebackStatus),
@@ -2236,16 +2236,12 @@ public static partial class MetadataEndpoints
         switch ((mediaType, scopeId))
         {
             case ("TV", "series"):
-                tabs.Add("episodes");
-                contentLabel = "Contents";
                 AddArtwork();
                 tabs.Add("links");
                 AddFiles(aggregate: true);
                 tabs.Add("history");
                 break;
             case ("TV", "season"):
-                tabs.Add("episodes");
-                contentLabel = "Contents";
                 AddArtwork();
                 AddFiles(aggregate: true);
                 retailMode = "derived";
@@ -2262,8 +2258,6 @@ public static partial class MetadataEndpoints
                 historyOwner = "series";
                 break;
             case ("Music", "album"):
-                tabs.Add("tracks");
-                contentLabel = "Contents";
                 AddArtwork();
                 tabs.Add("links");
                 AddFiles(aggregate: true);
@@ -2281,8 +2275,6 @@ public static partial class MetadataEndpoints
             case ("Audiobooks", "series"):
             case ("Books", "series"):
             case ("Comics", "series"):
-                tabs.Add("contents");
-                contentLabel = "Contents";
                 AddArtwork();
                 tabs.Add("links");
                 AddFiles(aggregate: true);
@@ -2290,7 +2282,7 @@ public static partial class MetadataEndpoints
                 break;
             case ("Audiobooks", "audiobook"):
             case ("Audiobooks", "item"):
-                tabs.Add("contents");
+                tabs.Add("chapters");
                 contentLabel = "Chapters";
                 AddArtwork();
                 tabs.Add("links");
@@ -2334,16 +2326,6 @@ public static partial class MetadataEndpoints
             filesMode,
             historyOwner);
     }
-
-    private static string? BuildContentTabLabel(string editorMode, string mediaType) =>
-        !string.Equals(editorMode, "container", StringComparison.OrdinalIgnoreCase)
-            ? null
-            : NormalizeEditorMediaType(mediaType) switch
-            {
-                "TV" => "Episodes",
-                "Music" => "Tracks",
-                _ => null,
-            };
 
     private static MediaEditorTargetSummaryEnvelope BuildCurrentTargetSummary(EditorScopeResolution scope) =>
         new(
@@ -2630,7 +2612,7 @@ public static partial class MetadataEndpoints
                         StringHelpers.FirstNonBlankOr(string.Empty, detail?.Author, rootYear),
                         seriesName,
                         "series",
-                        $"{mediaType.TrimEnd('s')} series details and ordered contents live here.",
+                        $"{mediaType.TrimEnd('s')} series details and ordered works live here.",
                         null,
                         CanEditFields: true,
                         CanEditArtwork: true,

@@ -288,7 +288,7 @@ public sealed class Phase5InlineEditingTests
         var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
         var metadata = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs");
 
-        Assert.Contains("else if (_activeTab == \"contents\"", shell, StringComparison.Ordinal);
+        Assert.Contains("else if (_activeTab == \"chapters\"", shell, StringComparison.Ordinal);
         Assert.Contains("This track boundary is embedded in the audiobook file. Timing remains read-only.", shell, StringComparison.Ordinal);
         Assert.Contains("QueueAudiobookChapterReset", shell, StringComparison.Ordinal);
         Assert.Contains("UpsertAudiobookChapterTitleOverrideAsync", code, StringComparison.Ordinal);
@@ -306,7 +306,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("A reconciliation summary across the owned children", shell, StringComparison.Ordinal);
         Assert.Contains("ContainerAttachedFileCount", code, StringComparison.Ordinal);
         Assert.Contains("ContainerMissingFileCount", code, StringComparison.Ordinal);
-        Assert.Contains("Open a child from Contents", shell, StringComparison.Ordinal);
+        Assert.Contains("Open a file entry", shell, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -327,15 +327,17 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("Advanced canonical identity", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Choose what to update", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Identity target", shell, StringComparison.Ordinal);
-        Assert.Contains("sme-header-actions", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("sme-header-actions", shell, StringComparison.Ordinal);
         Assert.Contains("sme-header-match-state", shell, StringComparison.Ordinal);
         Assert.Contains("HasCurrentRetailMatch ? Icons.Material.Filled.CheckCircle", shell, StringComparison.Ordinal);
         Assert.Contains("HasCurrentCanonicalIdentity ? Icons.Material.Filled.CheckCircle", shell, StringComparison.Ordinal);
         Assert.Contains("Icons.Material.Outlined.Close", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("<div class=\"sme-breadcrumb\">@BreadcrumbText</div>", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("class=\"sme-qid-link\"", shell, StringComparison.Ordinal);
-        Assert.Contains("<AppMediaTypeSelect Value=\"@_selectedMediaType\"", shell, StringComparison.Ordinal);
-        Assert.Contains("ValueChanged=\"OnSelectedMediaTypeChanged\"", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("<AppMediaTypeSelect", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Change Type", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("CanReclassifyMediaType", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReclassifyMediaTypeAsync", code, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-match-type-select", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-search-targets", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Keep Match", shell, StringComparison.Ordinal);
@@ -359,7 +361,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("<EditorContextNavigator", shell, StringComparison.Ordinal);
         Assert.Contains("Select {label.ToLowerInvariant()}", code, StringComparison.Ordinal);
         Assert.Contains("IdentityLinkDisplay", code, StringComparison.Ordinal);
-        Assert.Contains(".GetExternalUrls(identifiers, _selectedMediaType", code, StringComparison.Ordinal);
+        Assert.Contains(".GetExternalUrls(identifiers, EditorMediaType", code, StringComparison.Ordinal);
         Assert.Contains("BuildCurrentIdentityIdentifiers", code, StringComparison.Ordinal);
         Assert.Contains("identifiers.Remove(\"wikidata_qid\")", code, StringComparison.Ordinal);
         Assert.Contains("identifiers.Remove(\"wikipedia_url\")", code, StringComparison.Ordinal);
@@ -373,7 +375,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("CanonicalEndpointEntityId => CurrentEntityId", code, StringComparison.Ordinal);
         Assert.Contains("CanonicalEndpointEntityId,", code, StringComparison.Ordinal);
         Assert.Contains("\"Unknown\" => \"Books\"", code, StringComparison.Ordinal);
-        Assert.Contains("MediaType = _selectedMediaType", code, StringComparison.Ordinal);
+        Assert.Contains("MediaType = EditorMediaType", code, StringComparison.Ordinal);
         Assert.Contains("Retail Provider", shell, StringComparison.Ordinal);
         Assert.Contains("Canonical Identity", shell, StringComparison.Ordinal);
         Assert.Contains("RetailMatchChangeDescription", shell, StringComparison.Ordinal);
@@ -542,7 +544,7 @@ public sealed class Phase5InlineEditingTests
     }
 
     [Fact]
-    public void SharedEditor_ContainerCompletionRowsUseCompactClickableOwnedItems()
+    public void SharedEditor_DoesNotRenderGenericContainerContents()
     {
         var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
         var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
@@ -550,21 +552,17 @@ public sealed class Phase5InlineEditingTests
         var libraryDto = ReadSource("src/MediaEngine.Web/Models/ViewDTOs/LibraryCatalogDtos.cs");
         var schema = ReadSource("src/MediaEngine.Web/Services/Editing/MediaEditorModels.cs");
 
-        Assert.Contains("item.TechnicalBadges", shell, StringComparison.Ordinal);
-        Assert.Contains("Disabled=\"@(!item.CanSelectAsEditorTarget)\"", shell, StringComparison.Ordinal);
-        Assert.Contains("SelectContentItemAsync(group, item)", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("item.TechnicalBadges", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectContentItemAsync(group, item)", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-content-inspector", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("SaveFocusedContentItemAsync", code, StringComparison.Ordinal);
-        Assert.Contains("RequestEditorTargetSwitchAsync(item)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildTrackContentGroups", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildEpisodeContentGroups", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetContentOrdinalLabel", code, StringComparison.Ordinal);
         Assert.Contains("CanSelectAsEditorTarget", dto, StringComparison.Ordinal);
         Assert.Contains("CompactOrdinalLabel", dto, StringComparison.Ordinal);
         Assert.Contains("PrimaryAssetId", dto, StringComparison.Ordinal);
         Assert.Contains("IsClickable", dto, StringComparison.Ordinal);
-        Assert.Contains("GetContentOrdinalLabel", code, StringComparison.Ordinal);
-        Assert.Contains("E{ordinal:00}", code, StringComparison.Ordinal);
-        Assert.Contains("T{ordinal:00}", code, StringComparison.Ordinal);
-        Assert.Contains("BuildTrackContentGroups", code, StringComparison.Ordinal);
-        Assert.Contains("Disc {disc}", code, StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"episode_title\")", libraryDto, StringComparison.Ordinal);
         Assert.Contains("detail.SeasonNumber ?? FindCanonicalValue(canonicals, \"season_number\")", schema, StringComparison.Ordinal);
         Assert.Contains("detail.EpisodeNumber ?? FindCanonicalValue(canonicals, \"episode_number\")", schema, StringComparison.Ordinal);
