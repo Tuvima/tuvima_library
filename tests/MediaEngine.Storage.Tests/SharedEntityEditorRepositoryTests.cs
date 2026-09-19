@@ -66,7 +66,7 @@ public sealed class SharedEntityEditorRepositoryTests : IDisposable
         Assert.Equal("User root", (await roots.FindByQidAsync("QU"))!.Label);
         using var conn = _db.CreateConnection();
         var workId = Guid.NewGuid();
-        conn.Execute("INSERT INTO works (id, media_type, work_kind) VALUES (@id, 'Movies', 'item');", new { id = GuidSql.ToBlob(workId) });
+        conn.Execute("INSERT INTO works (id, media_type, work_kind) VALUES (@id, 'Movies', 'standalone');", new { id = GuidSql.ToBlob(workId) });
         conn.Execute("INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES (@id, 'narrative_root_qid', 'QU', datetime('now'));", new { id = GuidSql.ToBlob(workId) });
         Assert.Contains(workId, await roots.FindWorkIdsByProvenanceQidAsync("QU"));
     }
