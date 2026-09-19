@@ -42,6 +42,9 @@ public sealed class SharedEntityEditorEndpointRouteTests
         Assert.Contains("GraphQualifierType.StartTime", source, StringComparison.Ordinal);
         Assert.Contains("GraphQualifierType.EndTime", source, StringComparison.Ordinal);
         Assert.Contains("GraphQualifierType.TimeIndex", source, StringComparison.Ordinal);
+        Assert.Contains("string.IsNullOrWhiteSpace(row.StartTime) && string.IsNullOrWhiteSpace(row.EndTime)", source, StringComparison.Ordinal);
+        Assert.Contains("? qualifierEntries", source, StringComparison.Ordinal);
+        Assert.Contains(": qualifierEntries.Append", source, StringComparison.Ordinal);
         Assert.Contains("q.Provenance", source, StringComparison.Ordinal);
         Assert.Contains("q.SourceProvider", source, StringComparison.Ordinal);
         Assert.Contains("q.IsSupplemental", source, StringComparison.Ordinal);

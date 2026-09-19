@@ -356,7 +356,16 @@ public static class SharedEntityEditorEndpoints
             if (offset >= page.Total || page.Items.Count == 0) return result;
         }
     }
-    private static IEnumerable<SharedEntityTimelineEntryDto> RelationshipTimeline(IEnumerable<EntityRelationship> rows, IReadOnlySet<string> visibleWorks) => rows.Where(row => string.IsNullOrWhiteSpace(row.ContextWorkQid) || visibleWorks.Contains(row.ContextWorkQid!)).SelectMany(row => row.Qualifiers.Where(q => q.QualifierType is GraphQualifierType.PointInTime or GraphQualifierType.StartTime or GraphQualifierType.EndTime or GraphQualifierType.TimeIndex).Select(q => new SharedEntityTimelineEntryDto("relationship", q.Value, q.QualifierType == GraphQualifierType.StartTime ? q.Value : row.StartTime, q.QualifierType == GraphQualifierType.EndTime ? q.Value : row.EndTime, row.ContextWorkQid, q.Provenance)).Append(new SharedEntityTimelineEntryDto("relationship", row.StatementKey, row.StartTime, row.EndTime, row.ContextWorkQid, row.Provenance)));
+    private static IEnumerable<SharedEntityTimelineEntryDto> RelationshipTimeline(IEnumerable<EntityRelationship> rows, IReadOnlySet<string> visibleWorks) => rows.Where(row => string.IsNullOrWhiteSpace(row.ContextWorkQid) || visibleWorks.Contains(row.ContextWorkQid!)).SelectMany(row =>
+    {
+        var qualifierEntries = row.Qualifiers
+            .Where(q => q.QualifierType is GraphQualifierType.PointInTime or GraphQualifierType.StartTime or GraphQualifierType.EndTime or GraphQualifierType.TimeIndex)
+            .Select(q => new SharedEntityTimelineEntryDto("relationship", q.Value, q.QualifierType == GraphQualifierType.StartTime ? q.Value : row.StartTime, q.QualifierType == GraphQualifierType.EndTime ? q.Value : row.EndTime, row.ContextWorkQid, q.Provenance));
+
+        return string.IsNullOrWhiteSpace(row.StartTime) && string.IsNullOrWhiteSpace(row.EndTime)
+            ? qualifierEntries
+            : qualifierEntries.Append(new SharedEntityTimelineEntryDto("relationship", row.StatementKey, row.StartTime, row.EndTime, row.ContextWorkQid, row.Provenance));
+    });
     private static IEnumerable<SharedEntitySourceDto> RelationshipSources(IEnumerable<EntityRelationship> rows, IReadOnlySet<string> visibleWorks) => rows.Where(row => string.IsNullOrWhiteSpace(row.ContextWorkQid) || visibleWorks.Contains(row.ContextWorkQid!)).SelectMany(row => new[] { new SharedEntitySourceDto("relationship", row.StatementKey, row.Provenance, row.SourceProvider, row.ContextWorkQid, row.IsSupplemental, row.Confidence) }.Concat(row.Qualifiers.Select(q => new SharedEntitySourceDto("qualifier", q.QualifierType + ":" + q.Value, q.Provenance, q.SourceProvider, row.ContextWorkQid, q.IsSupplemental, q.Confidence))));
     private static EntityType ToHarvestEntityType(string category) => category switch
     {
