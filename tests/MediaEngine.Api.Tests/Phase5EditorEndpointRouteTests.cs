@@ -61,6 +61,18 @@ public sealed class Phase5EditorEndpointRouteTests
     }
 
     [Fact]
+    public void MediaEditorCapabilities_KeepChaptersOnlyForAudiobooks()
+    {
+        var metadata = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs");
+
+        Assert.DoesNotContain("tabs.Add(\"episodes\")", metadata, StringComparison.Ordinal);
+        Assert.DoesNotContain("tabs.Add(\"tracks\")", metadata, StringComparison.Ordinal);
+        Assert.DoesNotContain("contentLabel = \"Contents\"", metadata, StringComparison.Ordinal);
+        Assert.Contains("tabs.Add(\"chapters\")", metadata, StringComparison.Ordinal);
+        Assert.Contains("contentLabel = \"Chapters\"", metadata, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void EditorLaunchContext_ResolvesCollectionShelvesToCanonicalContainerWork()
     {
         var metadataData = ReadSource("src/MediaEngine.Storage/MetadataEditorRepository.cs");

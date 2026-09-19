@@ -110,21 +110,6 @@
                                        OnClick="HandleClose" />
                     </div>
                 }
-                else if (CanReclassifyMediaType)
-                {
-                    <div class="sme-header-actions">
-                        <AppMediaTypeSelect Value="@_selectedMediaType"
-                                            ValueChanged="OnSelectedMediaTypeChanged" />
-                        <AppButton ButtonStyle="AppButtonStyle.Filled"
-                                   Tone="AppUiTone.Primary"
-                                   Class="sme-header-type-action"
-                                   Disabled="@_reclassifying"
-                                   OnClick="ReclassifyMediaTypeAsync">
-                            @(_reclassifying ? "Updating..." : "Change Type")
-                        </AppButton>
-                    </div>
-                }
-
                 @if (!Inline)
                 {
                     <AppIconButton Icon="@Icons.Material.Outlined.Close"
@@ -469,11 +454,11 @@
                         </div>
                     </div>
                 }
-                else if (_activeTab == "contents"
-                         && string.Equals(_selectedMediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
+                else if (_activeTab == "chapters"
+                         && string.Equals(EditorMediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
                          && !string.Equals(ActiveScope?.ScopeId, "series", StringComparison.OrdinalIgnoreCase))
                 {
-                    <div class="sme-content-tab sme-audiobook-contents">
+                    <div class="sme-chapters-tab">
                         <section class="sme-content-media-summary">
                             <span class="sme-content-media-summary__art">
                                 @if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
@@ -567,154 +552,6 @@
                                     }
                                 </div>
                             }
-                    </div>
-                }
-                else if (_activeTab == "episodes" || _activeTab == "tracks" || _activeTab == "contents")
-                {
-                    <div class="sme-content-tab">
-                        <section class="sme-content-media-summary">
-                            <span class="sme-content-media-summary__art">
-                                @if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
-                                {
-                                    <img src="@CurrentCoverUrl" alt="@HeaderTitle" />
-                                }
-                                else
-                                {
-                                    <MudIcon Icon="@GetContentsIcon()" />
-                                }
-                            </span>
-                            <span class="sme-content-media-summary__copy">
-                                <span><strong>@HeaderTitle</strong><AppChip Text="@GetContainerKindLabel()" Tone="AppUiTone.Primary" /></span>
-                                @if (!string.IsNullOrWhiteSpace(HeaderSubtitle))
-                                {
-                                    <small>@NormalizeDisplaySpacing(HeaderSubtitle)</small>
-                                }
-                                <span class="sme-content-media-summary__facts">
-                                    <span><small>@ContentTabLabel</small><strong>@EditorContentTotalCount</strong></span>
-                                    <span><small>@(string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? "Discs" : "Seasons")</small><strong>@EditorContentGroupCount</strong></span>
-                                    <span><small>Owned</small><strong>@EditorContentOwnedCount</strong></span>
-                                    <span><small>Release</small><strong>@(_detail?.Year ?? "Unknown")</strong></span>
-                                </span>
-                            </span>
-                        </section>
-                        @if (NavigatorRootNode is null)
-                        {
-                            <div class="sme-empty-panel">
-                                <MudIcon Icon="@Icons.Material.Outlined.ListAlt" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
-                                <span>@GetContentEmptyStateText()</span>
-                            </div>
-                        }
-                        else
-                        {
-                                    <div class="sme-content-master-detail">
-                                    <section class="sme-group">
-                                <div class="sme-content-completion">
-                                    <div>
-                                        <div class="sme-group-title">@ContentTabLabel</div>
-                                        <div class="sme-content-completion-title">
-                                            Owned <strong>@EditorContentOwnedCount</strong> of @EditorContentTotalCount @EditorContentItemPlural
-                                        </div>
-                                        @if (EditorContentGroupCount > 0)
-                                        {
-                                            <div class="sme-content-completion-meta">@EditorContentGroupCount @EditorContentGroupPlural</div>
-                                        }
-                                        @if (!string.IsNullOrWhiteSpace(EditorContentIncompleteHint))
-                                        {
-                                            <div class="sme-content-completion-hint">@EditorContentIncompleteHint</div>
-                                        }
-                                    </div>
-                                    <div class="sme-content-completion-meter" aria-label="@($"{EditorContentOwnedCount} of {EditorContentTotalCount} {EditorContentItemPlural} owned")">
-                                        <div class="sme-content-completion-bar">
-                                            <AppCssElement Tag="span" Css="@($"width: {$"{EditorContentCompletionPercent:F0}%"}")"></AppCssElement>
-                                        </div>
-                                        <strong>@EditorContentOwnedCount / @EditorContentTotalCount</strong>
-                                    </div>
-                                </div>
-
-                                @foreach (var group in EditorContentGroups)
-                                {
-                                    var collapsed = IsContentGroupCollapsed(group);
-                                    <div class="sme-content-group @(collapsed ? "is-collapsed" : string.Empty)">
-                                        <div class="sme-content-group-header">
-                                            <AppButton ButtonStyle="AppButtonStyle.Text"
-                                                       Tone="AppUiTone.Neutral"
-                                                       FullWidth="true"
-                                                       Disabled="@(!CanSelectContentGroup(group))"
-                                                       Class='@($"sme-content-group-target {(IsContentGroupSelected(group) ? "is-active" : string.Empty)}")'
-                                                       aria-current="@(IsContentGroupSelected(group) ? "true" : null)"
-                                                       OnClick="@(() => SelectContentGroupAsync(group))">
-                                                <span class="sme-content-group-icon">
-                                                    <MudIcon Icon="@(string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? Icons.Material.Outlined.Album : Icons.Material.Outlined.CalendarMonth)" Size="Size.Small" />
-                                                </span>
-                                                <span class="sme-content-group-copy">
-                                                    <span class="sme-content-group-title">@group.Title</span>
-                                                </span>
-                                                <span class="sme-content-group-meter">
-                                                    <span class="sme-content-group-progress" aria-hidden="true">
-                                                        <AppCssElement Tag="span" Css="@($"width: {$"{group.CompletionPercent:F0}%"}")"></AppCssElement>
-                                                    </span>
-                                                    <strong>@group.OwnedCount / @group.TotalCount</strong>
-                                                </span>
-                                            </AppButton>
-                                            <AppIconButton Icon="@(collapsed ? Icons.Material.Outlined.KeyboardArrowDown : Icons.Material.Outlined.KeyboardArrowUp)"
-                                                           Size="AppControlSize.Compact"
-                                                           Class="sme-content-group-toggle"
-                                                           Tooltip="@(collapsed ? $"Expand {group.Title}" : $"Collapse {group.Title}")"
-                                                           AriaLabel="@(collapsed ? $"Expand {group.Title}" : $"Collapse {group.Title}")"
-                                                           OnClick="@(() => ToggleContentGroup(group))"
-                                                           aria-expanded="@(!collapsed)" />
-                                        </div>
-
-                                        @if (!collapsed)
-                                        {
-                                            <div class="sme-content-list">
-                                                @foreach (var entry in group.Items.Select((node, index) => (node, index)))
-                                                {
-                                                    var item = entry.node;
-                                                    var ordinal = GetContentOrdinalLabel(item, entry.index);
-                                                    var meta = GetContentRowMeta(item);
-                                                    <AppButton ButtonStyle="AppButtonStyle.Text"
-                                                               Tone="AppUiTone.Neutral"
-                                                               FullWidth="true"
-                                                               Disabled="@(!item.CanSelectAsEditorTarget)"
-                                                               Class='@($"sme-content-item {(IsContentNodeSelected(item) ? "is-active" : string.Empty)} {(item.IsOwned ? "is-owned" : "is-missing")} {(item.IsClickable ? "is-clickable" : "is-disabled")}")'
-                                                               OnClick="@(() => SelectContentItemAsync(group, item))">
-                                                        <span class="sme-content-item-badge">@ordinal</span>
-                                                        <span class="sme-content-item-copy">
-                                                            <span class="sme-content-item-title">@item.Title</span>
-                                                            @if (!string.IsNullOrWhiteSpace(meta))
-                                                            {
-                                                                <span class="sme-content-item-subtitle">@meta</span>
-                                                            }
-                                                        </span>
-                                                        @if (item.TechnicalBadges.Count > 0)
-                                                        {
-                                                            <span class="sme-content-tech-badges">
-                                                                @foreach (var badge in item.TechnicalBadges)
-                                                                {
-                                                                    <span>@badge</span>
-                                                                }
-                                                            </span>
-                                                        }
-                                                        @if (item.IsOwned)
-                                                        {
-                                                            <span class="sme-content-owned" title="Owned" aria-label="Owned">
-                                                                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" />
-                                                            </span>
-                                                        }
-                                                        else
-                                                        {
-                                                            <span class="sme-content-missing">No file in library</span>
-                                                        }
-                                                    </AppButton>
-                                                }
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                            </section>
-                            </div>
-                        }
                     </div>
                 }
                 else if (_activeTab == "links")
@@ -1606,7 +1443,7 @@
                                 }
                                 <div class="sme-source-managed-note">
                                     <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
-                                    <span>Open a child from Contents to inspect its filename, path, and technical details.</span>
+                                    <span>Open a file entry to inspect its filename, path, and technical details.</span>
                                 </div>
                             </MediaEditorPanel>
                         }
