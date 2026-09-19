@@ -67,7 +67,27 @@ public sealed record UniverseGraphNodeDto(
     string? source_plugin,
     string? source_url);
 
-public sealed record UniverseGraphWorkLinkDto(string qid, string? label);
+/// <summary>
+/// A graph-node appearance in an owned work. Optional trailing fields preserve the
+/// original compact payload for clients that only understand QID and label.
+/// </summary>
+public sealed record UniverseGraphWorkLinkDto(
+    string qid,
+    string? label,
+    string? link_type = null,
+    string? appearance_role = null,
+    string? work_context = null,
+    string? anchor_kind = null,
+    string? anchor_value = null,
+    string? narrative_time_index = null,
+    string? start_time = null,
+    string? end_time = null,
+    string? spoiler_for_work_qid = null,
+    string? source_provider = null,
+    string? provenance = null,
+    bool? supplemental = null,
+    double? confidence = null,
+    string? appearance_key = null);
 
 public sealed record UniverseGraphEdgeDto(
     string source,
@@ -83,7 +103,8 @@ public sealed record UniverseGraphEdgeDto(
     string? source_plugin,
     string? source_url,
     string? statement_key = null,
-    IReadOnlyList<UniverseGraphQualifierDto>? qualifiers = null);
+    IReadOnlyList<UniverseGraphQualifierDto>? qualifiers = null,
+    string? source_provider = null);
 
 /// <summary>Wire representation of a queryable qualifier retained on a graph fact.</summary>
 public sealed record UniverseGraphQualifierDto(
