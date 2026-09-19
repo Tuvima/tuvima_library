@@ -6888,6 +6888,8 @@ MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntitySource
   provenance: System.String | nullability=not-null | accessors=get,init
   source_provider: System.String | nullability=nullable | accessors=get,init
   work_qid: System.String | nullability=nullable | accessors=get,init
+  supplemental: System.Boolean | nullability=not-null | accessors=get,init
+  confidence: System.Double? | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityTimelineEntryDto
   kind: System.String | nullability=not-null | accessors=get,init

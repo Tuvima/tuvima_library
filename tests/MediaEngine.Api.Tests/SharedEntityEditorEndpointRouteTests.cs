@@ -28,6 +28,27 @@ public sealed class SharedEntityEditorEndpointRouteTests
         Assert.DoesNotContain("Files =", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void RootGraphProjections_PageAuthorizedEntities_AndExposeFactQualifierProvenanceAndTime()
+    {
+        var source = File.ReadAllText(RepoFile(@"src\MediaEngine.Api\Endpoints\SharedEntityEditorEndpoints.cs"));
+
+        Assert.Contains("LoadAllVisibleEntitiesAsync", source, StringComparison.Ordinal);
+        Assert.Contains("const int pageSize = 100", source, StringComparison.Ordinal);
+        Assert.Contains("offset >= page.Total", source, StringComparison.Ordinal);
+        Assert.Contains("RelationshipSources", source, StringComparison.Ordinal);
+        Assert.Contains("RelationshipTimeline", source, StringComparison.Ordinal);
+        Assert.Contains("GraphQualifierType.PointInTime", source, StringComparison.Ordinal);
+        Assert.Contains("GraphQualifierType.StartTime", source, StringComparison.Ordinal);
+        Assert.Contains("GraphQualifierType.EndTime", source, StringComparison.Ordinal);
+        Assert.Contains("GraphQualifierType.TimeIndex", source, StringComparison.Ordinal);
+        Assert.Contains("q.Provenance", source, StringComparison.Ordinal);
+        Assert.Contains("q.SourceProvider", source, StringComparison.Ordinal);
+        Assert.Contains("q.IsSupplemental", source, StringComparison.Ordinal);
+        Assert.Contains("q.Confidence", source, StringComparison.Ordinal);
+        Assert.Contains("row.ContextWorkQid", source, StringComparison.Ordinal);
+    }
+
     private static string RepoFile(string relative, [System.Runtime.CompilerServices.CallerFilePath] string sourceFile = "")
     {
         var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFile)!);
