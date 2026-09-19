@@ -1,12 +1,14 @@
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Display;
+using MediaEngine.Api.Services.Metadata;
 using MediaEngine.Contracts.Universe;
 using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -30,6 +32,7 @@ public static class SharedEntityEditorEndpoints
         group.MapPut("/universes/{qid}/details", UpdateUniverseDetailsAsync).RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value);
         group.MapGet("/universes/{qid}/artwork", GetUniverseArtworkAsync).RequireClientScope(ApplicationPermissionIds.ArtworkRead.Value);
         group.MapPut("/universes/{qid}/artwork", UpdateUniverseArtworkAsync).RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value);
+        group.MapPost("/universes/{qid}/artwork/upload", UploadUniverseArtworkAsync).Accepts<IFormFile>("multipart/form-data").RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value).DisableAntiforgery();
         group.MapGet("/universes/{qid}/history", GetUniverseHistoryAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
         group.MapGet("/universes/{qid}/relationships", GetUniverseRelationshipsAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
         group.MapGet("/universes/{qid}/timeline", GetUniverseTimelineAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
@@ -41,6 +44,7 @@ public static class SharedEntityEditorEndpoints
         group.MapPut("/universes/{qid}/entities/{id:guid}/details", UpdateEntityDetailsAsync).RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value);
         group.MapGet("/universes/{qid}/entities/{id:guid}/artwork", GetEntityArtworkAsync).RequireClientScope(ApplicationPermissionIds.ArtworkRead.Value);
         group.MapPut("/universes/{qid}/entities/{id:guid}/artwork", UpdateEntityArtworkAsync).RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value);
+        group.MapPost("/universes/{qid}/entities/{id:guid}/artwork/upload", UploadEntityArtworkAsync).Accepts<IFormFile>("multipart/form-data").RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite).RequireClientScope(ApplicationPermissionIds.MetadataWrite.Value).DisableAntiforgery();
         group.MapGet("/universes/{qid}/entities/{id:guid}/appearances", GetAppearancesAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
         group.MapGet("/universes/{qid}/entities/{id:guid}/relationships", GetRelationshipsAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
         group.MapGet("/universes/{qid}/entities/{id:guid}/timeline", GetTimelineAsync).RequireClientScope(ApplicationPermissionIds.MetadataRead.Value);
@@ -110,6 +114,13 @@ public static class SharedEntityEditorEndpoints
         var response = await UpsertUserArtworkAsync(root.Qid, SharedEntityEditorTargetKinds.Universe, request, assets, ct);
         await RecordEditorEventAsync(timeline, RootHistoryId(root.Qid), "Universe", "user_artwork_edit", "Universe artwork selected in shared editor.", ct);
         return response;
+    }
+
+    private static async Task<IResult> UploadUniverseArtworkAsync(string qid, string assetType, HttpRequest request, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IEntityAssetRepository assets, IEntityTimelineRepository timeline, ArtworkScopeService artworkScope, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
+    {
+        var root = await AuthorizedRootAsync(qid, http, roots, entities, display, authorization, ApplicationPermissionIds.MetadataWrite, ct);
+        if (root is null) return ApiErrors.NotFound("Universe not found.");
+        return await UploadArtworkAsync(root.Qid, SharedEntityEditorTargetKinds.Universe, RootHistoryId(root.Qid), assetType, request, assets, timeline, artworkScope, ct);
     }
 
     private static async Task<IResult> GetEntityContextAsync(string qid, Guid id, HttpContext http, IFictionalEntityRepository entities, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
@@ -195,6 +206,13 @@ public static class SharedEntityEditorEndpoints
         var response = await UpsertUserArtworkAsync(entity.Id.ToString(), SharedEntityEditorTargetKinds.FictionalEntity, request, assets, ct);
         await RecordEditorEventAsync(timeline, entity.Id, SharedEntityEditorTargetKinds.FictionalEntity, "user_artwork_edit", "Fictional entity artwork selected in shared editor.", ct);
         return response;
+    }
+
+    private static async Task<IResult> UploadEntityArtworkAsync(string qid, Guid id, string assetType, HttpRequest request, HttpContext http, IFictionalEntityRepository entities, IEntityAssetRepository assets, IEntityTimelineRepository timeline, ArtworkScopeService artworkScope, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
+    {
+        var entity = await AuthorizedEntityAsync(qid, id, http, entities, display, authorization, ApplicationPermissionIds.MetadataWrite, ct);
+        if (entity is null) return ApiErrors.NotFound("Entity not found.");
+        return await UploadArtworkAsync(entity.Id.ToString(), SharedEntityEditorTargetKinds.FictionalEntity, entity.Id, assetType, request, assets, timeline, artworkScope, ct);
     }
 
     private static async Task<IResult> GetAppearancesAsync(string qid, Guid id, HttpContext http, IFictionalEntityRepository entities, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
@@ -284,7 +302,24 @@ public static class SharedEntityEditorEndpoints
         return Results.Ok(ToArtwork(await assets.GetByEntityAsync(entityId, null, ct)));
     }
 
-    private static SharedEntityEditorContextDto ToEntityContext(FictionalEntity entity, string universeQid) => new(new(SharedEntityEditorTargetKinds.FictionalEntity, universeQid, entity.Id, entity.WikidataQid), entity.Label, entity.EntitySubType, Capabilities(), entity.EnrichedAt is null ? "pending" : "available");
+    private static async Task<IResult> UploadArtworkAsync(string entityId, string entityType, Guid ownerId, string assetType, HttpRequest request, IEntityAssetRepository assets, IEntityTimelineRepository timeline, ArtworkScopeService artworkScope, CancellationToken ct)
+    {
+        if (!request.HasFormContentType) return ApiErrors.BadRequest("Expected multipart form data.");
+        var file = (await request.ReadFormAsync(ct)).Files.FirstOrDefault();
+        if (file is null || file.Length == 0) return ApiErrors.BadRequest("No file provided.");
+        if (file.Length > BoundedHttpContent.MaximumImageBytes || !ArtworkScopeService.IsArtworkUploadAllowed(file.ContentType, assetType)) return ApiErrors.BadRequest("Artwork must be a JPEG or PNG image no larger than 20 MB.");
+        var variantId = Guid.NewGuid();
+        var localPath = artworkScope.BuildArtworkUploadPath(entityType, ownerId, assetType, variantId, file.ContentType);
+        AssetPathService.EnsureDirectory(localPath);
+        await using (var input = file.OpenReadStream()) await BoundedHttpContent.CopyImageToFileAtomicallyAsync(input, localPath, ct);
+        var asset = new EntityAsset { Id = variantId, EntityId = entityId, EntityType = entityType, AssetTypeValue = assetType, ImageUrl = $"/stream/artwork/{variantId}", LocalImagePath = localPath, SourceProvider = "user_upload", OwnerScope = entityType, IsPreferred = true, IsUserOverride = true, CreatedAt = DateTimeOffset.UtcNow };
+        await assets.UpsertAsync(asset, ct);
+        await assets.SetPreferredAsync(asset.Id, ct);
+        await RecordEditorEventAsync(timeline, ownerId, entityType, "user_artwork_edit", "Managed artwork uploaded in shared editor.", ct);
+        return Results.Ok(ToArtwork(await assets.GetByEntityAsync(entityId, null, ct)));
+    }
+
+    private static SharedEntityEditorContextDto ToEntityContext(FictionalEntity entity, string universeQid) => new(new(SharedEntityEditorTargetKinds.FictionalEntity, universeQid, entity.Id, entity.WikidataQid), entity.Label, entity.EntitySubType, Capabilities(), entity.EnrichedAt is null ? "pending" : "available", [universeQid, entity.Label]);
     private static SharedEntityDetailsDto ToRootDetails(NarrativeRoot root) => new(null, root.Qid, root.Label, "Universe", root.Description, root.Qid, root.Label);
     private static SharedEntityDetailsDto ToEntityDetails(FictionalEntity entity, string universeQid) => new(entity.Id, entity.WikidataQid, entity.Label, entity.EntitySubType, entity.Description, universeQid, entity.FictionalUniverseLabel);
     private static SharedEntitySelectorItemDto ToSelector(FictionalEntity entity) => new(entity.Id, entity.WikidataQid, entity.Label, entity.EntitySubType, entity.Description);

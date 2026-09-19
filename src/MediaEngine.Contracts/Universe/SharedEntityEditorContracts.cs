@@ -35,7 +35,8 @@ public sealed record SharedEntityEditorContextDto(
     string label,
     string category,
     IReadOnlyList<SharedEntityEditorCapabilityDto> capabilities,
-    string enrichment_status);
+    string enrichment_status,
+    IReadOnlyList<string>? breadcrumb = null);
 public sealed record SharedEntityCategorySummaryDto(string category, string label, int count);
 public sealed record SharedEntitySelectorItemDto(Guid id, string qid, string label, string category, string? description);
 public sealed record SharedEntitySelectorPageDto(IReadOnlyList<SharedEntitySelectorItemDto> items, int offset, int limit, int total, bool has_more);
