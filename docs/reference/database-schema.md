@@ -455,13 +455,16 @@ are not overloaded as locations or organizations.
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT | UUID, primary key |
-| `universe_qid` | TEXT | The Universe (ParentCollection) this entity belongs to |
-| `wikidata_qid` | TEXT | Wikidata QID if the entity is notable enough to have one |
-| `entity_type` | TEXT | `"Character"`, `"Location"`, `"Faction"`, `"Concept"` |
-| `name` | TEXT | Display name |
+| `id` | BLOB | UUID, primary key |
+| `fictional_universe_qid` | TEXT | Authoritative narrative-universe QID |
+| `wikidata_qid` | TEXT | Canonical Wikidata QID (unique) |
+| `entity_sub_type` | TEXT | `"Character"`, `"Location"`, `"Organization"`, `"Event"`, or `"Object"` |
+| `label` | TEXT | Display name |
 | `description` | TEXT | |
-| `p31_type` | TEXT | Wikidata P31 (instance of) value. Used to detect animated character art. |
+| `wikidata_revision_id` | INTEGER | Last observed Wikidata revision for lore-delta refresh |
+
+User-authored display fields are kept separately in `fictional_entity_user_overrides` and
+`narrative_root_user_overrides`, so enrichment never overwrites a curator edit.
 
 ### fictional_entity_work_links
 

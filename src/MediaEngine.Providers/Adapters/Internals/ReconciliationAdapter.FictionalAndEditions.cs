@@ -201,6 +201,7 @@ public sealed partial class ReconciliationAdapter
             .Concat(propertyGroup.Bridges)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var statements = new List<FictionalEntityRelationshipStatement>();
+        var scalarStatements = new List<FictionalEntityScalarStatement>();
         string? universeQid = null;
         string? universeLabel = null;
 
@@ -214,7 +215,7 @@ public sealed partial class ReconciliationAdapter
 
             foreach (var claim in claims.Where(claim =>
                          !string.Equals(claim.Rank, "deprecated", StringComparison.OrdinalIgnoreCase)
-                         && !string.IsNullOrWhiteSpace(claim.Value?.EntityId)))
+                         && claim.Value is not null))
             {
                 var target = claim.Value!;
                 if (string.Equals(propertyId, "P1080", StringComparison.OrdinalIgnoreCase))
@@ -224,18 +225,35 @@ public sealed partial class ReconciliationAdapter
                     continue;
                 }
 
+                var qualifiers = claim.Qualifiers
+                    .SelectMany(pair => pair.Value.Select(value => new FictionalEntityStatementQualifier(
+                        pair.Key,
+                        GetGraphValue(value),
+                        GetGraphValueKind(value))))
+                    .Where(qualifier => !string.IsNullOrWhiteSpace(qualifier.Value))
+                    .ToList();
+
+                if (string.IsNullOrWhiteSpace(target.EntityId))
+                {
+                    if (propertyId is "P585" or "P580" or "P582" or "P4895")
+                    {
+                        scalarStatements.Add(new FictionalEntityScalarStatement(
+                            ClaimKey: claimKey,
+                            Value: GetGraphValue(target),
+                            ValueKind: GetGraphValueKind(target),
+                            Confidence: 0.9,
+                            Qualifiers: qualifiers));
+                    }
+
+                    continue;
+                }
+
                 statements.Add(new FictionalEntityRelationshipStatement(
                     ClaimKey: $"{claimKey}_qid",
                     TargetQid: target.EntityId!,
                     TargetLabel: target.EntityLabel,
                     Confidence: 0.9,
-                    Qualifiers: claim.Qualifiers
-                        .SelectMany(pair => pair.Value.Select(value => new FictionalEntityStatementQualifier(
-                            pair.Key,
-                            GetGraphValue(value),
-                            GetGraphValueKind(value))))
-                        .Where(qualifier => !string.IsNullOrWhiteSpace(qualifier.Value))
-                        .ToList()));
+                    Qualifiers: qualifiers));
             }
         }
 
@@ -244,7 +262,8 @@ public sealed partial class ReconciliationAdapter
             Provenance: "Wikidata",
             NarrativeUniverseQid: universeQid,
             NarrativeUniverseLabel: universeLabel,
-            Statements: statements);
+            Statements: statements,
+            ScalarStatements: scalarStatements);
     }
 
     private DataExtensionPropertyGroup? GetFictionalEntityPropertyGroup(string entitySubType) =>

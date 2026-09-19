@@ -23,6 +23,8 @@ public static class SharedEntityEditorSections
     public const string Details = "details";
     public const string Artwork = "artwork";
     public const string Appearances = "appearances";
+    public const string Members = "members";
+    public const string Participants = "participants";
     public const string Relationships = "relationships";
     public const string Timeline = "timeline";
     public const string Sources = "sources";
@@ -48,7 +50,7 @@ public sealed record SharedEntityArtworkUpdateRequest(string asset_type, string 
 public sealed record SharedEntityAppearanceDto(string work_qid, string? work_label, string link_type, string? role, string? work_context, string? anchor_kind, string? anchor_value, string? narrative_time_index, string? start_time, string? end_time, string? spoiler_for_work_qid, string provenance);
 public sealed record SharedEntityRelationshipDto(string statement_key, string subject_qid, string type, string object_qid, string provenance, string? work_qid, IReadOnlyList<UniverseGraphQualifierDto> qualifiers);
 public sealed record SharedEntityTimelineEntryDto(string kind, string value, string? start_time, string? end_time, string? work_qid, string provenance);
-public sealed record SharedEntitySourceDto(string kind, string value, string provenance, string? source_provider, string? work_qid, bool supplemental = false, double? confidence = null);
+public sealed record SharedEntitySourceDto(string kind, string value, string provenance, string? source_provider, string? work_qid, bool supplemental = false, double? confidence = null, string? source_url = null);
 public sealed record SharedEntityHistoryEntryDto(Guid id, string event_type, DateTimeOffset occurred_at, string? detail);
 public sealed record SharedEntityEnrichmentStatusDto(string status, DateTimeOffset? enriched_at, long? wikidata_revision_id);
 public sealed record SharedEntityRefreshDto(bool queued, string message);

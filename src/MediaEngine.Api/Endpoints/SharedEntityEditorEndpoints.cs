@@ -151,7 +151,7 @@ public static class SharedEntityEditorEndpoints
         return Results.Ok(rows.Where(row => string.IsNullOrWhiteSpace(row.ContextWorkQid) || visible.Contains(row.ContextWorkQid!)).Select(row => new SharedEntityRelationshipDto(row.StatementKey, row.SubjectQid, row.RelationshipTypeValue, row.ObjectQid, row.Provenance, row.ContextWorkQid, row.Qualifiers.Select(q => new UniverseGraphQualifierDto(q.QualifierType, q.Value, q.ValueKind, q.Provenance, q.IsSupplemental, q.SourceProvider, q.Confidence)).ToList())));
     }
 
-    private static async Task<IResult> GetUniverseTimelineAsync(string qid, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IEntityRelationshipRepository relationships, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
+    private static async Task<IResult> GetUniverseTimelineAsync(string qid, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IEntityRelationshipRepository relationships, ICanonicalValueRepository canonicals, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
     {
         if (await AuthorizedRootAsync(qid, http, roots, entities, display, authorization, ApplicationPermissionIds.MetadataRead, ct) is null) return ApiErrors.NotFound("Universe not found.");
         var visible = await VisibleWorksAsync(display, ct);
@@ -159,10 +159,11 @@ public static class SharedEntityEditorEndpoints
         var links = await entities.GetWorkLinksAsync(allEntities.Select(entity => entity.Id), ct);
         var appearances = links.Where(link => visible.Contains(link.WorkQid) && (!string.IsNullOrWhiteSpace(link.NarrativeTimeIndex) || !string.IsNullOrWhiteSpace(link.StartTime) || !string.IsNullOrWhiteSpace(link.EndTime))).Select(link => new SharedEntityTimelineEntryDto("appearance", link.NarrativeTimeIndex ?? link.WorkLabel ?? link.WorkQid, link.StartTime, link.EndTime, link.WorkQid, link.Provenance));
         var rels = await relationships.GetByUniverseAsync(allEntities.Select(entity => entity.WikidataQid).ToHashSet(StringComparer.OrdinalIgnoreCase), ct);
-        return Results.Ok(appearances.Concat(RelationshipTimeline(rels, visible)));
+        var scalarByEntity = await canonicals.GetByEntitiesAsync(allEntities.Select(entity => entity.Id).ToList(), ct);
+        return Results.Ok(appearances.Concat(RelationshipTimeline(rels, visible)).Concat(allEntities.SelectMany(entity => CanonicalTimeline(entity, scalarByEntity.GetValueOrDefault(entity.Id) ?? []))));
     }
 
-    private static async Task<IResult> GetUniverseSourcesAsync(string qid, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IEntityRelationshipRepository relationships, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
+    private static async Task<IResult> GetUniverseSourcesAsync(string qid, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IEntityRelationshipRepository relationships, IPluginLoreRepository pluginLore, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
     {
         if (await AuthorizedRootAsync(qid, http, roots, entities, display, authorization, ApplicationPermissionIds.MetadataRead, ct) is null) return ApiErrors.NotFound("Universe not found.");
         var visible = await VisibleWorksAsync(display, ct);
@@ -170,7 +171,7 @@ public static class SharedEntityEditorEndpoints
         var links = await entities.GetWorkLinksAsync(allEntities.Select(entity => entity.Id), ct);
         var appearances = links.Where(link => visible.Contains(link.WorkQid)).Select(link => new SharedEntitySourceDto("appearance", link.AppearanceKey ?? link.WorkQid, link.Provenance, link.SourceProvider, link.WorkQid, link.IsSupplemental, link.Confidence));
         var rels = await relationships.GetByUniverseAsync(allEntities.Select(entity => entity.WikidataQid).ToHashSet(StringComparer.OrdinalIgnoreCase), ct);
-        return Results.Ok(appearances.Concat(RelationshipSources(rels, visible)));
+        return Results.Ok(appearances.Concat(RelationshipSources(rels, visible)).Concat(await SupplementalSourcesAsync(qid, null, pluginLore, ct)));
     }
 
     private static async Task<IResult> GetUniverseEnrichmentAsync(string qid, HttpContext http, INarrativeRootRepository roots, IFictionalEntityRepository entities, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
@@ -241,22 +242,22 @@ public static class SharedEntityEditorEndpoints
         return Results.Ok((await relationships.GetByEntityAsync(entity.WikidataQid, ct)).Where(row => string.IsNullOrWhiteSpace(row.ContextWorkQid) || visible.Contains(row.ContextWorkQid!)).Select(row => new SharedEntityRelationshipDto(row.StatementKey, row.SubjectQid, row.RelationshipTypeValue, row.ObjectQid, row.Provenance, row.ContextWorkQid, row.Qualifiers.Select(q => new UniverseGraphQualifierDto(q.QualifierType, q.Value, q.ValueKind, q.Provenance, q.IsSupplemental, q.SourceProvider, q.Confidence)).ToList())));
     }
 
-    private static async Task<IResult> GetTimelineAsync(string qid, Guid id, HttpContext http, IFictionalEntityRepository entities, IEntityRelationshipRepository relationships, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
+    private static async Task<IResult> GetTimelineAsync(string qid, Guid id, HttpContext http, IFictionalEntityRepository entities, IEntityRelationshipRepository relationships, ICanonicalValueRepository canonicals, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
     {
         var entity = await AuthorizedEntityAsync(qid, id, http, entities, display, authorization, ApplicationPermissionIds.MetadataRead, ct);
         if (entity is null) return ApiErrors.NotFound("Entity not found.");
         var visible = await VisibleWorksAsync(display, ct);
         var appearances = (await entities.GetWorkLinksAsync(entity.Id, ct)).Where(link => visible.Contains(link.WorkQid) && (!string.IsNullOrWhiteSpace(link.NarrativeTimeIndex) || !string.IsNullOrWhiteSpace(link.StartTime) || !string.IsNullOrWhiteSpace(link.EndTime))).Select(link => new SharedEntityTimelineEntryDto("appearance", link.NarrativeTimeIndex ?? link.WorkLabel ?? link.WorkQid, link.StartTime, link.EndTime, link.WorkQid, link.Provenance));
-        return Results.Ok(appearances.Concat(RelationshipTimeline(await relationships.GetByEntityAsync(entity.WikidataQid, ct), visible)));
+        return Results.Ok(appearances.Concat(RelationshipTimeline(await relationships.GetByEntityAsync(entity.WikidataQid, ct), visible)).Concat(CanonicalTimeline(entity, await canonicals.GetByEntityAsync(entity.Id, ct))));
     }
 
-    private static async Task<IResult> GetSourcesAsync(string qid, Guid id, HttpContext http, IFictionalEntityRepository entities, IEntityRelationshipRepository relationships, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
+    private static async Task<IResult> GetSourcesAsync(string qid, Guid id, HttpContext http, IFictionalEntityRepository entities, IEntityRelationshipRepository relationships, IPluginLoreRepository pluginLore, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
     {
         var entity = await AuthorizedEntityAsync(qid, id, http, entities, display, authorization, ApplicationPermissionIds.MetadataRead, ct);
         if (entity is null) return ApiErrors.NotFound("Entity not found.");
         var visible = await VisibleWorksAsync(display, ct);
         var appearances = (await entities.GetWorkLinksAsync(entity.Id, ct)).Where(link => visible.Contains(link.WorkQid)).Select(link => new SharedEntitySourceDto("appearance", link.AppearanceKey ?? link.WorkQid, link.Provenance, link.SourceProvider, link.WorkQid, link.IsSupplemental, link.Confidence));
-        return Results.Ok(appearances.Concat(RelationshipSources(await relationships.GetByEntityAsync(entity.WikidataQid, ct), visible)));
+        return Results.Ok(appearances.Concat(RelationshipSources(await relationships.GetByEntityAsync(entity.WikidataQid, ct), visible)).Concat(await SupplementalSourcesAsync(qid, entity.WikidataQid, pluginLore, ct)));
     }
 
     private static async Task<IResult> GetHistoryAsync(string qid, Guid id, HttpContext http, IFictionalEntityRepository entities, IEntityTimelineRepository timeline, IDisplayProjectionReadService display, CatalogueResourceAuthorizationService authorization, CancellationToken ct)
@@ -334,14 +335,35 @@ public static class SharedEntityEditorEndpoints
         return Results.Ok(ToArtwork(await assets.GetByEntityAsync(entityId, null, ct)));
     }
 
-    private static SharedEntityEditorContextDto ToEntityContext(FictionalEntity entity, string universeQid, string universeLabel) => new(new(SharedEntityEditorTargetKinds.FictionalEntity, universeQid, entity.Id, entity.WikidataQid), entity.Label, entity.EntitySubType, EntityCapabilities(), entity.EnrichedAt is null ? "pending" : "available", [universeLabel, entity.Label]);
+    private static SharedEntityEditorContextDto ToEntityContext(FictionalEntity entity, string universeQid, string universeLabel) => new(new(SharedEntityEditorTargetKinds.FictionalEntity, universeQid, entity.Id, entity.WikidataQid), entity.Label, entity.EntitySubType, EntityCapabilities(entity.EntitySubType), entity.EnrichedAt is null ? "pending" : "available", [universeLabel, entity.Label]);
     private static SharedEntityDetailsDto ToRootDetails(NarrativeRoot root) => new(null, root.Qid, root.Label, "Universe", root.Description, root.Qid, root.Label);
     private static SharedEntityDetailsDto ToEntityDetails(FictionalEntity entity, string universeQid) => new(entity.Id, entity.WikidataQid, entity.Label, entity.EntitySubType, entity.Description, universeQid, entity.FictionalUniverseLabel);
     private static SharedEntitySelectorItemDto ToSelector(FictionalEntity entity) => new(entity.Id, entity.WikidataQid, entity.Label, entity.EntitySubType, entity.Description);
     private static IReadOnlyList<SharedEntityArtworkDto> ToArtwork(IReadOnlyList<EntityAsset> assets) => assets.Select(asset => new SharedEntityArtworkDto(asset.Id, asset.AssetTypeValue, asset.ImageUrl, asset.IsPreferred, asset.IsUserOverride, asset.SourceProvider)).ToList();
     private static Category? ResolveCategory(string? value) => string.IsNullOrWhiteSpace(value) ? null : Categories.FirstOrDefault(category => category.Id.Equals(value, StringComparison.OrdinalIgnoreCase));
     private static IReadOnlyList<SharedEntityEditorCapabilityDto> RootCapabilities() => [new(SharedEntityEditorSections.Details, true, true), new(SharedEntityEditorSections.Artwork, true, true), new(SharedEntityEditorSections.Entities, true, false), new(SharedEntityEditorSections.Relationships, true, false), new(SharedEntityEditorSections.Timeline, true, false), new(SharedEntityEditorSections.Sources, true, false), new(SharedEntityEditorSections.History, true, false), new(SharedEntityEditorSections.Enrichment, true, false)];
-    private static IReadOnlyList<SharedEntityEditorCapabilityDto> EntityCapabilities() => [new(SharedEntityEditorSections.Details, true, true), new(SharedEntityEditorSections.Artwork, true, true), new(SharedEntityEditorSections.Appearances, true, false, "Refreshed from enrichment."), new(SharedEntityEditorSections.Relationships, true, false), new(SharedEntityEditorSections.Timeline, true, false), new(SharedEntityEditorSections.Sources, true, false), new(SharedEntityEditorSections.History, true, false), new(SharedEntityEditorSections.Enrichment, true, false)];
+    private static IReadOnlyList<SharedEntityEditorCapabilityDto> EntityCapabilities(string subtype)
+    {
+        var subjectSection = subtype switch
+        {
+            "Organization" => SharedEntityEditorSections.Members,
+            "Event" => SharedEntityEditorSections.Participants,
+            _ => SharedEntityEditorSections.Appearances,
+        };
+        var capabilities = new List<SharedEntityEditorCapabilityDto>
+        {
+            new(SharedEntityEditorSections.Details, true, true),
+            new(SharedEntityEditorSections.Artwork, true, true),
+            new(subjectSection, true, false, "Refreshed from enrichment."),
+            new(SharedEntityEditorSections.Relationships, true, false),
+            new(SharedEntityEditorSections.Timeline, true, false),
+        };
+        if (subtype is "Organization" or "Event") capabilities.Add(new(SharedEntityEditorSections.Appearances, true, false, "Refreshed from enrichment."));
+        capabilities.Add(new(SharedEntityEditorSections.Sources, true, false));
+        capabilities.Add(new(SharedEntityEditorSections.History, true, false));
+        capabilities.Add(new(SharedEntityEditorSections.Enrichment, true, false));
+        return capabilities;
+    }
     private static async Task<HashSet<string>> VisibleWorksAsync(IDisplayProjectionReadService display, CancellationToken ct) => (await display.LoadWorksAsync(ct)).Select(work => work.IdentityQid).Where(qid => !string.IsNullOrWhiteSpace(qid)).Select(qid => qid!).ToHashSet(StringComparer.OrdinalIgnoreCase);
     private static async Task<IReadOnlyList<FictionalEntity>> LoadAllVisibleEntitiesAsync(string universeQid, IFictionalEntityRepository entities, IReadOnlyCollection<string> visibleWorks, CancellationToken ct)
     {
@@ -367,6 +389,43 @@ public static class SharedEntityEditorEndpoints
             : qualifierEntries.Append(new SharedEntityTimelineEntryDto("relationship", row.StatementKey, row.StartTime, row.EndTime, row.ContextWorkQid, row.Provenance));
     });
     private static IEnumerable<SharedEntitySourceDto> RelationshipSources(IEnumerable<EntityRelationship> rows, IReadOnlySet<string> visibleWorks) => rows.Where(row => string.IsNullOrWhiteSpace(row.ContextWorkQid) || visibleWorks.Contains(row.ContextWorkQid!)).SelectMany(row => new[] { new SharedEntitySourceDto("relationship", row.StatementKey, row.Provenance, row.SourceProvider, row.ContextWorkQid, row.IsSupplemental, row.Confidence) }.Concat(row.Qualifiers.Select(q => new SharedEntitySourceDto("qualifier", q.QualifierType + ":" + q.Value, q.Provenance, q.SourceProvider, row.ContextWorkQid, q.IsSupplemental, q.Confidence))));
+
+    internal static IEnumerable<SharedEntityTimelineEntryDto> CanonicalTimeline(FictionalEntity entity, IReadOnlyList<CanonicalValue> values) => values
+        .Where(value => value.Key is "point_in_time" or "start_time" or "end_time" or "time_index")
+        .Select(value => new SharedEntityTimelineEntryDto(
+            "entity",
+            value.Value,
+            value.Key == "start_time" ? value.Value : null,
+            value.Key == "end_time" ? value.Value : null,
+            null,
+            "Wikidata"));
+
+    private static async Task<IReadOnlyList<SharedEntitySourceDto>> SupplementalSourcesAsync(string universeQid, string? entityQid, IPluginLoreRepository pluginLore, CancellationToken ct)
+    {
+        const int limit = 100;
+        var sources = await pluginLore.GetApprovedSourcesAsync(universeQid, ct);
+        if (!string.IsNullOrWhiteSpace(entityQid))
+        {
+            var sourceIds = new HashSet<Guid>();
+            foreach (var entity in await pluginLore.GetEntitiesAsync(universeQid, approvedOnly: true, ct))
+            {
+                if (string.Equals(entity.WikidataQid, entityQid, StringComparison.OrdinalIgnoreCase)) sourceIds.Add(entity.SourceId);
+            }
+            foreach (var relationship in await pluginLore.GetRelationshipsAsync(universeQid, approvedOnly: true, ct))
+            {
+                if (string.Equals(relationship.SubjectQid, entityQid, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(relationship.ObjectQid, entityQid, StringComparison.OrdinalIgnoreCase)) sourceIds.Add(relationship.SourceId);
+            }
+            sources = sources.Where(source => sourceIds.Contains(source.Id)).ToList();
+        }
+
+        return sources
+            .OrderBy(source => source.PluginId, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(source => source.SourceName, StringComparer.OrdinalIgnoreCase)
+            .Take(limit)
+            .Select(source => new SharedEntitySourceDto("plugin_lore", source.SourceName, "Plugin", source.PluginId, null, true, source.Confidence, source.BaseUrl))
+            .ToList();
+    }
     private static EntityType ToHarvestEntityType(string category) => category switch
     {
         "Character" => EntityType.Character,

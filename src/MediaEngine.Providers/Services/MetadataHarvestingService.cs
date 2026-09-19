@@ -241,6 +241,30 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
                 continue;
             }
 
+            // Graph evidence carries statement context that the flattened provider
+            // claim stream cannot represent. Scalar event chronology (P585/P580/
+            // P582/P4895) is not entity-valued, so include it in the normal claim
+            // and scoring path before canonical persistence rather than losing it
+            // behind the relationship-only Stage 3 boundary.
+            var entitySubType = request.Hints.GetValueOrDefault("entity_sub_type") ?? request.EntityType.ToString();
+            var entityQid = request.Hints.GetValueOrDefault(BridgeIdKeys.WikidataQid);
+            var graphEvidence = request.EntityType is EntityType.Character or EntityType.Location or EntityType.Organization or EntityType.Event or EntityType.Object
+                && provider is IFictionalEntityGraphEvidenceProvider graphProvider
+                && !string.IsNullOrWhiteSpace(entityQid)
+                ? await graphProvider.FetchFictionalEntityGraphEvidenceAsync(entityQid, entitySubType, ct).ConfigureAwait(false)
+                : null;
+
+            if (graphEvidence?.ScalarStatements.Count > 0)
+            {
+                providerClaims = providerClaims
+                    .Concat(graphEvidence.ScalarStatements
+                        .Where(statement => !string.IsNullOrWhiteSpace(statement.ClaimKey) && !string.IsNullOrWhiteSpace(statement.Value))
+                        .Select(statement => new ProviderClaim(statement.ClaimKey, statement.Value, statement.Confidence)))
+                    .GroupBy(claim => $"{claim.Key}\u001F{claim.Value}", StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group.OrderByDescending(claim => claim.Confidence).First())
+                    .ToList();
+            }
+
             if (providerClaims.Count == 0)
             {
                 continue;
@@ -312,7 +336,7 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
             // Special handling: Wikidata claims for fictional entity types.
             if (request.EntityType is EntityType.Character or EntityType.Location or EntityType.Organization or EntityType.Event or EntityType.Object)
             {
-                await HandleFictionalEntityEnrichmentAsync(request, canonicals, provider, ct)
+                await HandleFictionalEntityEnrichmentAsync(request, canonicals, provider, graphEvidence, ct)
                     .ConfigureAwait(false);
             }
 
@@ -342,6 +366,7 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         HarvestRequest request,
         IReadOnlyList<CanonicalValue> canonicals,
         IExternalMetadataProvider provider,
+        FictionalEntityGraphEvidence? graphEvidence,
         CancellationToken ct)
     {
         // Only Wikidata produces fictional entity enrichment claims.
@@ -369,10 +394,6 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
             // P580/P582/P585, P4895, and P7528 remain attached to their asserted fact.
             var entitySubType = request.Hints.GetValueOrDefault("entity_sub_type") ?? request.EntityType.ToString();
             var entityQid = request.Hints.GetValueOrDefault(BridgeIdKeys.WikidataQid);
-            var graphEvidence = provider is IFictionalEntityGraphEvidenceProvider graphProvider
-                && !string.IsNullOrWhiteSpace(entityQid)
-                ? await graphProvider.FetchFictionalEntityGraphEvidenceAsync(entityQid, entitySubType, ct).ConfigureAwait(false)
-                : null;
 
             // P1080 is authoritative when present. In its absence, retain the owned-work
             // narrative root instead of erasing existing universe organization.

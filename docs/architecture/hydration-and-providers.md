@@ -318,7 +318,7 @@ Pass 2 runs in the background and handles everything that makes the library inte
 
 - Full Data Extension deep hydration - all 50+ properties from `config/providers/wikidata_reconciliation.json`
 - Collection Intelligence - franchise resolution, narrative root assignment (P1434, P8345, P179)
-- Fictional entity discovery - characters, locations, organisations
+- Fictional entity discovery - characters, locations, organisations, events, and objects
 - Relationship population - father, spouse, member_of, performer links (depth limit configurable via `lineage_depth`, default 2)
 - Deep person enrichment - social links (Instagram, TikTok, Mastodon, website), biographical details (birth/death dates, nationality), pseudonym resolution (P1773/P742)
 - Character-performer links - which actor played which character in each adaptation

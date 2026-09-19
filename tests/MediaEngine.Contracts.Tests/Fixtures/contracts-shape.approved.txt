@@ -6890,6 +6890,7 @@ MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntitySource
   work_qid: System.String | nullability=nullable | accessors=get,init
   supplemental: System.Boolean | nullability=not-null | accessors=get,init
   confidence: System.Double? | nullability=nullable | accessors=get,init
+  source_url: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Universe.MediaEngine.Contracts.Universe.SharedEntityTimelineEntryDto
   kind: System.String | nullability=not-null | accessors=get,init

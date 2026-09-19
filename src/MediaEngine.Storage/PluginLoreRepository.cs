@@ -379,7 +379,7 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
     private static string NormalizeEntityType(string value) =>
         value switch
         {
-            "Character" or "Location" or "Organization" or "Event" => value,
+            "Character" or "Location" or "Organization" or "Event" or "Object" => value,
             _ => "Unknown",
         };
 }

@@ -1,3 +1,7 @@
+using MediaEngine.Api.Endpoints;
+using MediaEngine.Contracts.Universe;
+using MediaEngine.Domain.Entities;
+
 namespace MediaEngine.Api.Tests;
 
 public sealed class SharedEntityEditorEndpointRouteTests
@@ -51,6 +55,48 @@ public sealed class SharedEntityEditorEndpointRouteTests
         Assert.Contains("q.IsSupplemental", source, StringComparison.Ordinal);
         Assert.Contains("q.Confidence", source, StringComparison.Ordinal);
         Assert.Contains("row.ContextWorkQid", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CanonicalTimeline_ProjectsDirectEventTimesAndNarrativeIndexes()
+    {
+        var method = typeof(SharedEntityEditorEndpoints).GetMethod("CanonicalTimeline", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        var result = (IEnumerable<SharedEntityTimelineEntryDto>)method!.Invoke(null,
+        [
+            new FictionalEntity { Id = Guid.NewGuid(), EntitySubType = "Event" },
+            new List<CanonicalValue>
+            {
+                new() { Key = "point_in_time", Value = "+0019-01-01T00:00:00Z" },
+                new() { Key = "start_time", Value = "+0018-01-01T00:00:00Z" },
+                new() { Key = "end_time", Value = "+0020-01-01T00:00:00Z" },
+                new() { Key = "time_index", Value = "battle-12" },
+            },
+        ])!;
+
+        var entries = result.ToList();
+        Assert.Equal(4, entries.Count);
+        Assert.Contains(entries, entry => entry.value == "battle-12" && entry.start_time is null && entry.end_time is null);
+        Assert.Contains(entries, entry => entry.start_time == "+0018-01-01T00:00:00Z");
+        Assert.Contains(entries, entry => entry.end_time == "+0020-01-01T00:00:00Z");
+    }
+
+    [Fact]
+    public void EntityCapabilities_AreSubtypeAware_AndNeverExposeFiles()
+    {
+        var method = typeof(SharedEntityEditorEndpoints).GetMethod("EntityCapabilities", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var organization = (IReadOnlyList<SharedEntityEditorCapabilityDto>)method!.Invoke(null, ["Organization"])!;
+        var @event = (IReadOnlyList<SharedEntityEditorCapabilityDto>)method.Invoke(null, ["Event"])!;
+        var @object = (IReadOnlyList<SharedEntityEditorCapabilityDto>)method.Invoke(null, ["Object"])!;
+
+        Assert.Contains(organization, capability => capability.section == SharedEntityEditorSections.Members);
+        Assert.Contains(organization, capability => capability.section == SharedEntityEditorSections.Appearances);
+        Assert.Contains(@event, capability => capability.section == SharedEntityEditorSections.Participants);
+        Assert.Contains(@event, capability => capability.section == SharedEntityEditorSections.Appearances);
+        Assert.Contains(@object, capability => capability.section == SharedEntityEditorSections.Artwork && capability.editable);
+        Assert.DoesNotContain(organization.Concat(@event).Concat(@object), capability => string.Equals(capability.section, "files", StringComparison.OrdinalIgnoreCase));
     }
 
     private static string RepoFile(string relative, [System.Runtime.CompilerServices.CallerFilePath] string sourceFile = "")

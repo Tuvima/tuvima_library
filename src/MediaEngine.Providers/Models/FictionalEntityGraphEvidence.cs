@@ -10,13 +10,27 @@ public sealed record FictionalEntityGraphEvidence(
     string Provenance,
     string? NarrativeUniverseQid,
     string? NarrativeUniverseLabel,
-    IReadOnlyList<FictionalEntityRelationshipStatement> Statements);
+    IReadOnlyList<FictionalEntityRelationshipStatement> Statements,
+    IReadOnlyList<FictionalEntityScalarStatement> ScalarStatements);
 
 /// <summary>A single entity-valued Wikidata statement with its original qualifiers.</summary>
 public sealed record FictionalEntityRelationshipStatement(
     string ClaimKey,
     string TargetQid,
     string? TargetLabel,
+    double Confidence,
+    IReadOnlyList<FictionalEntityStatementQualifier> Qualifiers,
+    string SourceProvider = "wikidata",
+    string Provenance = "Wikidata");
+
+/// <summary>
+/// A scalar Wikidata statement retained beside graph edges. Event chronology is
+/// scalar rather than entity-valued, so it must not be discarded by edge discovery.
+/// </summary>
+public sealed record FictionalEntityScalarStatement(
+    string ClaimKey,
+    string Value,
+    string ValueKind,
     double Confidence,
     IReadOnlyList<FictionalEntityStatementQualifier> Qualifiers,
     string SourceProvider = "wikidata",
