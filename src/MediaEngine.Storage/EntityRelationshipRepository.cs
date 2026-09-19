@@ -34,50 +34,51 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
             ? BuildStatementKey(edge, qualifiers)
             : edge.StatementKey.Trim();
 
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
-        conn.Execute("""
-            INSERT INTO entity_relationships
-                (id, statement_key, subject_qid, relationship_type, object_qid,
-                 confidence, context_work_qid, source_provider, provenance,
-                 is_supplemental, discovered_at, start_time, end_time)
-            VALUES
-                (@Id, @StatementKey, @SubjectQid, @RelationshipTypeValue, @ObjectQid,
-                 @Confidence, @ContextWorkQid, @SourceProvider, @Provenance,
-                 @IsSupplemental, @DiscoveredAt, @StartTime, @EndTime)
-            ON CONFLICT(statement_key) DO UPDATE SET
-                confidence = excluded.confidence,
-                context_work_qid = excluded.context_work_qid,
-                source_provider = excluded.source_provider,
-                provenance = excluded.provenance,
-                is_supplemental = excluded.is_supplemental,
-                start_time = excluded.start_time,
-                end_time = excluded.end_time;
-            """, edge, tx);
-
-        var relationshipId = conn.ExecuteScalar<Guid>(
-            "SELECT id FROM entity_relationships WHERE statement_key = @statementKey LIMIT 1;",
-            new { statementKey = edge.StatementKey }, tx);
-        edge.Id = relationshipId;
-
-        conn.Execute("DELETE FROM entity_relationship_qualifiers WHERE relationship_id = @relationshipId;",
-            new { relationshipId }, tx);
-        foreach (var qualifier in qualifiers)
+        return _db.ExecuteWriteAsync((conn, tx, token) =>
         {
-            qualifier.RelationshipId = relationshipId;
+            token.ThrowIfCancellationRequested();
             conn.Execute("""
-                INSERT INTO entity_relationship_qualifiers
-                    (id, relationship_id, qualifier_type, value, value_kind,
-                     source_provider, provenance, is_supplemental, confidence)
+                INSERT INTO entity_relationships
+                    (id, statement_key, subject_qid, relationship_type, object_qid,
+                     confidence, context_work_qid, source_provider, provenance,
+                     is_supplemental, discovered_at, start_time, end_time)
                 VALUES
-                    (@Id, @RelationshipId, @QualifierType, @Value, @ValueKind,
-                     @SourceProvider, @Provenance, @IsSupplemental, @Confidence);
-                """, qualifier, tx);
-        }
+                    (@Id, @StatementKey, @SubjectQid, @RelationshipTypeValue, @ObjectQid,
+                     @Confidence, @ContextWorkQid, @SourceProvider, @Provenance,
+                     @IsSupplemental, @DiscoveredAt, @StartTime, @EndTime)
+                ON CONFLICT(statement_key) DO UPDATE SET
+                    confidence = excluded.confidence,
+                    context_work_qid = excluded.context_work_qid,
+                    source_provider = excluded.source_provider,
+                    provenance = excluded.provenance,
+                    is_supplemental = excluded.is_supplemental,
+                    start_time = excluded.start_time,
+                    end_time = excluded.end_time;
+                """, edge, tx);
 
-        tx.Commit();
-        edge.Qualifiers = qualifiers;
-        return Task.CompletedTask;
+            var relationshipId = conn.ExecuteScalar<Guid>(
+                "SELECT id FROM entity_relationships WHERE statement_key = @statementKey LIMIT 1;",
+                new { statementKey = edge.StatementKey }, tx);
+            edge.Id = relationshipId;
+
+            conn.Execute("DELETE FROM entity_relationship_qualifiers WHERE relationship_id = @relationshipId;",
+                new { relationshipId }, tx);
+            foreach (var qualifier in qualifiers)
+            {
+                token.ThrowIfCancellationRequested();
+                qualifier.RelationshipId = relationshipId;
+                conn.Execute("""
+                    INSERT INTO entity_relationship_qualifiers
+                        (id, relationship_id, qualifier_type, value, value_kind,
+                         source_provider, provenance, is_supplemental, confidence)
+                    VALUES
+                        (@Id, @RelationshipId, @QualifierType, @Value, @ValueKind,
+                         @SourceProvider, @Provenance, @IsSupplemental, @Confidence);
+                    """, qualifier, tx);
+            }
+
+            edge.Qualifiers = qualifiers;
+        }, ct);
     }
 
     public Task<IReadOnlyList<EntityRelationship>> GetBySubjectAsync(string subjectQid, CancellationToken ct = default)
