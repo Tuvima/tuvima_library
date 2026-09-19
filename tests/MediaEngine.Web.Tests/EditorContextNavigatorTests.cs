@@ -2,6 +2,7 @@ using Bunit;
 using MediaEngine.Web.Components.MediaEditor;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
 using MudBlazor.Services;
 
 namespace MediaEngine.Web.Tests;
@@ -12,6 +13,7 @@ public sealed class EditorContextNavigatorTests : AsyncBunitContext
     {
         Services.AddMudServices();
         JSInterop.Mode = JSRuntimeMode.Loose;
+        Render<MudPopoverProvider>();
     }
 
     [Fact]
@@ -52,4 +54,46 @@ public sealed class EditorContextNavigatorTests : AsyncBunitContext
 
         Assert.Equal(seriesId, selectedId);
     }
+
+    [Theory]
+    [InlineData("series", "Series", "Movie series", false)]
+    [InlineData("item", "Item", "Standalone movie", false)]
+    [InlineData("series", "Series", "Book series", false)]
+    [InlineData("book", "Book", "Standalone book", false)]
+    [InlineData("series", "Series", "Comic series", false)]
+    [InlineData("issue", "Issue", "Standalone comic", false)]
+    [InlineData("album", "Album", "Album", false)]
+    [InlineData("track", "Track", "Track", true)]
+    public void RendersMediaVariantsWithArtworkAndTextOnlyTrackTreatment(
+        string nodeKind,
+        string label,
+        string title,
+        bool textOnly)
+    {
+        var levels = new[]
+        {
+            new EditorContextLevel(
+                label,
+                nodeKind,
+                title,
+                "Retail Matched",
+                Guid.NewGuid(),
+                true,
+                true,
+                false,
+                [],
+                textOnly ? null : "https://engine.test/stream/cover",
+                "Matched",
+                "Inherited",
+                textOnly),
+        };
+
+        var cut = Render<EditorContextNavigator>(parameters => parameters.Add(component => component.Levels, levels));
+
+        Assert.Contains("Retail Matched", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Canonical Inherited", cut.Markup, StringComparison.Ordinal);
+        Assert.Equal(!textOnly, cut.FindAll(".editor-context-level__artwork").Count == 1);
+        Assert.Equal(textOnly, cut.FindAll(".editor-context-level__icon").Count == 1);
+    }
+
 }

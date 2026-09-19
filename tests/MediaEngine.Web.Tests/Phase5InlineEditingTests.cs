@@ -662,21 +662,43 @@ public sealed class Phase5InlineEditingTests
         var models = ReadSource("src/MediaEngine.Web/Components/MediaEditor/EditorContextModels.cs");
 
         Assert.Contains("Levels=\"@EditorContextLevels\"", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-context-rail", shell, StringComparison.Ordinal);
+        Assert.True(shell.IndexOf("sme-context-rail", StringComparison.Ordinal) < shell.IndexOf("sme-workspace", StringComparison.Ordinal));
         Assert.DoesNotContain("Edit season", shell, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("sme-context-level-action", shell, StringComparison.Ordinal);
         Assert.Contains("BuildEditorContextLevels", code, StringComparison.Ordinal);
+        Assert.Contains("GetContextArtworkUrl", code, StringComparison.Ordinal);
+        Assert.Contains("ApiClient.ToAbsoluteEngineUrl", code, StringComparison.Ordinal);
+        Assert.Contains("GetContextRetailStatus", code, StringComparison.Ordinal);
+        Assert.Contains("GetContextCanonicalStatus", code, StringComparison.Ordinal);
+        Assert.Contains("node.EntityId == selectedNode?.EntityId ?", code, StringComparison.Ordinal);
+        Assert.Contains("IsTextOnlyContextNode", code, StringComparison.Ordinal);
         Assert.Contains("Math.Max(2, discoveredMaxDepth)", code, StringComparison.Ordinal);
         Assert.Contains("(\"TV\", 0) => \"series\"", code, StringComparison.Ordinal);
         Assert.Contains("(\"TV\", 1) => \"season\"", code, StringComparison.Ordinal);
         Assert.Contains("(\"TV\", 2) => \"episode\"", code, StringComparison.Ordinal);
+        Assert.Contains("\"film_series\" => \"Film Series\"", code, StringComparison.Ordinal);
+        Assert.Contains("\"movie\" => \"Movie\"", code, StringComparison.Ordinal);
         Assert.Contains("public sealed record EditorContextLevel", models, StringComparison.Ordinal);
         Assert.Contains("AppOverflowMenu", navigator, StringComparison.Ordinal);
+        Assert.Contains("\"film_series\" => Icons.Material.Outlined.VideoLibrary", navigator, StringComparison.Ordinal);
+        Assert.Contains("\"movie\" => Icons.Material.Outlined.Movie", navigator, StringComparison.Ordinal);
+        Assert.Contains("SearchThreshold", navigator, StringComparison.Ordinal);
+        Assert.Contains("MaxVisibleOptions", navigator, StringComparison.Ordinal);
+        Assert.Contains("Take(MaxVisibleOptions)", navigator, StringComparison.Ordinal);
+        Assert.Contains("editor-context-option-search", navigator, StringComparison.Ordinal);
+        Assert.Contains("editor-context-level__artwork", navigator, StringComparison.Ordinal);
+        Assert.Contains("editor-context-level__statuses", navigator, StringComparison.Ordinal);
+        Assert.Contains("editor-context-option is-active", navigator, StringComparison.Ordinal);
         Assert.Contains("editor-context-level__body", navigator, StringComparison.Ordinal);
         Assert.Contains("editor-context__separator", navigator, StringComparison.Ordinal);
         Assert.Contains("level.Label", navigator, StringComparison.Ordinal);
         Assert.Contains("level.Title", navigator, StringComparison.Ordinal);
         Assert.Contains("cursor: pointer", styles, StringComparison.Ordinal);
         Assert.Contains("border-left:", styles, StringComparison.Ordinal);
+        Assert.Contains("overscroll-behavior-inline", styles, StringComparison.Ordinal);
+        Assert.Contains("scroll-snap-type", styles, StringComparison.Ordinal);
+        Assert.Contains("editor-context-option-search__input", styles, StringComparison.Ordinal);
     }
 
     private static string ReadSource(

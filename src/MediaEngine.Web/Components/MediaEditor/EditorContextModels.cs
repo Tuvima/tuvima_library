@@ -6,7 +6,11 @@ public sealed record EditorContextOption(
     string Title,
     string? Subtitle,
     bool IsActive,
-    bool IsEnabled);
+    bool IsEnabled,
+    string? ArtworkUrl = null,
+    string? RetailStatus = null,
+    string? CanonicalStatus = null,
+    bool IsTextOnly = false);
 
 public sealed record EditorContextLevel(
     string Label,
@@ -17,4 +21,8 @@ public sealed record EditorContextLevel(
     bool IsActive,
     bool CanOpen,
     bool ShowSelector,
-    IReadOnlyList<EditorContextOption> Options);
+    IReadOnlyList<EditorContextOption> Options,
+    string? ArtworkUrl = null,
+    string? RetailStatus = null,
+    string? CanonicalStatus = null,
+    bool IsTextOnly = false);

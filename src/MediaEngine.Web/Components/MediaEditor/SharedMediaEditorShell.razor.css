@@ -740,6 +740,19 @@
     margin-left: 2px;
 }
 
+.sme-context-rail {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    border-bottom: 1px solid var(--tl-border-subtle);
+    background: color-mix(in srgb, var(--tl-bg-surface) 92%, transparent);
+}
+
+.sme-context-rail ::deep .editor-context {
+    width: 100%;
+    border-block: 0;
+}
+
 .sme-workspace {
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);

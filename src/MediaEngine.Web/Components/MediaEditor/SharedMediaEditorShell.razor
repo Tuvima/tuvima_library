@@ -213,8 +213,10 @@
 
             @if (HasContextNavigator)
             {
-                <EditorContextNavigator Levels="@EditorContextLevels"
-                                        OnTargetSelected="SelectEditorContextTargetAsync" />
+                <div class="sme-context-rail" aria-label="Media hierarchy">
+                    <EditorContextNavigator Levels="@EditorContextLevels"
+                                            OnTargetSelected="SelectEditorContextTargetAsync" />
+                </div>
             }
 
             <div class="sme-workspace">
