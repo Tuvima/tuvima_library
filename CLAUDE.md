@@ -27,7 +27,7 @@ Every feature exists in service of that word:
 ### Quality Gates and Regression Rules
 
 - Do not recreate the old all-in-one management workflow. No new routes, implementation types, navigation labels, docs as current product behavior, or all-in-one media correction workbenches for it.
-- Normal detail-page fixes use `MediaEditorLauncherService.BeginInline` and replace only the cinematic hero at the same URL with a hero-constrained `SharedMediaEditorShell`; the lower Series/Overview/detail tabs remain mounted beneath it. Review and Batch reuse that workspace through `OpenAsync` dialogs. Keep normal Details lean (presentation overrides plus profile-local library preferences), keep provider facts read-only, and put structural parent moves in Matching.
+- Normal detail-page fixes use `MediaEditorLauncherService.OpenAsync` to show `SharedMediaEditorShell` in a modal over the unchanged detail page and URL. Review and Batch reuse the same shell in dialogs. Keep normal Details lean (presentation overrides plus profile-local library preferences), keep provider facts read-only, and put structural parent moves in Matching.
 - Single-item editing keeps metadata, local fields, and sorting in Details; it does not expose a separate Options tab. File shows physical-file state only, while History owns identity, metadata, artwork, and ingestion events. A retail rematch synchronously replaces provider-managed artwork and refreshes the detail hero before background Wikidata alignment proceeds.
 - Review Queue is the exception workflow for blocked, uncertain, low-confidence, or unresolved items. Settings/Admin is for configuration and operational state, not a normal media correction workspace.
 - Use `IDatabaseConnection.CreateConnection()` for normal repository, read-service, endpoint, background-job, and request-path database work. Dispose each short-lived connection with `using`.
@@ -340,7 +340,7 @@ The Review Queue is the Engine's safety net for uncertain matches. It lives at `
 
 The queue surfaces items that need human attention: failed retail matches, ambiguous Wikidata candidates, low-confidence matches, missing titles, and items that fell through during enrichment. Review rows can launch the shared editor in review mode, dismiss an item, skip universe matching where supported, or retry/resolve according to existing Engine rules. `PostPipelineService` auto-resolves queue items when a later enrichment pass pushes confidence above threshold.
 
-Browsing lives on Home, Read, Watch, Listen, Collections, Search, and detail pages; review lives inside Settings/Admin. Do not add all-in-one management routes, components, docs, or navigation. Normal media correction belongs inline on media pages and details, using `MediaEditorLauncherService` and `SharedMediaEditorShell`; Review uses the same editor in review mode.
+Browsing lives on Home, Read, Watch, Listen, Collections, Search, and detail pages; review lives inside Settings/Admin. Do not add all-in-one management routes, components, docs, or navigation. Normal media correction opens `SharedMediaEditorShell` from media pages and details through `MediaEditorLauncherService.OpenAsync`; Review uses the same modal editor in review mode.
 
 ### 3.13 — Universal Parameterized Collection System
 **Detail:** [`docs/architecture/collections.md`](docs/architecture/collections.md)
@@ -794,3 +794,11 @@ The install banner records dismissal in browser/site local storage. Subsequent i
 ## Shared AI storage (September 2026)
 
 Local app/test builds load versioned native AI dependencies from TUVIMA_AI_RUNTIME_DIR and model weights from TUVIMA_MODELS_DIR. Provision through tools/Install-AiRuntime.ps1; do not add native package copies back to ordinary build outputs. The workstation uses E:\Resources\AI Models (llama/whisper directly beneath it) and sibling AI Runtimes. Windows installer and Docker builds explicitly bundle deployment assets. See docs/guides/shared-ai-storage.md and AGENTS.md for setup, verification and workspace retention. Repos holds only Library and Wikidata; keep at most two temporary worktrees outside Repos and retire them after integration.
+
+## Shared editor and Universe graph rules
+
+- Treat structural media placement, authored-container canonical title/order, and the knowledge graph as separate models. Stage 2 establishes canonical Work identity; bounded Stage 3 enriches grounded entities, qualified graph links, and graph-owned artwork without silently changing authored containers or structural placement.
+- The media Context Rail replaces generic Contents in the normal editor. Keep audiobook chapter-title overrides under the explicit Chapters section. Retail Match owns provider identity plus proposed structural placement; preview previous/target paths before Apply for a move. Do not expose a Change Type action in the normal editor or Review Queue; preserve lower-level APIs independently.
+- Universe and fictional-entity editing is content within `SharedMediaEditorShell`, not a new route/editor. From an authorized media editor with a Universe QID, preserve the original media target and use the existing dirty-state guard for Media → Universe → category/entity → Universe root → original Media. Keep consumer Explore separate.
+- Follow server-readable section capabilities; label/filter Organization Members and Event Participants as their own projections without replacing the full Relationships section. Keep the Universe category rail in one row and use keyboard-accessible, anchored, viewport-bounded category/sibling selector popovers.
+- Managed EntityAsset artwork is owned by its Universe/entity target. Preserve work-scoped role/context/anchor/time/spoiler qualifiers and provenance. Do not conflate real-world dates, structural order, in-universe narrative time, and editor History.

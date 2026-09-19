@@ -62,6 +62,9 @@ public partial class SharedEntityEditorWorkspace : IDisposable
     private bool _selectorHasMore;
     private bool _showSelectorPopover;
     private ElementReference _categoryRail;
+    private string? _popoverAnchorId;
+    private bool _popoverPositioned;
+    private bool _popoverNeedsFocus;
     private bool _loading;
     private bool _selectorLoading;
     private bool _saving;
@@ -79,6 +82,12 @@ public partial class SharedEntityEditorWorkspace : IDisposable
     private string EnrichmentLabel => _enrichment is null
         ? _context?.enrichment_status ?? "Status unavailable"
         : $"{_enrichment.status} · {(_enrichment.enriched_at?.ToLocalTime().ToString("g") ?? "Not yet enriched")}";
+    private IEnumerable<SharedEntityRelationshipDto> ActiveRelationshipRows => _activeSection switch
+    {
+        SharedEntityEditorSections.Members => _relationships.Where(row => IsMembershipRelationship(row.type)),
+        SharedEntityEditorSections.Participants => _relationships.Where(row => IsParticipantRelationship(row.type)),
+        _ => _relationships,
+    };
 
     protected override async Task OnParametersSetAsync()
     {
@@ -87,6 +96,25 @@ public partial class SharedEntityEditorWorkspace : IDisposable
         _initialized = true;
         _target = InitialTarget;
         await LoadTargetAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_showSelectorPopover && !string.IsNullOrWhiteSpace(_popoverAnchorId))
+        {
+            await JS.InvokeVoidAsync("tuvimaPositionSharedEntityPopover", _popoverAnchorId, "see-selector-popover");
+            _popoverPositioned = true;
+            if (_popoverNeedsFocus)
+            {
+                _popoverNeedsFocus = false;
+                await JS.InvokeVoidAsync("tuvimaFocusById", "see-selector-popover");
+            }
+        }
+        else if (_popoverPositioned)
+        {
+            await JS.InvokeVoidAsync("tuvimaRemoveSharedEntityPopoverPosition", "see-selector-popover");
+            _popoverPositioned = false;
+        }
     }
 
     public async Task<bool> SaveAsync()
@@ -110,6 +138,7 @@ public partial class SharedEntityEditorWorkspace : IDisposable
         _message = null;
         _pendingTarget = null;
         _showSelectorPopover = false;
+        _popoverAnchorId = null;
         _selectorItems.Clear();
         _categories = [];
         _appearances = [];
@@ -176,6 +205,8 @@ public partial class SharedEntityEditorWorkspace : IDisposable
                 case SharedEntityEditorSections.Appearances when !IsUniverse:
                     _appearances = await ApiClient.GetSharedEntityAppearancesAsync(_target);
                     break;
+                case SharedEntityEditorSections.Members:
+                case SharedEntityEditorSections.Participants:
                 case SharedEntityEditorSections.Relationships:
                     _relationships = await ApiClient.GetSharedEntityRelationshipsAsync(_target);
                     break;
@@ -219,14 +250,33 @@ public partial class SharedEntityEditorWorkspace : IDisposable
         var alreadyOpen = _showSelectorPopover && string.Equals(category, _selectedCategory, StringComparison.OrdinalIgnoreCase);
         _selectedCategory = category;
         _showSelectorPopover = !alreadyOpen;
+        _popoverAnchorId = $"see-category-{category}";
+        _popoverNeedsFocus = _showSelectorPopover;
         await LoadSelectorPageAsync(reset: true);
     }
 
     private Task ToggleSiblingSelectorAsync()
     {
         _showSelectorPopover = !_showSelectorPopover;
+        _popoverAnchorId = "see-sibling-toggle";
+        _popoverNeedsFocus = _showSelectorPopover;
         return Task.CompletedTask;
     }
+
+    private async Task CloseSelectorPopoverAsync()
+    {
+        _showSelectorPopover = false;
+        _popoverNeedsFocus = false;
+        var focusTarget = _popoverAnchorId;
+        await InvokeAsync(StateHasChanged);
+        if (!string.IsNullOrWhiteSpace(focusTarget))
+            await JS.InvokeVoidAsync("tuvimaFocusById", focusTarget);
+    }
+
+    private Task OnSelectorKeyDown(KeyboardEventArgs args) =>
+        string.Equals(args.Key, "Escape", StringComparison.Ordinal)
+            ? CloseSelectorPopoverAsync()
+            : Task.CompletedTask;
 
     private async Task SelectEntityAsync(SharedEntitySelectorItemDto item)
     {
@@ -422,12 +472,20 @@ public partial class SharedEntityEditorWorkspace : IDisposable
     private SharedEntityEditorTargetDto ToEntityTarget(SharedEntitySelectorItemDto item) => new(SharedEntityEditorTargetKinds.FictionalEntity, _target.UniverseQid, item.id, item.qid);
     private static string CategoryLabel(SharedEntityCategorySummaryDto? category) => category is null ? "Entities" : CategoryLabels.FirstOrDefault(entry => string.Equals(entry.Id, category.category, StringComparison.OrdinalIgnoreCase)).Label is { Length: > 0 } label ? label : category.label;
     private static string CategoryName(string category) => CategoryLabels.FirstOrDefault(entry => string.Equals(entry.Id, category, StringComparison.OrdinalIgnoreCase)).Label is { Length: > 0 } label ? label : category;
+    private static bool IsMembershipRelationship(string? relationshipType) => NormalizeRelationshipType(relationshipType) is
+        "member_of" or "has_part" or "has_parts" or "has_member" or "has_members" or "membership" or "member";
+    private static bool IsParticipantRelationship(string? relationshipType) => NormalizeRelationshipType(relationshipType) is
+        "participant" or "participants" or "participant_in" or "has_participant" or "has_participants" or "participates_in";
+    private static string NormalizeRelationshipType(string? relationshipType) =>
+        (relationshipType ?? string.Empty).Trim().Replace('-', '_').Replace(' ', '_').ToLowerInvariant();
     private static string SectionLabel(string section, string? category) => section switch
     {
         SharedEntityEditorSections.Entities => "Entities",
         SharedEntityEditorSections.Details => "Details",
         SharedEntityEditorSections.Artwork => "Artwork",
         SharedEntityEditorSections.Appearances => "Appearances",
+        SharedEntityEditorSections.Members => "Members",
+        SharedEntityEditorSections.Participants => "Participants",
         SharedEntityEditorSections.Relationships => "Relationships",
         SharedEntityEditorSections.Timeline => "In-universe timeline",
         SharedEntityEditorSections.Sources => "Sources & provenance",
@@ -443,5 +501,7 @@ public partial class SharedEntityEditorWorkspace : IDisposable
     {
         _searchCts?.Cancel();
         _searchCts?.Dispose();
+        if (_popoverPositioned)
+            _ = JS.InvokeVoidAsync("tuvimaRemoveSharedEntityPopoverPosition", "see-selector-popover");
     }
 }

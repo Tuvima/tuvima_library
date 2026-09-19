@@ -20,7 +20,7 @@ public enum MediaEditorIdentityIntent
     FixWikidataMatch,
     ConfirmWikidataMatch,
     MarkWikidataMissing,
-    ReclassifyMediaType,
+    ReviewClassification,
     ConfirmArtwork,
     ResolveWriteback,
 }
@@ -153,7 +153,7 @@ public static class ReviewTargetResolver
                 => MediaEditorIdentityIntent.FixRetailMatch,
             "WikidataBridgeFailed" or "MultipleQidMatches" or "QidNoMatch" or "MissingQid"
                 => MediaEditorIdentityIntent.FixWikidataMatch,
-            "AmbiguousMediaType" or "RootWatchFolder" => MediaEditorIdentityIntent.ReclassifyMediaType,
+            "AmbiguousMediaType" or "RootWatchFolder" => MediaEditorIdentityIntent.ReviewClassification,
             "ArtworkUnconfirmed" => MediaEditorIdentityIntent.ConfirmArtwork,
             "WritebackFailed" => MediaEditorIdentityIntent.ResolveWriteback,
             "PlaceholderTitle" or "StagedUnidentifiable" or "MetadataConflict" or "LowConfidence"
@@ -182,7 +182,7 @@ public static class ReviewTargetResolver
             MediaEditorIdentityIntent.FixWikidataMatch => "Search Wikidata",
             MediaEditorIdentityIntent.ConfirmWikidataMatch => "Choose Wikidata Match",
             MediaEditorIdentityIntent.MarkWikidataMissing => "Mark Provider-Only",
-            MediaEditorIdentityIntent.ReclassifyMediaType => "Change Media Type",
+            MediaEditorIdentityIntent.ReviewClassification => "Review classification",
             MediaEditorIdentityIntent.ConfirmArtwork => "Review Artwork",
             MediaEditorIdentityIntent.ResolveWriteback => "Retry Writeback",
             _ => "Review Metadata",
@@ -195,7 +195,7 @@ public static class ReviewTargetResolver
             MediaEditorIdentityIntent.ConfirmRetailMatch => $"Confirm the retail match for this {subject}.",
             MediaEditorIdentityIntent.FixWikidataMatch => $"Fix the Wikidata identity for this {subject}.",
             MediaEditorIdentityIntent.MarkWikidataMissing => $"Keep the retail match and mark this {subject} as provider-only.",
-            MediaEditorIdentityIntent.ReclassifyMediaType => "Confirm the correct media type before matching continues.",
+            MediaEditorIdentityIntent.ReviewClassification => "Review the classification and metadata; this editor does not change the media type.",
             MediaEditorIdentityIntent.ConfirmArtwork => "Review artwork and choose the preferred assets.",
             MediaEditorIdentityIntent.ResolveWriteback => "Review the file write-back failure and retry or skip it.",
             _ => $"Review the {subject} metadata.",

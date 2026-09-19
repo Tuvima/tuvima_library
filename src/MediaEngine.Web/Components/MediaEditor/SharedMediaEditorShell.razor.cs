@@ -519,6 +519,7 @@ public partial class SharedMediaEditorShell
     {
         _tabState.Initialize(string.IsNullOrWhiteSpace(Request.InitialTab) ? "details" : Request.InitialTab);
         _schema = MediaEditorSchemaCatalog.Resolve(Request.MediaType);
+        InitializeSharedEntityMode();
 
         if (IsSharedEntityMode)
         {
@@ -1791,6 +1792,11 @@ public partial class SharedMediaEditorShell
                     return;
                 }
 
+                if (await CompletePendingSharedEntityModeSwitchAsync())
+                {
+                    return;
+                }
+
                 await CloseEditorAsync(applied: false);
                 return;
             }
@@ -1810,6 +1816,11 @@ public partial class SharedMediaEditorShell
                     return;
                 }
 
+                if (await CompletePendingSharedEntityModeSwitchAsync())
+                {
+                    return;
+                }
+
                 await CloseEditorAsync(applied: true);
                 return;
             }
@@ -1818,6 +1829,11 @@ public partial class SharedMediaEditorShell
                 ? "Changes saved and membership updated."
                 : "Changes saved.", Severity.Success);
             if (await CompletePendingTargetSwitchAsync())
+            {
+                return;
+            }
+
+            if (await CompletePendingSharedEntityModeSwitchAsync())
             {
                 return;
             }
@@ -5581,7 +5597,7 @@ public partial class SharedMediaEditorShell
             MediaEditorIdentityIntent.FixWikidataMatch => "Replace Wikidata Match",
             MediaEditorIdentityIntent.MarkWikidataMissing => "Mark Provider-Only",
             MediaEditorIdentityIntent.ConfirmArtwork => "Confirm Artwork",
-            MediaEditorIdentityIntent.ReclassifyMediaType => "Change Media Type",
+            MediaEditorIdentityIntent.ReviewClassification => "Review classification",
             MediaEditorIdentityIntent.ResolveWriteback => "Retry Writeback",
             _ => "Save Local Changes",
         };
