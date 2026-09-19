@@ -653,6 +653,61 @@ public sealed class Phase5InlineEditingTests
     }
 
     [Fact]
+    public void SharedEditor_PreviewsRetailHierarchyBeforeApplyAndReloadsAuthoritativeSelection()
+    {
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+
+        Assert.Contains("<RetailHierarchyImpactNotice Preview=\"@GetRetailHierarchyImpactPreview(candidate)\" />", shell, StringComparison.Ordinal);
+        Assert.Contains("ApiClient.PreviewMediaEditorMembershipAsync(entityId, request, cancellation.Token)", code, StringComparison.Ordinal);
+        Assert.Contains("SelectedSuggestions = new Dictionary<string, MediaEditorMembershipSuggestionDto>", code, StringComparison.Ordinal);
+        Assert.Contains("suggestionKey = \"show\"", code, StringComparison.Ordinal);
+        Assert.Contains("suggestionKey = \"album\"", code, StringComparison.Ordinal);
+        Assert.Contains("RetailHierarchyPreviewPolicy.CanApply", code, StringComparison.Ordinal);
+        Assert.Contains("IsRetailSeriesLeafScope()", code, StringComparison.Ordinal);
+        Assert.Contains("(\"Movies\", \"movie\") => true", code, StringComparison.Ordinal);
+        Assert.Contains("FieldValues = fields.ToDictionary", code, StringComparison.Ordinal);
+        Assert.Contains("BuildRetailCandidateFieldValues(candidate)", code, StringComparison.Ordinal);
+        Assert.Contains("reloadFromSelectedEntity: true", code, StringComparison.Ordinal);
+
+        var applyStart = code.IndexOf("protected async Task ApplyRetailCandidateAsync(", StringComparison.Ordinal);
+        var applyEnd = code.IndexOf("protected async Task ApplyLinkedCandidateAsync(", applyStart, StringComparison.Ordinal);
+        Assert.True(applyStart >= 0 && applyEnd > applyStart);
+        var applyMethod = code[applyStart..applyEnd];
+        Assert.Contains("RequiredFields = new Dictionary<string, string>(candidate.RequiredFields", applyMethod, StringComparison.Ordinal);
+        Assert.Contains("SuggestedFields = new Dictionary<string, string>(candidate.SuggestedFields", applyMethod, StringComparison.Ordinal);
+        Assert.Contains("&& !IsDirty", code.Substring(code.IndexOf("protected bool CanApplyRetailCandidate(", StringComparison.Ordinal)), StringComparison.Ordinal);
+        Assert.DoesNotContain("DialogService.ShowAsync", applyMethod, StringComparison.Ordinal);
+
+        var reloadStart = code.IndexOf("private async Task ReloadAfterRetailMatchAsync(", StringComparison.Ordinal);
+        var reloadEnd = code.IndexOf("private async Task NotifyParentArtworkChangedAsync(", reloadStart, StringComparison.Ordinal);
+        Assert.True(reloadStart >= 0 && reloadEnd > reloadStart);
+        var reloadMethod = code[reloadStart..reloadEnd];
+        Assert.Contains("response.SelectedEntityId", reloadMethod, StringComparison.Ordinal);
+        Assert.Contains("if (IsDirty)", reloadMethod, StringComparison.Ordinal);
+        Assert.Contains("_navigator = null", reloadMethod, StringComparison.Ordinal);
+        Assert.Contains("resetEditorState: true", reloadMethod, StringComparison.Ordinal);
+        Assert.Contains("ResetMatchSearchState()", reloadMethod, StringComparison.Ordinal);
+        Assert.Contains("_pendingMembershipPreview = null", reloadMethod, StringComparison.Ordinal);
+
+        var loadStart = code.IndexOf("private async Task LoadSingleItemAsync(", StringComparison.Ordinal);
+        var loadEnd = code.IndexOf("private async Task LoadProfilePreferencesAsync(", loadStart, StringComparison.Ordinal);
+        Assert.True(loadStart >= 0 && loadEnd > loadStart);
+        var loadMethod = code[loadStart..loadEnd];
+        Assert.Contains("GetMediaEditorContextAsync(entityId)", loadMethod, StringComparison.Ordinal);
+        Assert.Contains("GetMediaEditorNavigatorAsync(entityId)", loadMethod, StringComparison.Ordinal);
+        Assert.Contains("LoadScopeStateAsync(forceReload: true)", loadMethod, StringComparison.Ordinal);
+        Assert.Contains("LoadProfilePreferencesAsync(CurrentEntityId)", loadMethod, StringComparison.Ordinal);
+        Assert.Contains("LoadEditorSuggestionsAsync()", loadMethod, StringComparison.Ordinal);
+        Assert.Contains("LoadTextTracksAsync()", loadMethod, StringComparison.Ordinal);
+
+        var noticeStyles = ReadSource("src/MediaEngine.Web/Components/MediaEditor/RetailHierarchyImpactNotice.razor.css");
+        Assert.Contains("--tl-status-danger-border", noticeStyles, StringComparison.Ordinal);
+        Assert.Contains("--tl-status-danger-soft", noticeStyles, StringComparison.Ordinal);
+        Assert.Contains("--tl-status-danger", noticeStyles, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SharedEditor_UsesPersistentGenericHierarchicalContextNavigation()
     {
         var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");

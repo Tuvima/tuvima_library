@@ -3,8 +3,10 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Metadata;
 using MediaEngine.Contracts.Operations;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Services;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Shared;
@@ -101,7 +103,11 @@ public partial class SharedMediaEditorShell
     private ItemCanonicalSearchResponseDto? _wikidataSearchResponse;
     private CancellationTokenSource? _retailSearchCts;
     private CancellationTokenSource? _wikidataSearchCts;
+    private CancellationTokenSource? _retailHierarchyPreviewCts;
     private RetailCandidateDetailDto? _retailCandidateDetail;
+    private MediaEditorMembershipPreviewDto? _retailHierarchyPreview;
+    private string? _retailHierarchyPreviewCandidateId;
+    private bool _loadingRetailHierarchyPreview;
     private readonly MediaEditorTabState _tabState = new();
     private string _activeTab => _tabState.ActiveTab;
     private string _activeScopeId = string.Empty;
@@ -587,7 +593,11 @@ public partial class SharedMediaEditorShell
             if (resetEditorState)
             {
                 _editedValues.Clear();
+                _inlineOverrideKeys.Clear();
+                _clearedInlineOverrideKeys.Clear();
+                _pendingInlineRevertKeys.Clear();
                 _selectedMembershipTargetIds.Clear();
+                _selectedMembershipSuggestions.Clear();
                 _membershipSuggestions.Clear();
                 _pendingArtworkFiles.Clear();
                 _pendingArtworkPreviewUrls.Clear();
@@ -599,6 +609,7 @@ public partial class SharedMediaEditorShell
                 _audiobookChapterResetKeys.Clear();
                 _audiobookChapterOverrideKeys.Clear();
                 _pendingTargetSwitch = null;
+                _switchAfterSuccessfulSave = false;
             }
 
             _editorContext = await ApiClient.GetMediaEditorContextAsync(entityId);
@@ -3599,29 +3610,212 @@ public partial class SharedMediaEditorShell
 
     protected async Task SelectCandidateAsync(ItemCanonicalRetailCandidateDto candidate)
     {
-        _selectedRetailCandidateId = GetCandidateId(candidate);
+        var candidateId = GetCandidateId(candidate);
+        CancelRetailHierarchyPreview(clearSelection: false);
+        _selectedRetailCandidateId = candidateId;
         _retailCandidateDetail = null;
+        var previewTask = LoadRetailHierarchyPreviewAsync(candidate);
 
         if (!string.Equals(ReviewTargetResolver.NormalizeMediaType(EditorMediaType), "Music", StringComparison.OrdinalIgnoreCase))
         {
+            await previewTask;
             return;
         }
 
         _loadingRetailCandidateDetail = true;
         try
         {
-            _retailCandidateDetail = await ApiClient.GetRetailCandidateDetailAsync(new RetailCandidateDetailRequestDto
+            var detail = await ApiClient.GetRetailCandidateDetailAsync(new RetailCandidateDetailRequestDto
             {
                 ProviderName = candidate.ProviderName,
                 ProviderItemId = candidate.ProviderItemId,
                 MediaType = EditorMediaType,
                 ExtraFields = new Dictionary<string, string>(candidate.ExtraFields, StringComparer.OrdinalIgnoreCase),
             });
+            if (string.Equals(_selectedRetailCandidateId, candidateId, StringComparison.Ordinal))
+            {
+                _retailCandidateDetail = detail;
+            }
         }
         finally
         {
-            _loadingRetailCandidateDetail = false;
+            if (string.Equals(_selectedRetailCandidateId, candidateId, StringComparison.Ordinal))
+            {
+                _loadingRetailCandidateDetail = false;
+            }
         }
+
+        await previewTask;
+    }
+
+    private async Task LoadRetailHierarchyPreviewAsync(ItemCanonicalRetailCandidateDto candidate)
+    {
+        var request = BuildRetailHierarchyPreviewRequest(candidate);
+        if (request is null)
+        {
+            return;
+        }
+
+        var candidateId = GetCandidateId(candidate);
+        var entityId = _navigator?.SelectedEntityId is { } selectedEntityId && selectedEntityId != Guid.Empty
+            ? selectedEntityId
+            : SelectedNavigatorNode?.EntityId is { } nodeEntityId && nodeEntityId != Guid.Empty
+                ? nodeEntityId
+                : CurrentEntityId;
+        if (entityId == Guid.Empty)
+        {
+            return;
+        }
+
+        var cancellation = new CancellationTokenSource();
+        _retailHierarchyPreviewCts = cancellation;
+        _retailHierarchyPreviewCandidateId = candidateId;
+        _retailHierarchyPreview = null;
+        _loadingRetailHierarchyPreview = true;
+        StateHasChanged();
+
+        try
+        {
+            var preview = await ApiClient.PreviewMediaEditorMembershipAsync(entityId, request, cancellation.Token);
+            if (!cancellation.IsCancellationRequested
+                && ReferenceEquals(_retailHierarchyPreviewCts, cancellation)
+                && string.Equals(_selectedRetailCandidateId, candidateId, StringComparison.Ordinal))
+            {
+                _retailHierarchyPreview = preview;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Retail hierarchy preview was unavailable for candidate {CandidateId}.", candidateId);
+        }
+        finally
+        {
+            if (ReferenceEquals(_retailHierarchyPreviewCts, cancellation))
+            {
+                _retailHierarchyPreviewCts = null;
+                _loadingRetailHierarchyPreview = false;
+                StateHasChanged();
+            }
+
+            cancellation.Dispose();
+        }
+    }
+
+    public void Dispose()
+    {
+        CancelRetailHierarchyPreview();
+        CancelAllMatchSearches();
+    }
+
+    private MediaEditorMembershipPreviewRequestDto? BuildRetailHierarchyPreviewRequest(ItemCanonicalRetailCandidateDto candidate)
+    {
+        var fields = BuildRetailCandidateFieldValues(candidate);
+        string suggestionKey;
+        string suggestionKind;
+        string label;
+        string? subtitle = null;
+        string externalIdKey;
+        string? externalIdValue;
+
+        if (IsRetailSeriesLeafScope()
+            && fields.ContainsKey("series")
+            && !string.IsNullOrWhiteSpace(fields["series"]))
+        {
+            return new MediaEditorMembershipPreviewRequestDto
+            {
+                ScopeId = ActiveScope?.ScopeId,
+                FieldValues = fields.ToDictionary(pair => pair.Key, pair => (string?)pair.Value, StringComparer.OrdinalIgnoreCase),
+            };
+        }
+
+        if (string.Equals(EditorMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(ActiveScope?.ScopeId, "episode", StringComparison.OrdinalIgnoreCase)
+            && fields.TryGetValue("show_name", out var showName)
+            && !string.IsNullOrWhiteSpace(showName))
+        {
+            suggestionKey = "show";
+            suggestionKind = "show";
+            label = showName;
+            externalIdKey = BridgeIdKeys.TmdbId;
+            externalIdValue = GetCandidateBridgeId(candidate, externalIdKey);
+        }
+        else if (string.Equals(EditorMediaType, "Music", StringComparison.OrdinalIgnoreCase)
+                 && string.Equals(ActiveScope?.ScopeId, "track", StringComparison.OrdinalIgnoreCase)
+                 && fields.TryGetValue("album", out var album)
+                 && !string.IsNullOrWhiteSpace(album))
+        {
+            suggestionKey = "album";
+            suggestionKind = "album";
+            label = album;
+            subtitle = fields.GetValueOrDefault("artist");
+            externalIdKey = BridgeIdKeys.MusicBrainzReleaseGroupId;
+            externalIdValue = GetCandidateBridgeId(candidate, externalIdKey);
+        }
+        else
+        {
+            return null;
+        }
+
+        var source = string.IsNullOrWhiteSpace(externalIdValue) ? "local" : "retail";
+        return new MediaEditorMembershipPreviewRequestDto
+        {
+            ScopeId = ActiveScope?.ScopeId,
+            FieldValues = fields.ToDictionary(pair => pair.Key, pair => (string?)pair.Value, StringComparer.OrdinalIgnoreCase),
+            SelectedSuggestions = new Dictionary<string, MediaEditorMembershipSuggestionDto>(StringComparer.OrdinalIgnoreCase)
+            {
+                [suggestionKey] = new MediaEditorMembershipSuggestionDto
+                {
+                    Source = source,
+                    LocalExisting = false,
+                    Kind = suggestionKind,
+                    Label = label,
+                    Subtitle = subtitle,
+                    ProviderName = candidate.ProviderName,
+                    ProviderItemId = candidate.ProviderItemId,
+                    ExternalIdKey = string.IsNullOrWhiteSpace(externalIdValue) ? null : externalIdKey,
+                    ExternalIdValue = externalIdValue,
+                },
+            },
+        };
+    }
+
+    private bool IsRetailSeriesLeafScope() =>
+        (EditorMediaType, ActiveScope?.ScopeId?.ToLowerInvariant()) switch
+        {
+            ("Books", "book") => true,
+            ("Audiobooks", "audiobook") => true,
+            ("Comics", "issue") => true,
+            ("Movies", "movie") => true,
+            ("Movies", "item") => true,
+            _ => false,
+        };
+
+    private static Dictionary<string, string> BuildRetailCandidateFieldValues(ItemCanonicalRetailCandidateDto candidate) =>
+        candidate.RequiredFields
+            .Concat(candidate.SuggestedFields)
+            .Where(pair => !string.IsNullOrWhiteSpace(pair.Key) && !string.IsNullOrWhiteSpace(pair.Value))
+            .GroupBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Last().Value, StringComparer.OrdinalIgnoreCase);
+
+    private static string? GetCandidateBridgeId(ItemCanonicalRetailCandidateDto candidate, string key) =>
+        candidate.BridgeIds.FirstOrDefault(pair => string.Equals(pair.Key, key, StringComparison.OrdinalIgnoreCase)).Value;
+
+    private void CancelRetailHierarchyPreview(bool clearSelection = true)
+    {
+        var cancellation = _retailHierarchyPreviewCts;
+        _retailHierarchyPreviewCts = null;
+        _loadingRetailHierarchyPreview = false;
+        _retailHierarchyPreview = null;
+        _retailHierarchyPreviewCandidateId = null;
+        if (clearSelection)
+        {
+            _selectedRetailCandidateId = null;
+        }
+
+        cancellation?.Cancel();
     }
 
     protected async Task ToggleRetailCandidateDetailsAsync(ItemCanonicalRetailCandidateDto candidate)
@@ -3631,6 +3825,7 @@ public partial class SharedMediaEditorShell
         {
             _selectedRetailCandidateId = null;
             _retailCandidateDetail = null;
+            CancelRetailHierarchyPreview();
             return;
         }
 
@@ -3661,9 +3856,39 @@ public partial class SharedMediaEditorShell
     protected bool CanApplyRetailCandidate(ItemCanonicalRetailCandidateDto candidate) =>
         IsCandidateSelected(GetCandidateId(candidate))
         && candidate.IsApplicable
+        && RetailHierarchyPreviewPolicy.CanApply(
+            previewRequired: BuildRetailHierarchyPreviewRequest(candidate) is not null,
+            loading: IsRetailHierarchyPreviewLoading(candidate),
+            candidatePreviewMatches: string.Equals(_retailHierarchyPreviewCandidateId, GetCandidateId(candidate), StringComparison.Ordinal),
+            preview: _retailHierarchyPreview)
+        && !IsDirty
         && !_matchActionPending
         && !string.IsNullOrWhiteSpace(candidate.ProviderName)
         && !string.IsNullOrWhiteSpace(candidate.ProviderItemId);
+
+    protected MediaEditorMembershipPreviewDto? GetRetailHierarchyImpactPreview(ItemCanonicalRetailCandidateDto candidate)
+    {
+        var candidateId = GetCandidateId(candidate);
+        if (!string.Equals(_selectedRetailCandidateId, candidateId, StringComparison.Ordinal)
+            || !string.Equals(_retailHierarchyPreviewCandidateId, candidateId, StringComparison.Ordinal)
+            || !RetailHierarchyPreviewPolicy.ShouldShowImpactNotice(_retailHierarchyPreview))
+        {
+            return null;
+        }
+
+        return _retailHierarchyPreview;
+    }
+
+    protected string? GetRetailHierarchyPreviewStatus(ItemCanonicalRetailCandidateDto candidate) =>
+        RetailHierarchyPreviewPolicy.GetStatus(
+            previewRequired: BuildRetailHierarchyPreviewRequest(candidate) is not null,
+            loading: IsRetailHierarchyPreviewLoading(candidate),
+            candidatePreviewMatches: string.Equals(_retailHierarchyPreviewCandidateId, GetCandidateId(candidate), StringComparison.Ordinal),
+            preview: _retailHierarchyPreview);
+
+    private bool IsRetailHierarchyPreviewLoading(ItemCanonicalRetailCandidateDto candidate) =>
+        _loadingRetailHierarchyPreview
+        && string.Equals(_retailHierarchyPreviewCandidateId, GetCandidateId(candidate), StringComparison.Ordinal);
 
     protected bool CanApplyLinkedCandidate(ItemCanonicalLinkedCandidateDto candidate) =>
         IsCandidateSelected(GetCandidateId(candidate))
@@ -3741,6 +3966,7 @@ public partial class SharedMediaEditorShell
     private void ResetMatchSearchState()
     {
         CancelAllMatchSearches();
+        CancelRetailHierarchyPreview();
         _retailSearchResponse = null;
         _wikidataSearchResponse = null;
         _selectedRetailCandidateId = null;
@@ -3808,6 +4034,7 @@ public partial class SharedMediaEditorShell
         {
             _selectedRetailCandidateId = null;
             _retailCandidateDetail = null;
+            CancelRetailHierarchyPreview();
         }
     }
 
@@ -3906,13 +4133,16 @@ public partial class SharedMediaEditorShell
                 ProviderName = candidate.ProviderName,
                 ProviderItemId = candidate.ProviderItemId ?? string.Empty,
                 CoverUrl = candidate.CoverUrl,
-                RequiredFields = [],
-                SuggestedFields = [],
+                RequiredFields = new Dictionary<string, string>(candidate.RequiredFields, StringComparer.OrdinalIgnoreCase),
+                SuggestedFields = new Dictionary<string, string>(candidate.SuggestedFields, StringComparer.OrdinalIgnoreCase),
                 BridgeIds = candidate.BridgeIds,
                 ReviewItemId = Request.ReviewItemId,
             });
 
-        await FinishMatchActionAsync(response, "Match confirmed. This file was queued for the full enrichment cycle.");
+        await FinishMatchActionAsync(
+            response,
+            "Match confirmed. This file was queued for the full enrichment cycle.",
+            reloadFromSelectedEntity: true);
     }
 
     protected async Task ApplyLinkedCandidateAsync(ItemCanonicalLinkedCandidateDto candidate)
@@ -3997,7 +4227,10 @@ public partial class SharedMediaEditorShell
         await FinishMatchActionAsync(response, "Wikidata identity cleared; retail match kept.");
     }
 
-    private async Task FinishMatchActionAsync(ItemCanonicalApplyResponseDto? response, string fallbackMessage)
+    private async Task FinishMatchActionAsync(
+        ItemCanonicalApplyResponseDto? response,
+        string fallbackMessage,
+        bool reloadFromSelectedEntity = false)
     {
         if (response is null)
         {
@@ -4017,31 +4250,28 @@ public partial class SharedMediaEditorShell
 
         try
         {
-            if (Request.OnArtworkChanged is not null)
+            if (reloadFromSelectedEntity)
             {
-                try
-                {
-                    await Request.OnArtworkChanged.Invoke();
-                }
-                catch (Exception ex)
-                {
-                    Snackbar.Add($"The match was saved, but the detail page could not refresh: {ex.Message}", Severity.Warning);
-                }
+                await ReloadAfterRetailMatchAsync(response);
             }
-
-            var refreshedContext = await ApiClient.GetMediaEditorContextAsync(EditorContextEntityId);
-            if (refreshedContext is not null)
+            else
             {
-                _editorContext = refreshedContext;
-                if (!_editorContext.Scopes.Any(scope => string.Equals(scope.ScopeId, _activeScopeId, StringComparison.OrdinalIgnoreCase)))
-                {
-                    _activeScopeId = _editorContext.InitialScope;
-                }
-            }
+                await NotifyParentArtworkChangedAsync();
 
-            _scopeStates.Clear();
-            _artworkStates.Clear();
-            await LoadScopeStateAsync(forceReload: true);
+                var refreshedContext = await ApiClient.GetMediaEditorContextAsync(EditorContextEntityId);
+                if (refreshedContext is not null)
+                {
+                    _editorContext = refreshedContext;
+                    if (!_editorContext.Scopes.Any(scope => string.Equals(scope.ScopeId, _activeScopeId, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        _activeScopeId = _editorContext.InitialScope;
+                    }
+                }
+
+                _scopeStates.Clear();
+                _artworkStates.Clear();
+                await LoadScopeStateAsync(forceReload: true);
+            }
         }
         finally
         {
@@ -4050,6 +4280,66 @@ public partial class SharedMediaEditorShell
 
         Snackbar.Add(string.IsNullOrWhiteSpace(response.Message) ? fallbackMessage : response.Message, Severity.Success);
         StateHasChanged();
+    }
+
+    private async Task ReloadAfterRetailMatchAsync(ItemCanonicalApplyResponseDto response)
+    {
+        var targetEntityId = response.SelectedEntityId != Guid.Empty
+            ? response.SelectedEntityId
+            : EditorContextEntityId;
+
+        CancelRetailHierarchyPreview();
+        _retailCandidateDetail = null;
+
+        // Apply is disabled while the editor is dirty. Keep the normal target-switch
+        // safeguard as a backstop if a user edits while the request is in flight.
+        if (IsDirty)
+        {
+            ResetMatchSearchState();
+            _scopeStates.Clear();
+            _artworkStates.Clear();
+            _pendingTargetSwitch = new PendingTargetSwitch(
+                targetEntityId,
+                null,
+                response.TargetPath ?? response.Message ?? "updated item");
+            _navigator = null;
+            await NotifyParentArtworkChangedAsync();
+            StateHasChanged();
+            return;
+        }
+
+        _navigator = null;
+        _editorContext = null;
+        _detail = null;
+        _canonicalValues = [];
+        _claims = [];
+        _history = [];
+        _artwork = null;
+        _pendingMembershipPreview = null;
+        ResetMatchSearchState();
+
+        await LoadSingleItemAsync(
+            targetEntityId,
+            resetEditorState: true,
+            preferredScopeId: _activeScopeId);
+        await NotifyParentArtworkChangedAsync();
+    }
+
+    private async Task NotifyParentArtworkChangedAsync()
+    {
+        if (Request.OnArtworkChanged is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await Request.OnArtworkChanged.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"The match was saved, but the detail page could not refresh: {ex.Message}", Severity.Warning);
+        }
     }
 
     private async Task ApplyCanonicalAsync(

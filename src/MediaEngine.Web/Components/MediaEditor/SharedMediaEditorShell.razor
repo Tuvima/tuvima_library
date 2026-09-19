@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.MediaEditor
+@implements IDisposable
 @using System.Globalization
 @using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.AspNetCore.Components.Forms
@@ -912,6 +913,7 @@
                                                     var isSelected = IsCandidateSelected(candidateId);
                                                     var isBestMatch = retailIndex == 0;
                                                     var evidenceNotice = GetRetailCandidateEvidenceNotice(candidate);
+                                                    var hierarchyPreviewStatus = GetRetailHierarchyPreviewStatus(candidate);
                                                     <div class="sme-match-result-card sme-match-result-card--retail @(isSelected ? "sme-match-result-card--selected" : "")">
                                                         <div class="sme-match-result-hero">
                                                             <AppNativeButton Type="button"
@@ -962,7 +964,11 @@
                                                         </div>
                                                         @if (isSelected)
                                                         {
-                                                            @if (!candidate.IsApplicable && !string.IsNullOrWhiteSpace(candidate.BlockedReason))
+                                                            @if (IsDirty)
+                                                            {
+                                                                <div class="sme-match-blocked-reason" role="status"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" Size="Size.Small" /> Save or discard your unsaved editor changes before applying a retail match.</div>
+                                                            }
+                                                            else if (!candidate.IsApplicable && !string.IsNullOrWhiteSpace(candidate.BlockedReason))
                                                             {
                                                                 <div class="sme-match-blocked-reason" role="status"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" Size="Size.Small" /> @candidate.BlockedReason</div>
                                                             }
@@ -970,6 +976,11 @@
                                                             {
                                                                 <div class="sme-match-evidence-notice" role="status"><MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" /> @evidenceNotice</div>
                                                             }
+                                                            @if (!string.IsNullOrWhiteSpace(hierarchyPreviewStatus))
+                                                            {
+                                                                <div class="@(IsRetailHierarchyPreviewLoading(candidate) ? "sme-match-evidence-notice" : "sme-match-blocked-reason")" role="status"><MudIcon Icon="@(IsRetailHierarchyPreviewLoading(candidate) ? Icons.Material.Outlined.Info : Icons.Material.Outlined.WarningAmber)" Size="Size.Small" /> @hierarchyPreviewStatus</div>
+                                                            }
+                                                            <RetailHierarchyImpactNotice Preview="@GetRetailHierarchyImpactPreview(candidate)" />
                                                             <div class="sme-match-consequence-note">
                                                                 <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
                                                                 <span>This changes the linked retail edition and refreshes provider-managed artwork. Canonical identity and user-edited metadata remain unchanged.</span>
