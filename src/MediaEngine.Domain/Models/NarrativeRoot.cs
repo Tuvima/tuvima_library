@@ -26,6 +26,9 @@ public sealed class NarrativeRoot
     /// </summary>
     public string Label { get; set; } = string.Empty;
 
+    /// <summary>User-authored description projection; provider identity remains QID-based.</summary>
+    public string? Description { get; set; }
+
     /// <summary>
     /// Hierarchy level: <c>"Universe"</c>, <c>"Franchise"</c>, <c>"Series"</c>,
     /// or <c>"Standalone"</c>. See <see cref="Constants.NarrativeLevel"/>.

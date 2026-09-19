@@ -171,7 +171,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v8-graph-facts", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v9-shared-entity-editor", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
 
         (string Table, string Column)[] internalGuidColumns =
         [
@@ -291,6 +291,7 @@ public sealed class DatabaseStartupSafetyTests
             ("entity_relationship_qualifiers", "id"),
             ("entity_relationship_qualifiers", "relationship_id"),
             ("fictional_entities", "id"),
+            ("fictional_entity_user_overrides", "entity_id"),
             ("fictional_entity_work_links", "id"),
             ("fictional_entity_work_links", "entity_id"),
             ("plugin_lore_sources", "id"),
@@ -726,7 +727,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v8-graph-facts", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v9-shared-entity-editor", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.True(TableExists(conn, "review_queue"));
     }
 
@@ -759,7 +760,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         var exception = Assert.Throws<InvalidOperationException>(() => fixture.Database.InitializeSchema());
-        Assert.Contains("guid-blob-v8-graph-facts", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("guid-blob-v9-shared-entity-editor", exception.Message, StringComparison.Ordinal);
         Assert.Contains("not migrated in place", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -786,7 +787,7 @@ public sealed class DatabaseStartupSafetyTests
 
         var exception = Assert.Throws<InvalidOperationException>(() => fixture.Database.InitializeSchema());
 
-        Assert.Contains("guid-blob-v8-graph-facts", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("guid-blob-v9-shared-entity-editor", exception.Message, StringComparison.Ordinal);
         Assert.Contains("not migrated in place", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -810,7 +811,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v8-graph-facts", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v9-shared-entity-editor", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.Equal("BLOB", ColumnType(conn, "metadata_providers", "id"));
         Assert.True(TableExists(conn, "review_queue"));
 
@@ -849,7 +850,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         using var current = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v8-graph-facts", Scalar(current, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v9-shared-entity-editor", Scalar(current, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.Equal("INTEGER", ColumnType(current, "user_states", "revision"));
     }
 

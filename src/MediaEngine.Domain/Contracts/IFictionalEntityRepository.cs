@@ -26,6 +26,9 @@ public sealed record FictionalEntityWorkLink(
     double? Confidence = null,
     string? AppearanceKey = null);
 
+/// <summary>Database-paged fictional-entity selector result.</summary>
+public sealed record FictionalEntitySearchPage(IReadOnlyList<FictionalEntity> Items, int Total);
+
 /// <summary>
 /// CRUD operations for <see cref="FictionalEntity"/> records and their
 /// work-link junction table.
@@ -54,6 +57,22 @@ public interface IFictionalEntityRepository
     /// </summary>
     Task<IReadOnlyList<FictionalEntity>> GetByUniverseAndTypeAsync(
         string universeQid, string entitySubType, CancellationToken ct = default);
+
+    /// <summary>
+    /// Search only entities that have appearance provenance in the supplied visible owned works.
+    /// Paging and the filtered total are performed in SQLite, never after loading a universe graph.
+    /// </summary>
+    Task<FictionalEntitySearchPage> SearchVisibleByUniverseAsync(
+        string universeQid,
+        IReadOnlyCollection<string> visibleWorkQids,
+        string? entitySubType,
+        string? search,
+        int offset,
+        int limit,
+        CancellationToken ct = default);
+
+    /// <summary>Persist user-owned details separately from provider enrichment values.</summary>
+    Task UpdateUserDetailsAsync(Guid entityId, string label, string? description, CancellationToken ct = default);
 
     /// <summary>
     /// Returns all fictional entities linked to a given work QID

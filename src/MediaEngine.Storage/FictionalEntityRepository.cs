@@ -32,19 +32,21 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
 
         using var conn = _db.CreateConnection();
         var result = conn.QueryFirstOrDefault<FictionalEntity>("""
-            SELECT id                      AS Id,
-                   wikidata_qid            AS WikidataQid,
-                   label                   AS Label,
-                   description             AS Description,
-                   entity_sub_type         AS EntitySubType,
-                   fictional_universe_qid  AS FictionalUniverseQid,
-                   fictional_universe_label AS FictionalUniverseLabel,
-                   image_url               AS ImageUrl,
-                   local_image_path        AS LocalImagePath,
-                   created_at              AS CreatedAt,
-                   enriched_at             AS EnrichedAt
-            FROM   fictional_entities
-            WHERE  wikidata_qid = @qid COLLATE NOCASE
+            SELECT fe.id                   AS Id,
+                   fe.wikidata_qid          AS WikidataQid,
+                   COALESCE(overrides.label, fe.label) AS Label,
+                   COALESCE(overrides.description, fe.description) AS Description,
+                   fe.entity_sub_type       AS EntitySubType,
+                   fe.fictional_universe_qid AS FictionalUniverseQid,
+                   fe.fictional_universe_label AS FictionalUniverseLabel,
+                   fe.image_url             AS ImageUrl,
+                   fe.local_image_path      AS LocalImagePath,
+                   fe.created_at            AS CreatedAt,
+                   fe.enriched_at           AS EnrichedAt,
+                   fe.wikidata_revision_id  AS WikidataRevisionId
+            FROM   fictional_entities fe
+            LEFT JOIN fictional_entity_user_overrides overrides ON overrides.entity_id = fe.id
+            WHERE  fe.wikidata_qid = @qid COLLATE NOCASE
             LIMIT  1;
             """, new { qid });
         return Task.FromResult(result);
@@ -73,19 +75,21 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         {
             ct.ThrowIfCancellationRequested();
             results.AddRange(conn.Query<FictionalEntity>("""
-                SELECT id                       AS Id,
-                       wikidata_qid             AS WikidataQid,
-                       label                    AS Label,
-                       description              AS Description,
-                       entity_sub_type          AS EntitySubType,
-                       fictional_universe_qid   AS FictionalUniverseQid,
-                       fictional_universe_label AS FictionalUniverseLabel,
-                       image_url                AS ImageUrl,
-                       local_image_path         AS LocalImagePath,
-                       created_at               AS CreatedAt,
-                       enriched_at              AS EnrichedAt
-                FROM   fictional_entities
-                WHERE  wikidata_qid COLLATE NOCASE IN @qids;
+                SELECT fe.id                    AS Id,
+                       fe.wikidata_qid          AS WikidataQid,
+                       COALESCE(overrides.label, fe.label) AS Label,
+                       COALESCE(overrides.description, fe.description) AS Description,
+                       fe.entity_sub_type       AS EntitySubType,
+                       fe.fictional_universe_qid AS FictionalUniverseQid,
+                       fe.fictional_universe_label AS FictionalUniverseLabel,
+                       fe.image_url             AS ImageUrl,
+                       fe.local_image_path      AS LocalImagePath,
+                       fe.created_at            AS CreatedAt,
+                       fe.enriched_at           AS EnrichedAt,
+                       fe.wikidata_revision_id  AS WikidataRevisionId
+                FROM fictional_entities fe
+                LEFT JOIN fictional_entity_user_overrides overrides ON overrides.entity_id = fe.id
+                WHERE fe.wikidata_qid COLLATE NOCASE IN @qids;
                 """, new { qids = batch }));
         }
 
@@ -99,19 +103,21 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
 
         using var conn = _db.CreateConnection();
         var result = conn.QueryFirstOrDefault<FictionalEntity>("""
-            SELECT id                      AS Id,
-                   wikidata_qid            AS WikidataQid,
-                   label                   AS Label,
-                   description             AS Description,
-                   entity_sub_type         AS EntitySubType,
-                   fictional_universe_qid  AS FictionalUniverseQid,
-                   fictional_universe_label AS FictionalUniverseLabel,
-                   image_url               AS ImageUrl,
-                   local_image_path        AS LocalImagePath,
-                   created_at              AS CreatedAt,
-                   enriched_at             AS EnrichedAt
-            FROM   fictional_entities
-            WHERE  id = @id
+            SELECT fe.id                   AS Id,
+                   fe.wikidata_qid          AS WikidataQid,
+                   COALESCE(overrides.label, fe.label) AS Label,
+                   COALESCE(overrides.description, fe.description) AS Description,
+                   fe.entity_sub_type       AS EntitySubType,
+                   fe.fictional_universe_qid AS FictionalUniverseQid,
+                   fe.fictional_universe_label AS FictionalUniverseLabel,
+                   fe.image_url             AS ImageUrl,
+                   fe.local_image_path      AS LocalImagePath,
+                   fe.created_at            AS CreatedAt,
+                   fe.enriched_at           AS EnrichedAt,
+                   fe.wikidata_revision_id  AS WikidataRevisionId
+            FROM   fictional_entities fe
+            LEFT JOIN fictional_entity_user_overrides overrides ON overrides.entity_id = fe.id
+            WHERE  fe.id = @id
             LIMIT  1;
             """, new { id });
         return Task.FromResult(result);
@@ -126,20 +132,22 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
 
         using var conn = _db.CreateConnection();
         var results = conn.Query<FictionalEntity>("""
-            SELECT id                      AS Id,
-                   wikidata_qid            AS WikidataQid,
-                   label                   AS Label,
-                   description             AS Description,
-                   entity_sub_type         AS EntitySubType,
-                   fictional_universe_qid  AS FictionalUniverseQid,
-                   fictional_universe_label AS FictionalUniverseLabel,
-                   image_url               AS ImageUrl,
-                   local_image_path        AS LocalImagePath,
-                   created_at              AS CreatedAt,
-                   enriched_at             AS EnrichedAt
-            FROM   fictional_entities
-            WHERE  fictional_universe_qid = @universeQid
-            ORDER BY entity_sub_type, label;
+            SELECT fe.id                   AS Id,
+                   fe.wikidata_qid          AS WikidataQid,
+                   COALESCE(overrides.label, fe.label) AS Label,
+                   COALESCE(overrides.description, fe.description) AS Description,
+                   fe.entity_sub_type       AS EntitySubType,
+                   fe.fictional_universe_qid AS FictionalUniverseQid,
+                   fe.fictional_universe_label AS FictionalUniverseLabel,
+                   fe.image_url             AS ImageUrl,
+                   fe.local_image_path      AS LocalImagePath,
+                   fe.created_at            AS CreatedAt,
+                   fe.enriched_at           AS EnrichedAt,
+                   fe.wikidata_revision_id  AS WikidataRevisionId
+            FROM fictional_entities fe
+            LEFT JOIN fictional_entity_user_overrides overrides ON overrides.entity_id = fe.id
+            WHERE fe.fictional_universe_qid = @universeQid
+            ORDER BY fe.entity_sub_type, COALESCE(overrides.label, fe.label);
             """, new { universeQid }).AsList();
 
         return Task.FromResult<IReadOnlyList<FictionalEntity>>(results);
@@ -153,24 +161,109 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
 
         using var conn = _db.CreateConnection();
         var results = conn.Query<FictionalEntity>("""
-            SELECT id                      AS Id,
-                   wikidata_qid            AS WikidataQid,
-                   label                   AS Label,
-                   description             AS Description,
-                   entity_sub_type         AS EntitySubType,
-                   fictional_universe_qid  AS FictionalUniverseQid,
-                   fictional_universe_label AS FictionalUniverseLabel,
-                   image_url               AS ImageUrl,
-                   local_image_path        AS LocalImagePath,
-                   created_at              AS CreatedAt,
-                   enriched_at             AS EnrichedAt
-            FROM   fictional_entities
-            WHERE  fictional_universe_qid = @universeQid
-              AND  entity_sub_type = @entitySubType
-            ORDER BY label;
+            SELECT fe.id                   AS Id,
+                   fe.wikidata_qid          AS WikidataQid,
+                   COALESCE(overrides.label, fe.label) AS Label,
+                   COALESCE(overrides.description, fe.description) AS Description,
+                   fe.entity_sub_type       AS EntitySubType,
+                   fe.fictional_universe_qid AS FictionalUniverseQid,
+                   fe.fictional_universe_label AS FictionalUniverseLabel,
+                   fe.image_url             AS ImageUrl,
+                   fe.local_image_path      AS LocalImagePath,
+                   fe.created_at            AS CreatedAt,
+                   fe.enriched_at           AS EnrichedAt,
+                   fe.wikidata_revision_id  AS WikidataRevisionId
+            FROM fictional_entities fe
+            LEFT JOIN fictional_entity_user_overrides overrides ON overrides.entity_id = fe.id
+            WHERE fe.fictional_universe_qid = @universeQid
+              AND fe.entity_sub_type = @entitySubType
+            ORDER BY COALESCE(overrides.label, fe.label);
             """, new { universeQid, entitySubType }).AsList();
 
         return Task.FromResult<IReadOnlyList<FictionalEntity>>(results);
+    }
+
+    /// <inheritdoc/>
+    public Task<FictionalEntitySearchPage> SearchVisibleByUniverseAsync(
+        string universeQid,
+        IReadOnlyCollection<string> visibleWorkQids,
+        string? entitySubType,
+        string? search,
+        int offset,
+        int limit,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(universeQid);
+        ArgumentNullException.ThrowIfNull(visibleWorkQids);
+        if (visibleWorkQids.Count == 0)
+        {
+            return Task.FromResult(new FictionalEntitySearchPage([], 0));
+        }
+
+        using var conn = _db.CreateConnection();
+        conn.Execute("CREATE TEMP TABLE IF NOT EXISTS editor_visible_work_qids (qid TEXT PRIMARY KEY COLLATE NOCASE);");
+        conn.Execute("DELETE FROM editor_visible_work_qids;");
+        foreach (var batch in visibleWorkQids.Where(qid => !string.IsNullOrWhiteSpace(qid)).Distinct(StringComparer.OrdinalIgnoreCase).Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            conn.Execute("INSERT OR IGNORE INTO editor_visible_work_qids (qid) VALUES (@qid);", batch.Select(qid => new { qid }));
+        }
+
+        const string visibleWhere = """
+            fe.fictional_universe_qid = @universeQid
+            AND (@entitySubType IS NULL OR fe.entity_sub_type = @entitySubType COLLATE NOCASE)
+            AND (@search IS NULL OR fe.label LIKE '%' || @search || '%' COLLATE NOCASE
+                 OR COALESCE(overrides.label, '') LIKE '%' || @search || '%' COLLATE NOCASE)
+            AND EXISTS (
+                SELECT 1 FROM fictional_entity_work_links fewl
+                INNER JOIN editor_visible_work_qids visible ON visible.qid = fewl.work_qid
+                WHERE fewl.entity_id = fe.id)
+            """;
+        var args = new { universeQid, entitySubType = string.IsNullOrWhiteSpace(entitySubType) ? null : entitySubType, search = string.IsNullOrWhiteSpace(search) ? null : search.Trim(), offset = Math.Max(0, offset), limit = Math.Clamp(limit, 1, 100) };
+        var total = conn.ExecuteScalar<int>($"""
+            SELECT COUNT(*)
+            FROM fictional_entities fe
+            LEFT JOIN fictional_entity_user_overrides overrides ON overrides.entity_id = fe.id
+            WHERE {visibleWhere};
+            """, args);
+        var items = conn.Query<FictionalEntity>($"""
+            SELECT fe.id AS Id,
+                   fe.wikidata_qid AS WikidataQid,
+                   COALESCE(overrides.label, fe.label) AS Label,
+                   COALESCE(overrides.description, fe.description) AS Description,
+                   fe.entity_sub_type AS EntitySubType,
+                   fe.fictional_universe_qid AS FictionalUniverseQid,
+                   fe.fictional_universe_label AS FictionalUniverseLabel,
+                   fe.image_url AS ImageUrl,
+                   fe.local_image_path AS LocalImagePath,
+                   fe.created_at AS CreatedAt,
+                   fe.enriched_at AS EnrichedAt,
+                   fe.wikidata_revision_id AS WikidataRevisionId
+            FROM fictional_entities fe
+            LEFT JOIN fictional_entity_user_overrides overrides ON overrides.entity_id = fe.id
+            WHERE {visibleWhere}
+            ORDER BY COALESCE(overrides.label, fe.label) COLLATE NOCASE, fe.wikidata_qid
+            LIMIT @limit OFFSET @offset;
+            """, args).AsList();
+        return Task.FromResult(new FictionalEntitySearchPage(items, total));
+    }
+
+    /// <inheritdoc/>
+    public Task UpdateUserDetailsAsync(Guid entityId, string label, string? description, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(label);
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            conn.Execute("""
+                INSERT INTO fictional_entity_user_overrides (entity_id, label, description, updated_at)
+                VALUES (@entityId, @label, @description, datetime('now'))
+                ON CONFLICT(entity_id) DO UPDATE SET
+                    label = excluded.label,
+                    description = excluded.description,
+                    updated_at = datetime('now');
+                """, new { entityId, label = label.Trim(), description }, tx);
+        }, ct);
     }
 
     /// <inheritdoc/>
@@ -184,18 +277,20 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         var results = conn.Query<FictionalEntity>("""
             SELECT DISTINCT fe.id             AS Id,
                    fe.wikidata_qid            AS WikidataQid,
-                   fe.label                   AS Label,
-                   fe.description             AS Description,
+                   COALESCE(overrides.label, fe.label) AS Label,
+                   COALESCE(overrides.description, fe.description) AS Description,
                    fe.entity_sub_type         AS EntitySubType,
                    fe.fictional_universe_qid  AS FictionalUniverseQid,
                    fe.fictional_universe_label AS FictionalUniverseLabel,
                    fe.image_url               AS ImageUrl,
                    fe.local_image_path        AS LocalImagePath,
                    fe.created_at              AS CreatedAt,
-                   fe.enriched_at             AS EnrichedAt
+                   fe.enriched_at             AS EnrichedAt,
+                   fe.wikidata_revision_id    AS WikidataRevisionId
             FROM   fictional_entities fe
             INNER JOIN fictional_entity_work_links fewl
                 ON fe.id = fewl.entity_id
+            LEFT JOIN fictional_entity_user_overrides overrides ON overrides.entity_id = fe.id
             WHERE  fewl.work_qid = @workQid COLLATE NOCASE;
             """, new { workQid }).AsList();
 
@@ -459,21 +554,23 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
 
         using var conn = _db.CreateConnection();
         var results = conn.Query<FictionalEntity>("""
-            SELECT id                       AS Id,
-                   wikidata_qid             AS WikidataQid,
-                   label                    AS Label,
-                   description              AS Description,
-                   entity_sub_type          AS EntitySubType,
-                   fictional_universe_qid   AS FictionalUniverseQid,
-                   fictional_universe_label AS FictionalUniverseLabel,
-                   image_url                AS ImageUrl,
-                   local_image_path         AS LocalImagePath,
-                   created_at               AS CreatedAt,
-                   enriched_at              AS EnrichedAt
-            FROM   fictional_entities
-            WHERE  enriched_at IS NOT NULL
-              AND  enriched_at < @cutoff
-            ORDER BY enriched_at ASC
+            SELECT fe.id                    AS Id,
+                   fe.wikidata_qid          AS WikidataQid,
+                   COALESCE(overrides.label, fe.label) AS Label,
+                   COALESCE(overrides.description, fe.description) AS Description,
+                   fe.entity_sub_type       AS EntitySubType,
+                   fe.fictional_universe_qid AS FictionalUniverseQid,
+                   fe.fictional_universe_label AS FictionalUniverseLabel,
+                   fe.image_url             AS ImageUrl,
+                   fe.local_image_path      AS LocalImagePath,
+                   fe.created_at            AS CreatedAt,
+                   fe.enriched_at           AS EnrichedAt,
+                   fe.wikidata_revision_id  AS WikidataRevisionId
+            FROM fictional_entities fe
+            LEFT JOIN fictional_entity_user_overrides overrides ON overrides.entity_id = fe.id
+            WHERE fe.enriched_at IS NOT NULL
+              AND fe.enriched_at < @cutoff
+            ORDER BY fe.enriched_at ASC
             LIMIT  @limit;
             """,
             new { cutoff, limit }).AsList();

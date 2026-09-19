@@ -8,7 +8,7 @@ internal static class StorageEpochGuard
     // Shared Library contribution workflow. Pre-beta databases are rebuilt rather
     // than carrying both schemas or migrating user state in place.
     // Pre-beta databases are rebuilt instead of being migrated in place.
-    public const string CurrentEpoch = "guid-blob-v8-graph-facts";
+    public const string CurrentEpoch = "guid-blob-v9-shared-entity-editor";
     public const string ResetEnvironmentVariable = "TUVIMA_STORAGE_RESET";
 
     public static void EnsureCurrentOrReset(string databasePath)

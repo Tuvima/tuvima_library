@@ -19,6 +19,12 @@ public interface INarrativeRootRepository
     /// </summary>
     Task UpsertAsync(NarrativeRoot root, CancellationToken ct = default);
 
+    /// <summary>Persist a user-authored root label/description override without changing authoritative QID identity.</summary>
+    Task UpdateUserDetailsAsync(string qid, string label, string? description, CancellationToken ct = default);
+
+    /// <summary>Return work identities whose canonical root/universe provenance resolves to the QID.</summary>
+    Task<IReadOnlyList<Guid>> FindWorkIdsByProvenanceQidAsync(string qid, CancellationToken ct = default);
+
     /// <summary>
     /// Return all children (franchises within a universe, series within a franchise).
     /// </summary>

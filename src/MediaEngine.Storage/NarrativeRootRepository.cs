@@ -17,11 +17,12 @@ public sealed class NarrativeRootRepository : INarrativeRootRepository
     private readonly IDatabaseConnection _db;
 
     private const string SelectColumns = """
-        qid        AS Qid,
-        label      AS Label,
-        level      AS Level,
-        parent_qid AS ParentQid,
-        created_at AS CreatedAt
+        roots.qid        AS Qid,
+        COALESCE(overrides.label, roots.label) AS Label,
+        overrides.description AS Description,
+        roots.level      AS Level,
+        roots.parent_qid AS ParentQid,
+        roots.created_at AS CreatedAt
         """;
 
     public NarrativeRootRepository(IDatabaseConnection db)
@@ -39,8 +40,9 @@ public sealed class NarrativeRootRepository : INarrativeRootRepository
         using var conn = _db.CreateConnection();
         var result = conn.QueryFirstOrDefault<NarrativeRoot>($"""
             SELECT {SelectColumns}
-            FROM   narrative_roots
-            WHERE  qid = @qid
+            FROM   narrative_roots roots
+            LEFT JOIN narrative_root_user_overrides overrides ON overrides.qid = roots.qid
+            WHERE  roots.qid = @qid
             LIMIT  1;
             """, new { qid });
 
@@ -55,8 +57,9 @@ public sealed class NarrativeRootRepository : INarrativeRootRepository
         using var conn = _db.CreateConnection();
         var result = conn.Query<NarrativeRoot>($"""
             SELECT {SelectColumns}
-            FROM   narrative_roots
-            ORDER BY level, label;
+            FROM   narrative_roots roots
+            LEFT JOIN narrative_root_user_overrides overrides ON overrides.qid = roots.qid
+            ORDER BY roots.level, COALESCE(overrides.label, roots.label);
             """).AsList();
 
         return Task.FromResult<IReadOnlyList<NarrativeRoot>>(result);
@@ -90,6 +93,42 @@ public sealed class NarrativeRootRepository : INarrativeRootRepository
     }
 
     /// <inheritdoc/>
+    public Task UpdateUserDetailsAsync(string qid, string label, string? description, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(qid);
+        ArgumentException.ThrowIfNullOrWhiteSpace(label);
+
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            conn.Execute("""
+                INSERT INTO narrative_root_user_overrides (qid, label, description, updated_at)
+                VALUES (@qid, @label, @description, datetime('now'))
+                ON CONFLICT(qid) DO UPDATE SET
+                    label = excluded.label,
+                    description = excluded.description,
+                    updated_at = datetime('now');
+                """, new { qid, label = label.Trim(), description }, tx);
+        }, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<Guid>> FindWorkIdsByProvenanceQidAsync(string qid, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(qid);
+        using var conn = _db.CreateConnection();
+        var ids = conn.Query<Guid>("""
+            SELECT DISTINCT w.id
+            FROM works w
+            INNER JOIN canonical_values provenance ON provenance.entity_id = w.id
+            WHERE provenance.key IN ('narrative_root_qid', 'fictional_universe_qid')
+              AND provenance.value = @qid COLLATE NOCASE;
+            """, new { qid }).AsList();
+        return Task.FromResult<IReadOnlyList<Guid>>(ids);
+    }
+
+    /// <inheritdoc/>
     public Task<IReadOnlyList<NarrativeRoot>> GetChildrenAsync(
         string parentQid, CancellationToken ct = default)
     {
@@ -99,9 +138,10 @@ public sealed class NarrativeRootRepository : INarrativeRootRepository
         using var conn = _db.CreateConnection();
         var result = conn.Query<NarrativeRoot>($"""
             SELECT {SelectColumns}
-            FROM   narrative_roots
-            WHERE  parent_qid = @parentQid
-            ORDER BY level, label;
+            FROM   narrative_roots roots
+            LEFT JOIN narrative_root_user_overrides overrides ON overrides.qid = roots.qid
+            WHERE  roots.parent_qid = @parentQid
+            ORDER BY roots.level, COALESCE(overrides.label, roots.label);
             """, new { parentQid }).AsList();
 
         return Task.FromResult<IReadOnlyList<NarrativeRoot>>(result);
