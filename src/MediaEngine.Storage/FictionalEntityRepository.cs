@@ -212,7 +212,8 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         const string visibleWhere = """
             fe.fictional_universe_qid = @universeQid
             AND (@entitySubType IS NULL OR fe.entity_sub_type = @entitySubType COLLATE NOCASE)
-            AND (@search IS NULL OR fe.label LIKE '%' || @search || '%' COLLATE NOCASE
+            AND (@search IS NULL OR fe.wikidata_qid LIKE '%' || @search || '%' COLLATE NOCASE
+                 OR fe.label LIKE '%' || @search || '%' COLLATE NOCASE
                  OR COALESCE(overrides.label, '') LIKE '%' || @search || '%' COLLATE NOCASE)
             AND EXISTS (
                 SELECT 1 FROM fictional_entity_work_links fewl

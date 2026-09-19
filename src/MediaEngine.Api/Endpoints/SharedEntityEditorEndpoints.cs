@@ -4,6 +4,7 @@ using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Metadata;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Universe;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -277,7 +278,18 @@ public static class SharedEntityEditorEndpoints
     {
         var entity = await AuthorizedEntityAsync(qid, id, http, entities, display, authorization, ApplicationPermissionIds.MetadataEnrichmentRun, ct);
         if (entity is null) return ApiErrors.NotFound("Entity not found.");
-        await harvesting.EnqueueAsync(new HarvestRequest { EntityId = entity.Id, EntityType = ToHarvestEntityType(entity.EntitySubType), MediaType = MediaType.Unknown, Hints = new Dictionary<string, string> { ["fictional_entity_qid"] = entity.WikidataQid, ["refresh"] = "shared_editor" } }, ct);
+        await harvesting.EnqueueAsync(new HarvestRequest
+        {
+            EntityId = entity.Id,
+            EntityType = ToHarvestEntityType(entity.EntitySubType),
+            MediaType = MediaType.Unknown,
+            Hints = new Dictionary<string, string>
+            {
+                [BridgeIdKeys.WikidataQid] = entity.WikidataQid,
+                ["fictional_entity_qid"] = entity.WikidataQid,
+                ["refresh"] = "shared_editor",
+            },
+        }, ct);
         return Results.Ok(new SharedEntityRefreshDto(true, "Entity enrichment refresh queued."));
     }
 
