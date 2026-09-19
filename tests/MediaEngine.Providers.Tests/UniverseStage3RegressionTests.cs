@@ -21,6 +21,8 @@ public sealed class UniverseStage3RegressionTests
     [InlineData(EntityType.Character)]
     [InlineData(EntityType.Location)]
     [InlineData(EntityType.Organization)]
+    [InlineData(EntityType.Event)]
+    [InlineData(EntityType.Object)]
     public void ReconciliationAdapter_CanHandle_Stage3FictionalEntityTypes(EntityType entityType)
     {
         var adapter = CreateAdapter();

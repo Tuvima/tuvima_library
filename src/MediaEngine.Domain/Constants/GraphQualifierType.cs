@@ -9,6 +9,7 @@ public static class GraphQualifierType
     public const string AppliesToWork = "applies_to_work";
     public const string StartTime = "start_time";
     public const string EndTime = "end_time";
+    public const string PointInTime = "point_in_time";
     public const string TimeIndex = "time_index";
     public const string SpoilerForWork = "spoiler_for_work";
     public const string StatementNature = "statement_nature";

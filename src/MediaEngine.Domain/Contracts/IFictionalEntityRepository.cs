@@ -77,6 +77,17 @@ public interface IFictionalEntityRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Sets the authoritative narrative-universe identity discovered from Wikidata
+    /// P1080. This is separate from enrichment fields so an absent P1080 never
+    /// clears the universe resolved from an owned work.
+    /// </summary>
+    Task UpdateUniverseAsync(
+        Guid entityId,
+        string universeQid,
+        string? universeLabel,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Persist a fictional-entity appearance. Idempotency is scoped to the complete
     /// appearance statement, including its work-local and spoiler context.
     /// </summary>

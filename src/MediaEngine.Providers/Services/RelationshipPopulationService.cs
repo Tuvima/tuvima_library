@@ -3,6 +3,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Providers.Models;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
@@ -12,8 +13,9 @@ namespace MediaEngine.Providers.Services;
 /// the <see cref="IEntityRelationshipRepository"/>.
 ///
 /// <para>
-/// Called after a Character/Location/Organization is enriched by Wikidata SPARQL.
-/// For each <c>_qid</c> claim (e.g. <c>father_qid</c>, <c>member_of_qid</c>):
+/// Called after a Character/Location/Organization/Event/Object is enriched by Wikidata.
+/// Statement-level evidence is preferred; normalized <c>_qid</c> claims are used only
+/// when a provider does not expose structured statements.
 /// <list type="number">
 /// <item>Find-or-create the target <see cref="FictionalEntity"/> by QID.</item>
 /// <item>Insert a graph edge (idempotent via UNIQUE constraint).</item>
@@ -28,7 +30,7 @@ namespace MediaEngine.Providers.Services;
 public interface IRelationshipPopulationService
 {
     /// <summary>
-    /// Populate relationship edges from the canonical values of an enriched entity.
+    /// Populate relationship edges from the structured evidence of an enriched entity.
     /// </summary>
     /// <param name="entityQid">The Wikidata QID of the enriched entity.</param>
     /// <param name="canonicalValues">Canonical values keyed by claim key.</param>
@@ -36,6 +38,7 @@ public interface IRelationshipPopulationService
     /// <param name="universeLabel">Human-readable universe label.</param>
     /// <param name="contextWorkQid">Optional work QID providing context for performer links.</param>
     /// <param name="temporalQualifiers">Optional per-target-QID temporal qualifiers (start/end time).</param>
+    /// <param name="statementEvidence">Optional statement-level provider evidence, including qualifiers.</param>
     /// <param name="currentDepth">Current hop depth (0 = first-level relationships from the source entity).</param>
     /// <param name="maxDepth">Maximum enrichment depth. Target entities at depth &lt; maxDepth are enqueued for enrichment.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -46,6 +49,7 @@ public interface IRelationshipPopulationService
         string? universeLabel,
         string? contextWorkQid = null,
         IReadOnlyDictionary<string, (string? StartTime, string? EndTime)>? temporalQualifiers = null,
+        IReadOnlyList<FictionalEntityRelationshipStatement>? statementEvidence = null,
         int currentDepth = 0,
         int maxDepth = 1,
         CancellationToken ct = default);
@@ -94,8 +98,8 @@ internal static class RelationshipClaimMap
             ["located_in_qid"] = (RelationshipType.LocatedIn, FictionalEntityType.Location),
             ["part_of_qid"] = (RelationshipType.PartOf, FictionalEntityType.Location),
 
-            // Organization → Character (head)
-            ["head_of_qid"] = (RelationshipType.HeadOf, FictionalEntityType.Character),
+            // Organization → Character (P169 is specifically chief executive officer).
+            ["chief_executive_officer_qid"] = (RelationshipType.ChiefExecutiveOfficer, FictionalEntityType.Character),
 
             // Organization → Organization
             ["parent_organization_qid"] = (RelationshipType.ParentOrganization, FictionalEntityType.Organization),
@@ -112,6 +116,12 @@ internal static class RelationshipClaimMap
 
             // Character → Organization (affiliation)
             ["affiliation_qid"] = (RelationshipType.Affiliation, FictionalEntityType.Organization),
+
+            // Event → location/participants/events.
+            ["event_location_qid"] = (RelationshipType.OccursAt, FictionalEntityType.Location),
+            ["participant_qid"] = (RelationshipType.Participant, FictionalEntityType.Character),
+            ["cause_qid"] = (RelationshipType.CausedBy, FictionalEntityType.Event),
+            ["effect_qid"] = (RelationshipType.Causes, FictionalEntityType.Event),
         };
 }
 
@@ -151,30 +161,30 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
         string? universeLabel,
         string? contextWorkQid = null,
         IReadOnlyDictionary<string, (string? StartTime, string? EndTime)>? temporalQualifiers = null,
+        IReadOnlyList<FictionalEntityRelationshipStatement>? statementEvidence = null,
         int currentDepth = 0,
         int maxDepth = 1,
         CancellationToken ct = default)
     {
         var edgesCreated = 0;
+        var sourceEntity = await _entityRepo.FindByQidAsync(entityQid, ct).ConfigureAwait(false);
+        var hasStructuredEvidence = statementEvidence is not null;
+        var statementsByClaimKey = (statementEvidence ?? [])
+            .Where(statement => !string.IsNullOrWhiteSpace(statement.ClaimKey)
+                                && !string.IsNullOrWhiteSpace(statement.TargetQid))
+            .GroupBy(statement => statement.ClaimKey, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<FictionalEntityRelationshipStatement>)group.ToList(), StringComparer.OrdinalIgnoreCase);
 
         foreach (var (claimKey, (relType, targetEntityType)) in RelationshipClaimMap.Map)
         {
             ct.ThrowIfCancellationRequested();
 
-            if (!canonicalValues.TryGetValue(claimKey, out var rawQidValue) ||
-                string.IsNullOrWhiteSpace(rawQidValue))
+            var statements = hasStructuredEvidence
+                ? statementsByClaimKey.GetValueOrDefault(claimKey) ?? []
+                : GetCanonicalFallbackStatements(canonicalValues, claimKey);
+            foreach (var statement in statements)
             {
-                continue;
-            }
-
-            var qids = new[] { rawQidValue };
-
-            foreach (var rawQid in qids)
-            {
-                // Strip entity URI prefix if present
-                var targetQid = rawQid.Contains('/')
-                    ? rawQid.Split('/')[^1]
-                    : rawQid;
+                var targetQid = NormalizeQid(statement.TargetQid);
 
                 if (string.IsNullOrWhiteSpace(targetQid) || !targetQid.StartsWith('Q'))
                 {
@@ -184,29 +194,40 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
                 try
                 {
                     // Find-or-create the target entity. Enqueues enrichment if within depth limit.
-                    await EnsureTargetEntityExists(targetQid, targetEntityType, universeQid, universeLabel, currentDepth, maxDepth, ct)
+                    await EnsureTargetEntityExists(
+                            targetQid,
+                            ResolveTargetEntityType(claimKey, targetEntityType, sourceEntity?.EntitySubType),
+                            universeQid,
+                            universeLabel,
+                            currentDepth,
+                            maxDepth,
+                            ct)
                         .ConfigureAwait(false);
 
-                    // Resolve temporal qualifiers if available.
-                    var startTime = (string?)null;
-                    var endTime = (string?)null;
+                    var qualifiers = BuildQualifiers(statement);
+                    var startTime = GetQualifierValue(statement, "P580");
+                    var endTime = GetQualifierValue(statement, "P582");
                     if (temporalQualifiers?.TryGetValue(targetQid, out var temporal) == true)
                     {
-                        startTime = temporal.StartTime;
-                        endTime = temporal.EndTime;
+                        startTime ??= temporal.StartTime;
+                        endTime ??= temporal.EndTime;
                     }
 
-                    // Create graph edge (idempotent via UNIQUE constraint).
+                    // A statement's qualifiers participate in its key, so adaptation-, time-,
+                    // and spoiler-scoped facts do not overwrite one another.
                     await _relRepo.CreateAsync(new EntityRelationship
                     {
                         SubjectQid = entityQid,
                         RelationshipTypeValue = relType,
                         ObjectQid = targetQid,
-                        Confidence = 0.9,
-                        ContextWorkQid = contextWorkQid,
+                        Confidence = statement.Confidence,
+                        ContextWorkQid = GetQualifierValue(statement, "P10663") ?? contextWorkQid,
+                        SourceProvider = statement.SourceProvider,
+                        Provenance = statement.Provenance,
                         DiscoveredAt = DateTimeOffset.UtcNow,
                         StartTime = startTime,
                         EndTime = endTime,
+                        Qualifiers = qualifiers,
                     }, ct).ConfigureAwait(false);
 
                     edgesCreated++;
@@ -220,7 +241,10 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
             }
         }
 
-        if (edgesCreated > 0)
+        var appearancesPersisted = sourceEntity is not null
+            && await PersistAppearancesAsync(sourceEntity, statementsByClaimKey, ct).ConfigureAwait(false);
+
+        if (edgesCreated > 0 || appearancesPersisted)
         {
             _logger.LogInformation(
                 "Created {Count} relationship edges for entity {Qid}",
@@ -239,6 +263,117 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
             }
         }
     }
+
+    private async Task<bool> PersistAppearancesAsync(
+        FictionalEntity sourceEntity,
+        IReadOnlyDictionary<string, IReadOnlyList<FictionalEntityRelationshipStatement>> statementsByClaimKey,
+        CancellationToken ct)
+    {
+        var persisted = false;
+        foreach (var claimKey in new[] { "present_in_work_qid", "first_appearance_qid" })
+        {
+            if (!statementsByClaimKey.TryGetValue(claimKey, out var statements))
+            {
+                continue;
+            }
+
+            foreach (var statement in statements)
+            {
+                var workQid = NormalizeQid(statement.TargetQid);
+                if (string.IsNullOrWhiteSpace(workQid) || !workQid.StartsWith('Q'))
+                {
+                    continue;
+                }
+
+                await _entityRepo.LinkToWorkAsync(new FictionalEntityWorkLink(
+                    FictionalEntityId: sourceEntity.Id,
+                    WorkQid: workQid,
+                    WorkLabel: statement.TargetLabel,
+                    LinkType: string.Equals(claimKey, "first_appearance_qid", StringComparison.OrdinalIgnoreCase)
+                        ? "first_appearance"
+                        : "appears_in",
+                    AppearanceRole: GetQualifierValue(statement, "P5800"),
+                    WorkContext: GetQualifierValue(statement, "P10663"),
+                    AnchorKind: GetQualifierValue(statement, "P1545") is null ? null : "ordinal",
+                    AnchorValue: GetQualifierValue(statement, "P1545"),
+                    NarrativeTimeIndex: GetQualifierValue(statement, "P4895"),
+                    StartTime: GetQualifierValue(statement, "P580"),
+                    EndTime: GetQualifierValue(statement, "P582"),
+                    SpoilerForWorkQid: GetQualifierValue(statement, "P7528"),
+                    SourceProvider: statement.SourceProvider,
+                    Provenance: statement.Provenance,
+                    Confidence: statement.Confidence), ct).ConfigureAwait(false);
+                persisted = true;
+            }
+        }
+
+        return persisted;
+    }
+
+    private static IReadOnlyList<FictionalEntityRelationshipStatement> GetCanonicalFallbackStatements(
+        IReadOnlyDictionary<string, string> canonicalValues,
+        string claimKey)
+    {
+        if (!canonicalValues.TryGetValue(claimKey, out var rawValue)
+            || string.IsNullOrWhiteSpace(rawValue))
+        {
+            return [];
+        }
+
+        return rawValue
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(value => value.Split("::", 2)[0])
+            .Select(value => new FictionalEntityRelationshipStatement(
+                claimKey,
+                value,
+                TargetLabel: null,
+                Confidence: 0.9,
+                Qualifiers: []))
+            .ToList();
+    }
+
+    private static List<EntityRelationshipQualifier> BuildQualifiers(
+        FictionalEntityRelationshipStatement statement) => statement.Qualifiers
+        .Where(qualifier => !string.IsNullOrWhiteSpace(qualifier.Value))
+        .Select(qualifier => new EntityRelationshipQualifier
+        {
+            QualifierType = qualifier.PropertyId switch
+            {
+                "P10663" => GraphQualifierType.AppliesToWork,
+                "P580" => GraphQualifierType.StartTime,
+                "P582" => GraphQualifierType.EndTime,
+                "P585" => GraphQualifierType.PointInTime,
+                "P4895" => GraphQualifierType.TimeIndex,
+                "P7528" => GraphQualifierType.SpoilerForWork,
+                _ => $"wikidata:{qualifier.PropertyId}",
+            },
+            Value = qualifier.Value,
+            ValueKind = qualifier.ValueKind,
+            SourceProvider = statement.SourceProvider,
+            Provenance = statement.Provenance,
+            Confidence = statement.Confidence,
+        })
+        .ToList();
+
+    private static string? GetQualifierValue(FictionalEntityRelationshipStatement statement, string propertyId) =>
+        statement.Qualifiers.FirstOrDefault(qualifier =>
+            string.Equals(qualifier.PropertyId, propertyId, StringComparison.OrdinalIgnoreCase))?.Value;
+
+    private static string NormalizeQid(string rawQid)
+    {
+        var qid = rawQid.Contains('/') ? rawQid.Split('/')[^1] : rawQid;
+        return qid.Split("::", 2)[0].Trim();
+    }
+
+    private static string ResolveTargetEntityType(
+        string claimKey,
+        string configuredTargetType,
+        string? sourceEntityType) => claimKey switch
+    {
+        "part_of_qid" when sourceEntityType is FictionalEntityType.Event or FictionalEntityType.Object => sourceEntityType,
+        "has_parts_qid" when sourceEntityType == FictionalEntityType.Object => FictionalEntityType.Object,
+        _ => configuredTargetType,
+    };
 
     /// <summary>
     /// Ensures a fictional entity record exists for the given QID.

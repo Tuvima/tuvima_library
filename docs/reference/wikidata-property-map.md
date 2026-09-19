@@ -65,6 +65,7 @@ These properties are consumed by the current reconciliation and universe pipelin
 | P-code | Claim Key | Scope | Confidence | Notes |
 |--------|-----------|-------|------------|-------|
 | P840 | `narrative_location` | Work | 0.8 | Entity-valued |
+| P793 | `narrative_event` | Work | 0.8 | Entity-valued significant event, used for Stage 3 event discovery |
 | P674 | `characters` | Work | 0.8 | Entity-valued |
 | P921 | `main_subject` | Work | 0.8 | Entity-valued |
 | P1434 | `fictional_universe` | Work | 0.8 | Entity-valued |
@@ -75,6 +76,24 @@ These properties are consumed by the current reconciliation and universe pipelin
 | P945 | `allegiance` | Work | 0.9 | Entity-valued |
 | P39 | `position_held` | Work | 0.9 | Entity-valued |
 | P607 | `conflict` | Work | 0.9 | Entity-valued |
+
+### Fictional entity graph scope
+
+Stage 3 uses first-class `Character`, `Location`, `Organization`, `Event`, and `Object` entity types. Entity-valued statements retain their individual Wikidata qualifiers and provenance instead of being flattened into one canonical value. P1080 can replace a work-derived universe QID, but a missing resolved P1080 label never erases the existing owned-work label.
+
+| P-code | Claim key | Entity scope | Notes |
+|--------|-----------|--------------|-------|
+| P1080 | `narrative_universe` | All fictional entity types | Authoritative narrative-universe identity |
+| P1441 | `present_in_work` | All fictional entity types | First-class work appearance with contextual qualifiers |
+| P4584 | `first_appearance` | Character, Location, Object | First appearance work link |
+| P585 | `point_in_time` | Event | Time-indexed event point |
+| P580 / P582 | `start_time` / `end_time` | Event and relationships | Temporal scope |
+| P276 | `event_location` | Event | Event location edge |
+| P710 | `participant` | Event | Event participant edge |
+| P828 / P1542 | `cause` / `effect` | Event | Causal event edges |
+| P5800 | `narrative_role` | Object and work links | Role within a work or narrative |
+
+P171 is taxon parent and is deliberately not treated as a fictional-character species relationship. P169 is `chief_executive_officer`; it must not be represented as a generic `head_of` relationship. Statement qualifiers P10663 (work scope), P580/P582/P585 (time), P4895 (narrative time index), and P7528 (spoiler boundary) are normalized into queryable graph facts and appearance rows with source/provenance retained.
 
 ## Structured Discovery Properties
 

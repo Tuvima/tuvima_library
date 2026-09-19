@@ -44,7 +44,7 @@ The resolved universe QID and label are stored in the `narrative_roots` table. A
 1. For each entity QID discovered in a work's Wikidata properties, finds or creates a `FictionalEntity` record (keyed by `wikidata_qid`, UNIQUE constraint)
 2. Links the entity to the work via `fictional_entity_work_links`
 3. If the entity has not yet been enriched (`enriched_at IS NULL`), enqueues a Data Extension request for its properties
-4. After enrichment, `RelationshipPopulationService` reads the entity's `_qid` claims and creates graph edges
+4. After enrichment, `RelationshipPopulationService` reads statement-level graph evidence and creates graph edges and work appearances. It uses normalized `_qid` claims only as a compatibility fallback when structured evidence is unavailable.
 
 Entity types are stored in a single `fictional_entities` table with a sub-type discriminator:
 
@@ -62,7 +62,7 @@ Entity types are stored in a single `fictional_entities` table with a sub-type d
 
 `RelationshipPopulationService` creates graph edges by reading entity-valued claims after enrichment. The traversal depth is configurable (default: 2 hops) via `lineage_depth` in `config/hydration.json`.
 
-22 relationship types are supported:
+26 relationship types are supported:
 
 | Relationship | Wikidata property |
 |---|---|
@@ -81,13 +81,17 @@ Entity types are stored in a single `fictional_entities` table with a sub-type d
 | creator | P170 |
 | located_in | P131 |
 | part_of | P361 |
-| head_of | P488 |
+| chief_executive_officer | P169 |
 | parent_organization | P749 |
 | has_parts | P527 |
 | position_held | P39 |
 | conflict | P607 |
 | significant_person | P3342 |
 | affiliation | P1416 |
+| occurs_at | P276 |
+| participant | P710 |
+| caused_by | P828 |
+| causes | P1542 |
 
 Actor-to-character links are stored separately in `character_performer_links` (person_id, fictional_entity_id, work_qid) and merged into the graph at query time.
 
@@ -141,7 +145,7 @@ The Chronicle Engine extends the Universe Graph with time-awareness.
 
 ### Temporal Qualifiers
 
-Relationships carry `StartTime` and `EndTime` (nullable ISO 8601 strings) sourced from Wikidata P580/P582 temporal qualifiers. A character may be married for part of a story, a faction may exist only during a specific era, an actor may have played a role in one adaptation but not another. The fact also owns normalized queryable qualifiers, so work scope, fictional time indices, spoiler boundaries, statement nature, and provenance are not flattened or lost when the same graph triple is asserted in different contexts.
+Relationships carry `StartTime` and `EndTime` (nullable ISO 8601 strings) sourced from Wikidata P580/P582 temporal qualifiers. A character may be married for part of a story, a faction may exist only during a specific era, an actor may have played a role in one adaptation but not another. The fact also owns normalized queryable qualifiers, so work scope (P10663), point-in-time (P585), fictional time index (P4895), spoiler boundaries (P7528), statement nature, and provenance are not flattened or lost when the same graph triple is asserted in different contexts. Work appearances preserve the same context, along with link type/role and optional ordinal or scene anchors.
 
 ### Lore Delta Detection
 

@@ -57,8 +57,8 @@ public static class RelationshipType
 
     // ── Organization ─────────────────────────────────────────────────────
 
-    /// <summary>P169 — Head of organization.</summary>
-    public const string HeadOf = "head_of";
+    /// <summary>P169 — Chief executive officer. This must not be generalized into fictional leadership.</summary>
+    public const string ChiefExecutiveOfficer = "chief_executive_officer";
 
     /// <summary>P749 — Parent organization.</summary>
     public const string ParentOrganization = "parent_organization";
@@ -90,6 +90,20 @@ public static class RelationshipType
 
     /// <summary>P1416 — Affiliation with a group or organization.</summary>
     public const string Affiliation = "affiliation";
+
+    // ── Event ───────────────────────────────────────────────────────────
+
+    /// <summary>P276 — Location where an event occurs.</summary>
+    public const string OccursAt = "occurs_at";
+
+    /// <summary>P710 — Participant in an event.</summary>
+    public const string Participant = "participant";
+
+    /// <summary>P828 — Event or entity that caused this event.</summary>
+    public const string CausedBy = "caused_by";
+
+    /// <summary>P1542 — Event or entity caused by this event.</summary>
+    public const string Causes = "causes";
 
     // ── Adaptation ─────────────────────────────────────────────────────
 

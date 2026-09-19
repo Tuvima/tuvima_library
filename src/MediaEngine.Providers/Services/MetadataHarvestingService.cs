@@ -310,7 +310,7 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
             }
 
             // Special handling: Wikidata claims for fictional entity types.
-            if (request.EntityType is EntityType.Character or EntityType.Location or EntityType.Organization)
+            if (request.EntityType is EntityType.Character or EntityType.Location or EntityType.Organization or EntityType.Event or EntityType.Object)
             {
                 await HandleFictionalEntityEnrichmentAsync(request, canonicals, provider, ct)
                     .ConfigureAwait(false);
@@ -333,7 +333,7 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
     }
 
     /// <summary>
-    /// After a fictional entity (Character/Location/Organization) is enriched from
+    /// After a fictional entity (Character/Location/Organization/Event/Object) is enriched from
     /// Wikidata SPARQL, updates the entity's <c>EnrichedAt</c> timestamp, populates
     /// relationship edges from <c>_qid</c> claims, and triggers debounced
     /// <c>universe.xml</c> writing.
@@ -364,8 +364,29 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
                 return;
             }
 
-            // Resolve universe QID from hints.
-            var universeQid = request.Hints.GetValueOrDefault("universe_qid");
+            // The generic provider-claim stream deliberately remains flat for scoring.
+            // When supported, retrieve its statement-level evidence separately so P10663,
+            // P580/P582/P585, P4895, and P7528 remain attached to their asserted fact.
+            var entitySubType = request.Hints.GetValueOrDefault("entity_sub_type") ?? request.EntityType.ToString();
+            var entityQid = request.Hints.GetValueOrDefault(BridgeIdKeys.WikidataQid);
+            var graphEvidence = provider is IFictionalEntityGraphEvidenceProvider graphProvider
+                && !string.IsNullOrWhiteSpace(entityQid)
+                ? await graphProvider.FetchFictionalEntityGraphEvidenceAsync(entityQid, entitySubType, ct).ConfigureAwait(false)
+                : null;
+
+            // P1080 is authoritative when present. In its absence, retain the owned-work
+            // narrative root instead of erasing existing universe organization.
+            var universeQid = graphEvidence?.NarrativeUniverseQid
+                ?? request.Hints.GetValueOrDefault("universe_qid");
+            var universeLabel = graphEvidence?.NarrativeUniverseLabel;
+            if (!string.IsNullOrWhiteSpace(graphEvidence?.NarrativeUniverseQid))
+            {
+                await _fictionalEntityRepo.UpdateUniverseAsync(
+                    request.EntityId,
+                    graphEvidence.NarrativeUniverseQid,
+                    graphEvidence.NarrativeUniverseLabel,
+                    ct).ConfigureAwait(false);
+            }
 
             // Resolve depth parameters from hint and config.
             var currentDepth = 0;
@@ -387,12 +408,13 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
 
             // Populate relationship edges from _qid claims.
             await _relPopService.PopulateAsync(
-                request.Hints.GetValueOrDefault(BridgeIdKeys.WikidataQid) ?? string.Empty,
+                entityQid ?? string.Empty,
                 canonicalDict,
                 universeQid ?? string.Empty,
-                universeLabel: null,
+                universeLabel,
                 contextWorkQid: null,
                 temporalQualifiers: null,
+                statementEvidence: graphEvidence?.Statements,
                 currentDepth: currentDepth,
                 maxDepth: maxDepth,
                 ct: ct).ConfigureAwait(false);
@@ -405,7 +427,6 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
                 ct).ConfigureAwait(false);
 
             // Determine action type for activity log.
-            var entitySubType = request.Hints.GetValueOrDefault("entity_sub_type") ?? "Character";
             var actionType = entitySubType switch
             {
                 "Location" => SystemActionType.LocationEnriched,
@@ -417,7 +438,6 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
             var label = request.Hints.GetValueOrDefault("label") ?? request.EntityId.ToString();
 
             // Cache fictional entity QID → label for offline resolution.
-            var entityQid = request.Hints.GetValueOrDefault(BridgeIdKeys.WikidataQid);
             if (!string.IsNullOrWhiteSpace(entityQid) && !string.IsNullOrWhiteSpace(label))
             {
                 try

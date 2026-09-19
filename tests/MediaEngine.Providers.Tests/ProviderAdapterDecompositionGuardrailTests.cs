@@ -56,6 +56,7 @@ public sealed class ProviderAdapterDecompositionGuardrailTests
                 "DiscoverAudiobookEditionsAsync",
                 "ExtendAsync",
                 "FetchAsync",
+                "FetchFictionalEntityGraphEvidenceAsync",
                 "FilterByMediaTypeAsync",
                 "LookupFictionalEntityAsync",
                 "ResolveAndDownloadPersonImageAsync",

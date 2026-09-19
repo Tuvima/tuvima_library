@@ -54,6 +54,7 @@ public static class WikidataPropertyDefaults
         // Stage 1: Story & Narrative
         new("P674",  "characters",         "Stage 1: Story & Narrative", "Work", 0.8, false, true),
         new("P840",  "narrative_location",  "Stage 1: Story & Narrative", "Work", 0.8, false, true),
+        new("P793",  "narrative_event",     "Stage 1: Story & Narrative", "Work", 0.8, false, true),
         new("P921",  "main_subject",        "Stage 1: Story & Narrative", "Work", 0.8, false, true),
         new("P1434", "fictional_universe",  "Stage 1: Story & Narrative", "Work", 0.8, false, true),
         new("P144",  "based_on",            "Stage 1: Story & Narrative", "Work", 0.8, false, true),
@@ -130,10 +131,11 @@ public static class WikidataPropertyDefaults
         new("P856",  "website",   "Person: Social Links", "Person", 1.0, true, true, "Person Lookup"),
 
         // Universe: Character
+        new("P1080", "narrative_universe", "Universe: Character", "Character", 0.85, false, true, "Universe Graph"),
         new("P1441", "present_in_work", "Universe: Character", "Character", 0.85, false, true, "Universe Graph"),
+        new("P4584", "first_appearance", "Universe: Character", "Character", 0.85, false, true, "Universe Graph"),
         new("P170",  "creator",         "Universe: Character", "Character", 0.85, false, true, "Universe Graph"),
         new("P21",   "gender",          "Universe: Character", "Character", 0.9,  false, true, "Universe Graph"),
-        new("P171",  "species",         "Universe: Character", "Character", 0.85, false, true, "Universe Graph"),
 
         // Universe: Character Relationships
         new("P22",   "father",    "Universe: Character Relationships", "Character", 0.85, false, true, "Universe Graph"),
@@ -153,8 +155,28 @@ public static class WikidataPropertyDefaults
 
         // Universe: Organization
         new("P527", "has_parts",           "Universe: Organization", "Organization", 0.85, false, true, "Universe Graph"),
-        new("P169", "head_of",             "Universe: Organization", "Organization", 0.85, false, true, "Universe Graph"),
+        new("P169", "chief_executive_officer", "Universe: Organization", "Organization", 0.85, false, true, "Universe Graph"),
         new("P749", "parent_organization", "Universe: Organization", "Organization", 0.85, false, true, "Universe Graph"),
+
+        // Universe: Event
+        new("P1080", "narrative_universe", "Universe: Event", "Event", 0.85, false, true, "Universe Graph"),
+        new("P1441", "present_in_work",    "Universe: Event", "Event", 0.85, false, true, "Universe Graph"),
+        new("P585",  "point_in_time",      "Universe: Event", "Event", 0.85, false, true, "Universe Graph"),
+        new("P580",  "start_time",         "Universe: Event", "Event", 0.85, false, true, "Universe Graph"),
+        new("P582",  "end_time",           "Universe: Event", "Event", 0.85, false, true, "Universe Graph"),
+        new("P276",  "event_location",     "Universe: Event", "Event", 0.85, false, true, "Universe Graph"),
+        new("P710",  "participant",        "Universe: Event", "Event", 0.85, false, true, "Universe Graph"),
+        new("P828",  "cause",              "Universe: Event", "Event", 0.8,  false, true, "Universe Graph"),
+        new("P1542", "effect",             "Universe: Event", "Event", 0.8,  false, true, "Universe Graph"),
+
+        // Universe: Object
+        new("P1080", "narrative_universe", "Universe: Object", "Object", 0.85, false, true, "Universe Graph"),
+        new("P1441", "present_in_work",    "Universe: Object", "Object", 0.85, false, true, "Universe Graph"),
+        new("P4584", "first_appearance",   "Universe: Object", "Object", 0.85, false, true, "Universe Graph"),
+        new("P170",  "creator",            "Universe: Object", "Object", 0.85, false, true, "Universe Graph"),
+        new("P361",  "part_of",            "Universe: Object", "Object", 0.85, false, true, "Universe Graph"),
+        new("P527",  "has_parts",          "Universe: Object", "Object", 0.85, false, true, "Universe Graph"),
+        new("P5800", "narrative_role",     "Universe: Object", "Object", 0.8,  false, true, "Universe Graph"),
     ];
 
     /// <summary>Returns bridge identifier entries used for QID cross-referencing.</summary>
@@ -245,6 +267,8 @@ public static class WikidataPropertyDefaults
         "Universe: Character Relationships" => 14,
         "Universe: Location" => 15,
         "Universe: Organization" => 16,
+        "Universe: Event" => 17,
+        "Universe: Object" => 18,
         _ => 99,
     };
 
@@ -268,6 +292,8 @@ public static class WikidataPropertyDefaults
         "Universe: Character Relationships" => "group_work",
         "Universe: Location" => "place",
         "Universe: Organization" => "corporate_fare",
+        "Universe: Event" => "event",
+        "Universe: Object" => "category",
         _ => "category",
     };
 }

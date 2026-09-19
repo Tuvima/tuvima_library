@@ -39,7 +39,7 @@ namespace MediaEngine.Providers.Adapters;
 ///
 /// Spec: Phase 2 – ReconciliationAdapter replacing WikidataAdapter.
 /// </summary>
-public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
+public sealed partial class ReconciliationAdapter : IExternalMetadataProvider, IFictionalEntityGraphEvidenceProvider
 {
     private readonly ReconciliationProviderConfig _config;
     private readonly IHttpClientFactory _httpFactory;
@@ -122,7 +122,9 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
             or EntityType.Person
             or EntityType.Character
             or EntityType.Location
-            or EntityType.Organization;
+            or EntityType.Organization
+            or EntityType.Event
+            or EntityType.Object;
 
     /// <summary>
     /// Fetches metadata claims by reconciling the entity against Wikidata and
@@ -147,7 +149,7 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
             return request.EntityType switch
             {
                 EntityType.Person => await FetchPersonAsync(request, ct).ConfigureAwait(false),
-                EntityType.Character or EntityType.Location or EntityType.Organization
+                EntityType.Character or EntityType.Location or EntityType.Organization or EntityType.Event or EntityType.Object
                     => await FetchFictionalEntityAsync(request, ct).ConfigureAwait(false),
                 _ => await FetchWorkAsync(request, ct).ConfigureAwait(false),
             };

@@ -200,6 +200,30 @@ public sealed class UniverseGraphBatchRepositoryTests : IDisposable
         Assert.Equal(FictionalEntityType.Object, (await repository.FindByIdAsync(entity.Id))!.EntitySubType);
     }
 
+    [Fact]
+    public async Task UpdateUniverseAsync_RetainsOwnedWorkLabelWhenProviderCannotResolveOne()
+    {
+        var entity = new FictionalEntity
+        {
+            Id = Guid.NewGuid(),
+            WikidataQid = "Q900",
+            Label = "The Artifact",
+            EntitySubType = FictionalEntityType.Object,
+            FictionalUniverseQid = "QExisting",
+            FictionalUniverseLabel = "Owned-work universe",
+        };
+        var repository = new FictionalEntityRepository(_db);
+        await repository.CreateAsync(entity);
+
+        await repository.UpdateUniverseAsync(entity.Id, "QAuthoritative", null);
+        await repository.UpdateUniverseAsync(entity.Id, "QAuthoritative", "   ");
+
+        var stored = await repository.FindByIdAsync(entity.Id);
+        Assert.NotNull(stored);
+        Assert.Equal("QAuthoritative", stored.FictionalUniverseQid);
+        Assert.Equal("Owned-work universe", stored.FictionalUniverseLabel);
+    }
+
     public void Dispose()
     {
         _db.Dispose();

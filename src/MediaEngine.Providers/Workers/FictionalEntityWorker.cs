@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
@@ -7,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace MediaEngine.Providers.Workers;
 
 /// <summary>
-/// Resolves narrative root, extracts character/location QIDs from canonicals,
+/// Resolves narrative root, extracts fictional-entity QIDs from canonicals,
 /// and dispatches to <see cref="IRecursiveFictionalEntityService"/> for enrichment.
 ///
 /// Extracted from <c>HydrationPipelineService.RunFictionalEntityEnrichmentAsync</c>.
@@ -39,7 +40,8 @@ public sealed class FictionalEntityWorker
 
     /// <summary>
     /// Resolves the narrative root for the entity, extracts fictional entity
-    /// references (characters, locations) from canonicals, and enriches them.
+    /// references (characters, locations, events, and objects) from canonicals,
+    /// and enriches them.
     /// </summary>
     public async Task EnrichAsync(Guid entityId, string workQid, CancellationToken ct)
     {
@@ -90,7 +92,7 @@ public sealed class FictionalEntityWorker
     }
 
     /// <summary>
-    /// Extracts character and location QIDs from canonical values.
+    /// Extracts typed fictional-entity QIDs from canonical values.
     /// </summary>
     private static IReadOnlyList<FictionalEntityReference> ExtractFictionalEntityReferences(
         IReadOnlyList<CanonicalValue> canonicals,
@@ -107,12 +109,16 @@ public sealed class FictionalEntityWorker
             canonicalArrays,
             MetadataFieldConstants.NarrativeLocation,
             "Location");
+        AddArrayReferences(refs, canonicalArrays, MetadataFieldConstants.NarrativeEvent, FictionalEntityType.Event);
+        AddArrayReferences(refs, canonicalArrays, MetadataFieldConstants.NarrativeObject, FictionalEntityType.Object);
 
         var entityKeys = new Dictionary<string, (string LabelKey, string EntitySubType)>(
             StringComparer.OrdinalIgnoreCase)
         {
             ["characters_qid"] = ("characters", "Character"),
             ["narrative_location_qid"] = ("narrative_location", "Location"),
+            [$"{MetadataFieldConstants.NarrativeEvent}_qid"] = (MetadataFieldConstants.NarrativeEvent, FictionalEntityType.Event),
+            [$"{MetadataFieldConstants.NarrativeObject}_qid"] = (MetadataFieldConstants.NarrativeObject, FictionalEntityType.Object),
         };
 
         foreach (var (qidKey, (labelKey, entitySubType)) in entityKeys)

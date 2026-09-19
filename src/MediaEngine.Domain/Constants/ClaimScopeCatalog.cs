@@ -143,6 +143,8 @@ public static class ClaimScopeCatalog
                 [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
                 [MetadataFieldConstants.Characters] = ClaimScope.Parent,
                 [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeEvent] = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeObject] = ClaimScope.Parent,
                 // director stays Self — different per episode
             },
             [MediaType.Comics] = new(StringComparer.OrdinalIgnoreCase)
@@ -168,6 +170,8 @@ public static class ClaimScopeCatalog
                 [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
                 [MetadataFieldConstants.Characters] = ClaimScope.Parent,
                 [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeEvent] = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeObject] = ClaimScope.Parent,
             },
             [MediaType.Books] = new(StringComparer.OrdinalIgnoreCase)
             {
@@ -177,6 +181,8 @@ public static class ClaimScopeCatalog
                 [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
                 [MetadataFieldConstants.Characters] = ClaimScope.Parent,
                 [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeEvent] = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeObject] = ClaimScope.Parent,
             },
             [MediaType.Audiobooks] = new(StringComparer.OrdinalIgnoreCase)
             {
@@ -187,6 +193,8 @@ public static class ClaimScopeCatalog
                 [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
                 [MetadataFieldConstants.Characters] = ClaimScope.Parent,
                 [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeEvent] = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeObject] = ClaimScope.Parent,
                 [MetadataFieldConstants.PublisherField] = ClaimScope.Edition,
             },
             [MediaType.Movies] = new(StringComparer.OrdinalIgnoreCase)
@@ -206,6 +214,8 @@ public static class ClaimScopeCatalog
                 [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
                 [MetadataFieldConstants.Characters] = ClaimScope.Parent,
                 [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeEvent] = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeObject] = ClaimScope.Parent,
             },
         };
 

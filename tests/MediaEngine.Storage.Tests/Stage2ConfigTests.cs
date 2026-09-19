@@ -149,6 +149,33 @@ public sealed class Stage2ConfigTests
         Assert.Equal("tvdb_id", labels["P4835"]);
     }
 
+    [Fact]
+    public void WikidataConfig_UsesExactFictionalEntitySemanticsAndFirstClassEventObjectGroups()
+    {
+        var root = FindRepoRoot();
+        var json = File.ReadAllText(Path.Combine(root, "config", "providers", "wikidata_reconciliation.json"));
+        var config = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOpts);
+        Assert.NotNull(config);
+
+        var extension = config!.DataExtension;
+        Assert.DoesNotContain("P171", extension.CharacterProperties.Core);
+        Assert.DoesNotContain("P171", extension.PropertyLabels.Keys);
+        Assert.Equal("chief_executive_officer", extension.PropertyLabels["P169"]);
+
+        Assert.Contains("P1080", extension.CharacterProperties.Core);
+        Assert.Contains("P1441", extension.LocationProperties.Core);
+        Assert.Contains("P4584", extension.ObjectProperties.Core);
+        Assert.Contains("P793", extension.WorkProperties.Core);
+        Assert.Contains("P710", extension.EventProperties.Core);
+        Assert.Contains("P828", extension.EventProperties.Core);
+        Assert.Contains("P1542", extension.EventProperties.Core);
+        Assert.Contains("P5800", extension.ObjectProperties.Core);
+        Assert.Equal("narrative_universe", extension.PropertyLabels["P1080"]);
+        Assert.Equal("narrative_event", extension.PropertyLabels["P793"]);
+        Assert.Equal("spoiler_for_work", extension.PropertyLabels["P7528"]);
+        Assert.Equal("time_index", extension.PropertyLabels["P4895"]);
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────
 
     private static string FindRepoRoot()
@@ -156,13 +183,14 @@ public sealed class Stage2ConfigTests
         var dir = Path.GetDirectoryName(typeof(Stage2ConfigTests).Assembly.Location);
         while (dir is not null)
         {
-            if (Directory.Exists(Path.Combine(dir, ".git")))
+            var gitMarker = Path.Combine(dir, ".git");
+            if (Directory.Exists(gitMarker) || File.Exists(gitMarker))
             {
                 return dir;
             }
 
             dir = Path.GetDirectoryName(dir);
         }
-        throw new InvalidOperationException("Could not find repository root (.git directory)");
+        throw new InvalidOperationException("Could not find repository root (.git directory or worktree file)");
     }
 }

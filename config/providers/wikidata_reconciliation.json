@@ -139,7 +139,7 @@
   },
   "data_extension": {
     "work_properties": {
-      "core": ["P31", "P50", "P57", "P58", "P86", "P110", "P161", "P175", "P577", "P1476", "P136", "P179", "P1545", "P166", "P1411", "P495", "P407", "P364", "P272", "P449", "P123", "P264", "P674", "P840", "P2408", "P921", "P8345", "P1434", "P144", "P915", "P4584"],
+      "core": ["P31", "P50", "P57", "P58", "P86", "P110", "P161", "P175", "P577", "P1476", "P136", "P179", "P1545", "P166", "P1411", "P495", "P407", "P364", "P272", "P449", "P123", "P264", "P674", "P840", "P793", "P2408", "P921", "P8345", "P1434", "P144", "P915", "P4584"],
       "bridges": ["P212", "P957", "P5749", "P4947", "P4983", "P4835", "P7043", "P345", "P6395", "P9586", "P9751", "P9750", "P6381", "P6398", "P2281", "P2850", "P10110", "P5905", "P1190", "P434", "P435", "P436", "P5813", "P4404", "P2969", "P648", "P6262"],
       "editions": ["P747"],
       "lore": ["P451", "P69", "P945", "P39", "P607"]
@@ -151,13 +151,19 @@
       "group": ["P527", "P463"]
     },
     "character_properties": {
-      "core": ["P31", "P1441", "P170", "P21", "P171", "P22", "P25", "P26", "P3373", "P40", "P1344", "P1066", "P463", "P551", "P451", "P945", "P69", "P39", "P607", "P1416", "P18"]
+      "core": ["P31", "P1080", "P1441", "P4584", "P170", "P21", "P22", "P25", "P26", "P3373", "P40", "P1344", "P1066", "P463", "P551", "P451", "P945", "P69", "P39", "P607", "P1416", "P5800", "P9071", "P2563", "P9652", "P1165", "P18"]
     },
     "location_properties": {
-      "core": ["P31", "P131", "P361", "P625", "P170", "P18"]
+      "core": ["P31", "P1080", "P1441", "P4584", "P131", "P361", "P625", "P170", "P18"]
     },
     "organization_properties": {
-      "core": ["P31", "P527", "P169", "P749", "P170", "P18"]
+      "core": ["P31", "P1080", "P1441", "P527", "P169", "P749", "P170", "P463", "P1416", "P945", "P18"]
+    },
+    "event_properties": {
+      "core": ["P31", "P1080", "P1441", "P585", "P580", "P582", "P276", "P710", "P361", "P828", "P1542", "P18"]
+    },
+    "object_properties": {
+      "core": ["P31", "P1080", "P1441", "P4584", "P170", "P361", "P527", "P5800", "P18"]
     },
     "audiobook_edition_properties": ["P175", "P2047", "P5749", "P123"],
     "property_labels": {
@@ -176,6 +182,7 @@
       "P1545": "series_position",
       "P674": "characters",
       "P840": "narrative_location",
+      "P793": "narrative_event",
       "P921": "main_subject",
       "P8345": "franchise",
       "P1434": "fictional_universe",
@@ -232,7 +239,6 @@
       "P1441": "present_in_work",
       "P170": "creator",
       "P21": "gender",
-      "P171": "species",
       "P22": "father",
       "P25": "mother",
       "P26": "spouse",
@@ -243,7 +249,7 @@
       "P131": "located_in",
       "P361": "part_of",
       "P625": "coordinate_location",
-      "P169": "head_of",
+      "P169": "chief_executive_officer",
       "P749": "parent_organization",
       "P451": "partner",
       "P69": "educated_at",
@@ -261,7 +267,23 @@
       "P2408": "set_in_period",
       "P915": "filming_location",
       "P1066": "student_of",
-      "P1416": "affiliation"
+      "P1416": "affiliation",
+      "P1080": "narrative_universe",
+      "P585": "point_in_time",
+      "P580": "start_time",
+      "P582": "end_time",
+      "P276": "event_location",
+      "P710": "participant",
+      "P828": "cause",
+      "P1542": "effect",
+      "P5800": "narrative_role",
+      "P9071": "character_type",
+      "P2563": "fictional_ability",
+      "P9652": "fictional_personality_trait",
+      "P1165": "home_world",
+      "P10663": "applies_to_work",
+      "P4895": "time_index",
+      "P7528": "spoiler_for_work"
     }
   }
 }
