@@ -1060,7 +1060,11 @@ public partial class SharedMediaEditorShell
                     node.Title,
                     node.Subtitle,
                     node.EntityId == selectedNode?.EntityId,
-                    node.CanSelectAsEditorTarget))
+                    node.CanSelectAsEditorTarget,
+                    GetContextArtworkUrl(node),
+                    node.EntityId == selectedNode?.EntityId ? GetContextRetailStatus(node) : null,
+                    node.EntityId == selectedNode?.EntityId ? GetContextCanonicalStatus(node) : null,
+                    IsTextOnlyContextNode(node)))
                 .ToList();
 
             levels.Add(new EditorContextLevel(
@@ -1072,11 +1076,105 @@ public partial class SharedMediaEditorShell
                 selectedNode?.EntityId == navigator.SelectedEntityId,
                 selectedNode is { CanSelectAsEditorTarget: true },
                 depth > 0,
-                options));
+                options,
+                GetContextArtworkUrl(representativeNode),
+                selectedNode is null ? null : GetContextRetailStatus(selectedNode),
+                selectedNode is null ? null : GetContextCanonicalStatus(selectedNode),
+                IsTextOnlyContextNode(representativeNode)));
         }
 
         return levels;
     }
+
+    private string? GetContextArtworkUrl(MediaEditorNavigatorNodeDto? node)
+    {
+        if (node is null || IsTextOnlyContextNode(node))
+        {
+            return null;
+        }
+
+        var assetId = node.PrimaryAssetId
+            ?? GetNavigatorDescendants(node).FirstOrDefault(candidate => candidate.PrimaryAssetId.HasValue)?.PrimaryAssetId;
+        return assetId is Guid value && value != Guid.Empty
+            ? ApiClient.ToAbsoluteEngineUrl($"/stream/{value:D}/cover")
+            : null;
+    }
+
+    private string GetContextRetailStatus(MediaEditorNavigatorNodeDto? node)
+    {
+        var sourceScope = GetScopeById(node?.ScopeId) ?? ActiveScope;
+        if (string.Equals(sourceScope?.RetailIdentityMode, "derived", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Inherited";
+        }
+
+        var scope = ResolveContextIdentityScope(node, canonical: false);
+        if (scope is null)
+        {
+            return "Unknown";
+        }
+
+        if (string.Equals(scope.RetailIdentityMode, "derived", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Inherited";
+        }
+
+        return HasRetailIdentity(scope.IdentitySummary) ? "Matched" : "Unmatched";
+    }
+
+    private string GetContextCanonicalStatus(MediaEditorNavigatorNodeDto? node)
+    {
+        var sourceScope = GetScopeById(node?.ScopeId) ?? ActiveScope;
+        if (sourceScope?.CanonicalIdentityMode is "inherited" or "shared")
+        {
+            return "Inherited";
+        }
+
+        var scope = ResolveContextIdentityScope(node, canonical: true);
+        if (scope is null)
+        {
+            return "Unknown";
+        }
+
+        return !string.IsNullOrWhiteSpace(scope.IdentitySummary?.WikidataQid)
+            ? "Matched"
+            : "Unmatched";
+    }
+
+    private MediaEditorScopeDto? ResolveContextIdentityScope(MediaEditorNavigatorNodeDto? node, bool canonical)
+    {
+        var scope = GetScopeById(node?.ScopeId) ?? ActiveScope;
+        if (scope is null)
+        {
+            return null;
+        }
+
+        if (canonical && !string.IsNullOrWhiteSpace(scope.CanonicalIdentityOwnerScopeId))
+        {
+            return GetScopeById(scope.CanonicalIdentityOwnerScopeId) ?? scope;
+        }
+
+        if (!canonical && string.Equals(scope.RetailIdentityMode, "derived", StringComparison.OrdinalIgnoreCase))
+        {
+            var ownerScopeId = node?.NodeKind?.ToLowerInvariant() switch
+            {
+                "episode" or "season" => "series",
+                "track" => "album",
+                _ => null,
+            };
+            return GetScopeById(ownerScopeId) ?? scope;
+        }
+
+        return scope;
+    }
+
+    private static bool HasRetailIdentity(MediaEditorIdentitySummaryDto? summary) =>
+        !string.IsNullOrWhiteSpace(summary?.ProviderItemId)
+        || !string.IsNullOrWhiteSpace(summary?.MatchSource)
+        || !string.IsNullOrWhiteSpace(summary?.ProviderName);
+
+    private static bool IsTextOnlyContextNode(MediaEditorNavigatorNodeDto? node) =>
+        string.Equals(node?.NodeKind, "track", StringComparison.OrdinalIgnoreCase);
 
     private static string GetExpectedEditorContextNodeKind(string mediaType, int depth) =>
         (mediaType, depth) switch

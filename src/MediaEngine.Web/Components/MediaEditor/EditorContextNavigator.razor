@@ -22,9 +22,16 @@
                            Class="editor-context-level__body"
                            aria-current="@(level.IsActive ? "page" : null)"
                            OnClick="@(() => OpenLevelAsync(level))">
-                    <span class="editor-context-level__icon" aria-hidden="true">
-                        <MudIcon Icon="@GetLevelIcon(level.NodeKind)" Size="Size.Small" />
-                    </span>
+                    @if (!level.IsTextOnly && !string.IsNullOrWhiteSpace(level.ArtworkUrl))
+                    {
+                        <img class="editor-context-level__artwork" src="@level.ArtworkUrl" alt="" loading="lazy" />
+                    }
+                    else
+                    {
+                        <span class="editor-context-level__icon" aria-hidden="true">
+                            <MudIcon Icon="@GetLevelIcon(level.NodeKind)" Size="Size.Small" />
+                        </span>
+                    }
                     <span class="editor-context-level__copy">
                         <span class="editor-context-level__label">@level.Label</span>
                         <span class="editor-context-level__identity">
@@ -34,6 +41,19 @@
                                 <span>@level.Subtitle</span>
                             }
                         </span>
+                        @if (!string.IsNullOrWhiteSpace(level.RetailStatus) || !string.IsNullOrWhiteSpace(level.CanonicalStatus))
+                        {
+                            <span class="editor-context-level__statuses" aria-label="Identity status">
+                                @if (!string.IsNullOrWhiteSpace(level.RetailStatus))
+                                {
+                                    <span class="editor-context-level__status editor-context-level__status--retail">Retail @level.RetailStatus</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(level.CanonicalStatus))
+                                {
+                                    <span class="editor-context-level__status editor-context-level__status--canonical">Canonical @level.CanonicalStatus</span>
+                                }
+                            </span>
+                        }
                     </span>
                 </AppButton>
 
@@ -48,17 +68,51 @@
                                          PopoverClass="editor-context-level__popover"
                                          AnchorOrigin="Origin.BottomRight"
                                          TransformOrigin="Origin.TopRight">
-                            @foreach (var option in level.Options)
+                            @if (level.Options.Count > SearchThreshold)
+                            {
+                                <div class="editor-context-option-search" @onclick:stopPropagation="true">
+                                    <AppNativeInput Type="search"
+                                                    Class="editor-context-option-search__input"
+                                                    Value="@GetQuery(level)"
+                                                    ValueChanged="@(value => SetQuery(level, value?.ToString() ?? string.Empty))"
+                                                    Placeholder="Search options"
+                                                    AriaLabel="@($"Search {level.Label.ToLowerInvariant()} options")" />
+                                </div>
+                            }
+                            @foreach (var option in GetVisibleOptions(level))
                             {
                                 <AppMenuItem Disabled="@(!option.IsEnabled)"
                                              Class="@(option.IsActive ? "editor-context-option is-active" : "editor-context-option")"
                                              OnClick="@(() => SelectOptionAsync(option))">
+                                    @if (!option.IsTextOnly && !string.IsNullOrWhiteSpace(option.ArtworkUrl))
+                                    {
+                                        <img class="editor-context-option__artwork" src="@option.ArtworkUrl" alt="" loading="lazy" />
+                                    }
+                                    else
+                                    {
+                                        <span class="editor-context-option__icon" aria-hidden="true">
+                                            <MudIcon Icon="@GetLevelIcon(level.NodeKind)" Size="Size.Small" />
+                                        </span>
+                                    }
                                     <span class="editor-context-option__copy">
                                         <span class="editor-context-option__label">@option.Label</span>
                                         <strong>@option.Title</strong>
                                         @if (!string.IsNullOrWhiteSpace(option.Subtitle))
                                         {
                                             <span class="editor-context-option__subtitle">@option.Subtitle</span>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(option.RetailStatus) || !string.IsNullOrWhiteSpace(option.CanonicalStatus))
+                                        {
+                                            <span class="editor-context-option__statuses">
+                                                @if (!string.IsNullOrWhiteSpace(option.RetailStatus))
+                                                {
+                                                    <small>Retail @option.RetailStatus</small>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(option.CanonicalStatus))
+                                                {
+                                                    <small>Canonical @option.CanonicalStatus</small>
+                                                }
+                                            </span>
                                         }
                                     </span>
                                     @if (option.IsActive)
@@ -85,6 +139,29 @@
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<EditorContextLevel> Levels { get; set; } = [];
     [Parameter] public EventCallback<Guid> OnTargetSelected { get; set; }
+
+    private const int SearchThreshold = 8;
+    private const int MaxVisibleOptions = 50;
+    private readonly Dictionary<string, string> _queries = new(StringComparer.Ordinal);
+
+    private string GetQuery(EditorContextLevel level) =>
+        _queries.TryGetValue(GetLevelKey(level), out var query) ? query : string.Empty;
+
+    private void SetQuery(EditorContextLevel level, string value) =>
+        _queries[GetLevelKey(level)] = value;
+
+    private IReadOnlyList<EditorContextOption> GetVisibleOptions(EditorContextLevel level)
+    {
+        var query = GetQuery(level).Trim();
+        return level.Options
+            .Where(option => string.IsNullOrWhiteSpace(query)
+                || string.Join(" ", option.Label, option.Title, option.Subtitle)
+                    .Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Take(MaxVisibleOptions)
+            .ToList();
+    }
+
+    private static string GetLevelKey(EditorContextLevel level) => $"{level.NodeKind}:{level.Label}";
 
     private Task OpenLevelAsync(EditorContextLevel level) =>
         level.CanOpen && level.EntityId.HasValue
