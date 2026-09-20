@@ -20,7 +20,7 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("ICollectionMediaLookupReadService mediaLookupReadService", source, StringComparison.Ordinal);
         Assert.Contains("HomeVisibilitySql.VisibleAssetPathPredicate(\"ma.file_path_root\")", readServiceSource, StringComparison.Ordinal);
         Assert.Contains("HomeVisibilitySql.VisibleWorkPredicate(\"w.id\", \"w.curator_state\", \"w.is_catalog_only\")", readServiceSource, StringComparison.Ordinal);
-        Assert.Contains("Description = row.Description", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("row.DescriptionOverride ?? row.Description", browseReadServiceSource, StringComparison.Ordinal);
         Assert.Contains("Tagline = row.Tagline", browseReadServiceSource, StringComparison.Ordinal);
         Assert.Contains("Network = row.Network", browseReadServiceSource, StringComparison.Ordinal);
         Assert.Contains("SeasonCount = row.SeasonCount is > 0", browseReadServiceSource, StringComparison.Ordinal);

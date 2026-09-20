@@ -2230,3 +2230,24 @@ window.scrollSequenceRail = (id, direction) => {
     const distance = Math.max(240, rail.clientWidth * 0.82) * (direction < 0 ? -1 : 1);
     rail.scrollBy({ left: distance, behavior: 'smooth' });
 };
+
+// Rich selectors use the same keyboard contract even when MudPopover portals them.
+window.tuvimaFocusMenu = function (id) {
+    requestAnimationFrame(function () {
+        const menu = document.getElementById(id);
+        menu?.querySelector('input:not(:disabled), [role="menuitem"]:not(:disabled)')?.focus();
+    });
+};
+document.addEventListener('keydown', function (event) {
+    const menu = event.target.closest?.('.app-overflow-menu__content');
+    if (!menu || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    if (event.target.matches('input, textarea') && ['Home', 'End'].includes(event.key)) return;
+    const options = Array.from(menu.querySelectorAll('[role="menuitem"]:not(:disabled)'));
+    if (!options.length) return;
+    event.preventDefault();
+    const current = options.indexOf(document.activeElement);
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1
+        : event.key === 'ArrowDown' ? (current + 1) % options.length
+        : current <= 0 ? options.length - 1 : current - 1;
+    options[index].focus();
+});

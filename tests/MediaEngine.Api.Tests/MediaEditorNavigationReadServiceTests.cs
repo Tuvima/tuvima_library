@@ -61,6 +61,17 @@ public sealed class MediaEditorNavigationReadServiceTests : IDisposable
             command.ExecuteNonQuery();
         }
 
+        var posterId = Guid.NewGuid();
+        var stillId = Guid.NewGuid();
+        using (var connection = _database.CreateConnection())
+        {
+            connection.Execute("""
+                INSERT INTO entity_assets (id, entity_id, entity_type, asset_type, local_image_path, is_preferred)
+                VALUES (@posterId, @seasonId, 'Work', 'SeasonPoster', 'season.jpg', 1),
+                       (@stillId, @episodeId, 'Work', 'EpisodeStill', 'episode.jpg', 1);
+                """, new { posterId, seasonId, stillId, episodeId });
+        }
+
         var service = new MediaEditorNavigationReadService(_database, null!, new HierarchyAlignmentService(_database, null!));
 
         var navigator = await service.GetNavigatorAsync(seriesId, CancellationToken.None);
@@ -79,6 +90,10 @@ public sealed class MediaEditorNavigationReadServiceTests : IDisposable
         Assert.True(episode.CanSelectAsEditorTarget);
         Assert.Equal(assetId, episode.PrimaryAssetId);
         Assert.Equal("Pilot", episode.Title);
+        Assert.Equal($"/stream/artwork/{posterId:D}", season.ArtworkUrl);
+        Assert.Equal($"/stream/artwork/{stillId:D}", episode.ArtworkUrl);
+        Assert.Equal("wide", episode.ArtworkShape);
+        Assert.Null(navigator.Nodes.Single(node => node.IsRoot).ArtworkUrl);
     }
 
     [Fact]

@@ -463,6 +463,14 @@ public sealed class MediaEditorNavigationReadService(
                    CAST(pic.file_size AS TEXT) AS InspectionFileSize,
                    CAST(pic.container AS TEXT) AS InspectionContainer,
                    CAST(w.display_overrides_json AS TEXT) AS WorkDisplayOverridesJson,
+                   (SELECT ea.id FROM entity_assets ea WHERE ea.entity_id = w.id
+                    AND ea.asset_type = CASE WHEN w.media_type = 'TV' AND w.work_kind != 'parent' THEN 'EpisodeStill'
+                        WHEN w.media_type = 'TV' AND w.parent_work_id IS NOT NULL THEN 'SeasonPoster' ELSE 'CoverArt' END
+                    AND COALESCE(NULLIF(ea.local_image_path_m, ''), NULLIF(ea.local_image_path, '')) IS NOT NULL
+                    ORDER BY ea.is_user_override DESC, ea.is_preferred DESC, COALESCE(ea.updated_at, ea.created_at) DESC LIMIT 1) AS ArtworkId,
+                   (SELECT ea.aspect_class FROM entity_assets ea WHERE ea.entity_id = w.id
+                    AND ea.asset_type = 'CoverArt' AND COALESCE(NULLIF(ea.local_image_path_m, ''), NULLIF(ea.local_image_path, '')) IS NOT NULL
+                    ORDER BY ea.is_user_override DESC, ea.is_preferred DESC, COALESCE(ea.updated_at, ea.created_at) DESC LIMIT 1) AS ArtworkShape,
                    CAST(w.parent_key AS TEXT) AS ParentKey
             FROM works w
             LEFT JOIN representative_assets ra ON ra.WorkId = w.id
@@ -602,7 +610,9 @@ public sealed class MediaEditorNavigationReadService(
             IsClickable: isClickable,
             CanSelectAsEditorTarget: canSelectAsEditorTarget,
             CanQuarantine: quarantineCount > 0,
-            QuarantineCount: quarantineCount);
+            QuarantineCount: quarantineCount,
+            ArtworkUrl: value?.ArtworkId is Guid artworkId ? $"/stream/artwork/{artworkId:D}" : null,
+            ArtworkShape: nodeKind == "episode" ? "wide" : mediaType == "Music" ? "square" : value?.ArtworkShape?.ToLowerInvariant() ?? "portrait");
     }
 
     private static string ResolveNavigatorNodeKind(string mediaType, NavigatorTreeRow row) =>
@@ -1121,6 +1131,8 @@ public sealed class MediaEditorNavigationReadService(
     }
     private sealed class NavigatorValueRow
     {
+        public Guid? ArtworkId { get; set; }
+        public string? ArtworkShape { get; set; }
         public Guid WorkId { get; init; }
         public Guid? AssetId { get; init; }
         public string? AssetFilePath { get; init; }

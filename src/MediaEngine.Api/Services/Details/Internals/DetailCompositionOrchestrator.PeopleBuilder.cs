@@ -313,10 +313,7 @@ internal sealed partial class DetailCompositionOrchestrator
             .ToList();
     }
 
-    private static IReadOnlyList<RelationshipGroup> BuildCollectionRelationships(CollectionDetailRow row, DetailEntityType entityType)
-        => string.IsNullOrWhiteSpace(row.WikidataQid)
-            ? []
-            : [new RelationshipGroup { Title = "Canonical Identity", Items = [new RelatedEntityChip { Id = row.WikidataQid!, EntityType = RelatedEntityType.Universe, Label = row.WikidataQid! }] }];
+
 
     private static IReadOnlyList<EntityCreditViewModel> BuildPreviewContributors(
         DetailEntityType entityType,

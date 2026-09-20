@@ -9,11 +9,13 @@ namespace MediaEngine.Web.Tests;
 
 public sealed class EditorContextNavigatorTests : AsyncBunitContext
 {
+    private readonly IRenderedComponent<MudPopoverProvider> _popovers;
+
     public EditorContextNavigatorTests()
     {
         Services.AddMudServices();
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Render<MudPopoverProvider>();
+        _popovers = Render<MudPopoverProvider>();
     }
 
     [Fact]
@@ -42,8 +44,8 @@ public sealed class EditorContextNavigatorTests : AsyncBunitContext
                 EventCallback.Factory.Create<Guid>(this, id => selectedId = id)));
 
         Assert.Equal(3, cut.FindAll(".editor-context-level").Count);
-        Assert.Equal(2, cut.FindAll(".editor-context__separator").Count);
-        Assert.Equal(2, cut.FindAll(".editor-context-level__selector-trigger").Count);
+        Assert.Empty(cut.FindAll(".editor-context__separator"));
+        Assert.Equal(3, cut.FindAll(".editor-context-level__selector-trigger").Count);
         Assert.Equal("page", cut.Find(".editor-context-level.is-active .editor-context-level__body").GetAttribute("aria-current"));
         Assert.Contains("Series", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Breaking Bad", cut.Markup, StringComparison.Ordinal);
@@ -91,9 +93,43 @@ public sealed class EditorContextNavigatorTests : AsyncBunitContext
         var cut = Render<EditorContextNavigator>(parameters => parameters.Add(component => component.Levels, levels));
 
         Assert.Contains("Retail Matched", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Canonical Inherited", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Canonical Inherited", cut.Markup, StringComparison.Ordinal);
+        Assert.Empty(cut.FindAll(".editor-context-level__statuses"));
         Assert.Equal(!textOnly, cut.FindAll(".editor-context-level__artwork").Count == 1);
         Assert.Equal(textOnly, cut.FindAll(".editor-context-level__icon").Count == 1);
+    }
+
+    [Fact]
+    public void DropdownShowsAllOwnedOptionsWithTheirArtworkAndSelectsSearchResult()
+    {
+        var options = Enumerable.Range(1, 65).Select(index => new EditorContextOption(
+            Guid.NewGuid(), "Episode", $"Chapter {index}", $"S1 E{index}", index == 1, true,
+            $"/stream/artwork/episode-{index}", "Matched", "Inherited", false)).ToList();
+        Guid? selected = null;
+        var cut = Render<EditorContextNavigator>(parameters => parameters
+            .Add(component => component.Levels, new[]
+            {
+                new EditorContextLevel("Episode", "episode", "Chapter 1", "S1 E1", options[0].EntityId,
+                    true, true, true, options, options[0].ArtworkUrl),
+            })
+            .Add(component => component.OnTargetSelected,
+                EventCallback.Factory.Create<Guid>(this, id => selected = id)));
+
+        cut.Find(".editor-context-level__selector-trigger").Click();
+        Assert.Equal(65, _popovers.FindAll(".editor-context-option").Count);
+        Assert.Equal(DropdownWidth.Relative, cut.FindComponent<MudPopover>().Instance.RelativeWidth);
+        Assert.Contains("app-overflow-menu__popover--match-anchor", _popovers.Markup);
+        Assert.DoesNotContain("Inherited", _popovers.Markup);
+        Assert.DoesNotContain("Matched", _popovers.Markup);
+        Assert.Empty(_popovers.FindAll(".editor-context-option__label"));
+        Assert.Equal("/stream/artwork/episode-65",
+            _popovers.FindAll(".editor-context-option__artwork")[64].GetAttribute("src"));
+
+        _popovers.Find("input[type=search]").Input("Chapter 65");
+        var result = Assert.Single(_popovers.FindAll(".editor-context-option"));
+        result.Click();
+        Assert.Equal(options[64].EntityId, selected);
+        Assert.Equal("false", cut.Find(".editor-context-level__selector-trigger").GetAttribute("aria-expanded"));
     }
 
 }

@@ -19,7 +19,7 @@ public interface ICollectionBrowseReadService
         string groupValue,
         string? mediaType,
         string? artistName,
-        CancellationToken ct);
+        CancellationToken ct, Guid? rootWorkId = null);
     IReadOnlyList<Guid> EvaluateRules(
         CollectionRuleDefinition definition,
         string? sortField = null,

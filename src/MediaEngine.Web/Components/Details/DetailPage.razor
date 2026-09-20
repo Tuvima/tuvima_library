@@ -383,21 +383,8 @@
                 return;
             }
 
-            var universeQid = Model.RelationshipStrip
-                .SelectMany(group => group.Items)
-                .Where(item => item.EntityType == RelatedEntityType.Universe)
-                .Select(item => item.Id)
-                .FirstOrDefault(IsCanonicalUniverseQid);
-
             var request = new MediaEditorLaunchRequest
             {
-                SharedEntityTarget = Model.EntityType != DetailEntityType.Person && universeQid is not null
-                    ? new SharedEntityEditorTargetDto(
-                        SharedEntityEditorTargetKinds.Universe,
-                        universeQid,
-                        null,
-                        universeQid)
-                    : null,
                 EntityIds = [target.EntityId],
                 LaunchEntityId = target.EntityId,
                 LaunchEntityKind = target.EntityKind,
@@ -1133,11 +1120,6 @@
 
     private static int TrackSortKey(MediaGroupingItemViewModel item)
         => int.TryParse(item.TrackNumber, out var parsed) ? parsed : int.MaxValue;
-
-    private static bool IsCanonicalUniverseQid(string? value)
-        => value is { Length: > 1 }
-            && value[0] == 'Q'
-            && value.AsSpan(1).ToString().All(char.IsAsciiDigit);
 
     private static string ResolveEditorMediaType(DetailEntityType entityType, DetailPresentationContext context)
         => entityType switch

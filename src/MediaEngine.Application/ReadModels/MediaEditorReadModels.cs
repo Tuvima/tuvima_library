@@ -94,7 +94,9 @@ public sealed record MediaEditorNavigatorNodeEnvelope(
     [property: JsonPropertyName("is_clickable")] bool IsClickable,
     [property: JsonPropertyName("can_select_as_editor_target")] bool CanSelectAsEditorTarget,
     [property: JsonPropertyName("can_quarantine")] bool CanQuarantine,
-    [property: JsonPropertyName("quarantine_count")] int QuarantineCount);
+    [property: JsonPropertyName("quarantine_count")] int QuarantineCount,
+    string? ArtworkUrl = null,
+    string ArtworkShape = "portrait");
 
 public sealed record MembershipSuggestionEnvelope(
     [property: JsonPropertyName("entity_id")] Guid? EntityId,

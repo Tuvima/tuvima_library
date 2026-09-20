@@ -75,7 +75,10 @@ internal sealed class ArtworkScopeService(
                 .Select(MapArtworkVariant)
                 .ToList();
 
-            var preferredUrl = GetArtworkCanonicalValue(canonicals, assetType)
+            // Structural shelves render their owned stack unless they have a managed cover.
+            // A representative child's detail cover must never become a synthetic shelf override.
+            var automaticGroup = scope.ScopeId == "series" && scope.MediaType != "TV";
+            var preferredUrl = automaticGroup ? null : GetArtworkCanonicalValue(canonicals, assetType)
                                ?? GetArtworkDetailUrl(detail, assetType);
 
             if (!string.IsNullOrWhiteSpace(preferredUrl)
@@ -112,6 +115,7 @@ internal sealed class ArtworkScopeService(
                 "SeasonPoster",
                 "SeasonThumb",
             ],
+            ("Movies", "series") or ("Books", "series") or ("Audiobooks", "series") or ("Comics", "series") => ["CoverArt"],
             ("Movies", "item") =>
             [
                 "CoverArt",
@@ -128,7 +132,7 @@ internal sealed class ArtworkScopeService(
                 "Background",
                 "Logo",
             ],
-            ("Books", "item") or ("Audiobooks", "item") or ("Comics", "item") =>
+            ("Books", "book" or "item") or ("Audiobooks", "audiobook" or "item") or ("Comics", "issue" or "item") =>
             [
                 "CoverArt",
                 "Background",
@@ -144,9 +148,9 @@ internal sealed class ArtworkScopeService(
             or ("TV", "season")
             or ("TV", "episode")
             or ("Music", "album")
-            or ("Books", "item")
-            or ("Audiobooks", "item")
-            or ("Comics", "item");
+            or ("Books", "book" or "item")
+            or ("Audiobooks", "audiobook" or "item")
+            or ("Comics", "issue" or "item");
 
     public async Task<ProviderArtworkRefreshTarget> ResolveProviderArtworkRefreshTargetAsync(
         EditorScopeResolution scope,

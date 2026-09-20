@@ -420,6 +420,9 @@
         if (!IsStructuralContainer)
             return [];
 
+        if (!string.IsNullOrWhiteSpace(Model.Artwork.CoverUrl))
+            return [new ArtworkStackItem { Id = Model.Id, Title = Model.Title, ImageUrl = Model.Artwork.CoverUrl, Shape = ArtworkShape.Portrait }];
+
         return Model.MediaGroups
             .Where(group => !IsRecommendationGroup(group))
             .SelectMany(group => group.Items)

@@ -5,6 +5,21 @@ namespace MediaEngine.Api.Tests;
 public sealed class ArtworkTypeRetirementTests
 {
     [Theory]
+    [InlineData("Books", "series")]
+    [InlineData("Audiobooks", "series")]
+    [InlineData("Comics", "series")]
+    [InlineData("Movies", "series")]
+    public void StructuralShelvesOwnACustomCover(string mediaType, string scope)
+        => Assert.Equal(["CoverArt"], ArtworkScopeService.GetScopedArtworkSlots(mediaType, scope));
+
+    [Theory]
+    [InlineData("Books", "book")]
+    [InlineData("Audiobooks", "audiobook")]
+    [InlineData("Comics", "issue")]
+    public void LeafScopeNamesExposeTheirOwnedArtwork(string mediaType, string scope)
+        => Assert.Equal(["CoverArt", "Background", "Logo"], ArtworkScopeService.GetScopedArtworkSlots(mediaType, scope));
+
+    [Theory]
     [InlineData("Movies", "item")]
     [InlineData("TV", "series")]
     [InlineData("Music", "album")]

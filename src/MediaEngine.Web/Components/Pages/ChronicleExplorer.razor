@@ -1,6 +1,15 @@
 ﻿@page "/universe/{Qid}/explore"
 @using MediaEngine.Web.Components.Universe
 @using MediaEngine.Web.Services.Theming
+@using SharedEntityEditorTargetDto = MediaEngine.Contracts.Universe.SharedEntityEditorTargetDto
+@using SharedEntityEditorTargetKinds = MediaEngine.Contracts.Universe.SharedEntityEditorTargetKinds
+@using SharedEntitySelectorItemDto = MediaEngine.Contracts.Universe.SharedEntitySelectorItemDto
+@using SharedEntitySelectorPageDto = MediaEngine.Contracts.Universe.SharedEntitySelectorPageDto
+@using MediaEngine.Web.Services.Editing
+@inject MediaEditorLauncherService MediaEditorLauncher
+@inject DashboardIdentityClient Identity
+@inject DashboardSessionAccessor Session
+@inject ISnackbar Snackbar
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
 @inject ILogger<ChronicleExplorer> Logger
@@ -39,9 +48,15 @@ else if (_graph is null)
 }
 else
 {
+<div class="chronicle-heading">
 <MudText Typo="Typo.h4" Class="chronicle-explorer-title mb-2">
         @(_graph?.Universe.Label ?? "Loading...")
     </MudText>
+    @if (_canEditUniverse)
+    {
+        <AppButton ButtonStyle="AppButtonStyle.Outlined" StartIcon="@Icons.Material.Outlined.Edit" Disabled="@_openingEditor" OnClick="@(() => EditUniverseAsync(null))">Edit Universe</AppButton>
+    }
+</div>
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
         <AppChip T="string" Color="Color.Primary" Size="Size.Small">
             @(_graph?.Nodes.Count ?? 0) entities
@@ -363,6 +378,11 @@ else
                 QID: @_selectedEntity.Id
             </MudText>
 
+            @if (_canEditUniverse && !_selectedEntity.Supplemental)
+            {
+                <AppButton ButtonStyle="AppButtonStyle.Outlined" StartIcon="@Icons.Material.Outlined.Edit" Disabled="@_openingEditor" OnClick="@(() => EditUniverseAsync(_selectedEntity))">Edit @_selectedEntity.Label</AppButton>
+            }
+
             @if (_selectedEntity.Works?.Count > 0)
             {
                 <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Appears in</MudText>
@@ -393,6 +413,44 @@ else
     [Parameter] public string Qid { get; set; } = string.Empty;
 
     private UniverseGraphResponse? _graph;
+    private bool _canEditUniverse;
+    private bool _openingEditor;
+    private SharedEntityEditorTargetDto UniverseTarget => new(SharedEntityEditorTargetKinds.Universe, Qid, null, Qid);
+
+    private async Task EditUniverseAsync(GraphNodeDto? entity)
+    {
+        if (_openingEditor || !_canEditUniverse) return;
+        _openingEditor = true;
+        try
+        {
+            var target = UniverseTarget;
+            if (entity is not null)
+            {
+                SharedEntitySelectorItemDto? selected = null;
+                var offset = 0;
+                SharedEntitySelectorPageDto? page;
+                do
+                {
+                    page = await ApiClient.GetSharedEntitySelectorPageAsync(Qid, category: null, search: entity.Id, offset: offset, limit: 100);
+                    selected = page?.items.FirstOrDefault(item => item.qid == entity.Id);
+                    offset += 100;
+                } while (selected is null && page?.has_more == true);
+                if (selected is null) { Snackbar.Add("This entity is not available for editing.", Severity.Warning); return; }
+                target = new(SharedEntityEditorTargetKinds.FictionalEntity, Qid, selected.id, selected.qid);
+            }
+            if (await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
+                { SharedEntityTarget = target, HeaderTitle = _graph?.Universe.Label, Mode = SharedMediaEditorMode.Normal }))
+            {
+                _graph = await ApiClient.GetUniverseGraphAsync(Qid, includeSupplementalLore: true);
+                if (entity is not null) _selectedEntity = _graph?.Nodes.FirstOrDefault(node => node.Id == entity.Id);
+                if (_cytoscapeReady && _graph is not null)
+                    await JS.InvokeVoidAsync("CytoscapeInterop.updateGraph", System.Text.Json.JsonSerializer.Serialize(_graph.Nodes), System.Text.Json.JsonSerializer.Serialize(_graph.Edges));
+            }
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "Could not open Universe editor for {UniverseQid}", Qid); Snackbar.Add("Universe editing is unavailable. Please try again.", Severity.Error); }
+        finally { _openingEditor = false; }
+    }
+
     private int _loreDeltaChanges;
     private bool _hasTemporalData;
     private int _minYear = 1900;
@@ -482,6 +540,11 @@ else
     {
         _loading = true;
         _graph = await ApiClient.GetUniverseGraphAsync(Qid, includeSupplementalLore: true);
+        if ((await Identity.RevalidateAuthorityAsync(Session))?.EffectiveAdministrator == true && _graph is not null)
+        {
+            var editContext = await ApiClient.GetSharedEntityEditorContextAsync(UniverseTarget);
+            _canEditUniverse = editContext?.capabilities.Any(capability => capability.editable) == true;
+        }
         if (_graph is not null)
         {
             _hasGraphData = _graph.Nodes.Count > 0 && _graph.Edges.Count > 0;

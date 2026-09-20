@@ -171,9 +171,11 @@ public partial class SharedMediaEditorShell
     protected IReadOnlyList<(string Id, string Label, string Icon)> Tabs => ResolveVisibleTabs();
     protected IReadOnlyList<(string Key, string Label)> QuickSearchTargets => ResolveQuickSearchTargets();
     protected IReadOnlyList<ArtworkSlotDefinition> ArtworkSlots => ResolveArtworkSlots(ArtworkScope);
-    protected bool SupportsCanonicalSearch => QuickSearchTargets.Count > 0;
+    protected bool CanMatchCurrentTarget => EditorMediaType != "TV" || ActiveScope?.ScopeId == "episode";
+    protected bool SupportsCanonicalSearch => CanMatchCurrentTarget && QuickSearchTargets.Count > 0;
+    protected bool HasActiveMatch => IsWikidataSearchMode ? HasCurrentCanonicalIdentity : HasCurrentRetailMatch;
     protected bool CanEditCanonicalIdentity =>
-        string.Equals(ActiveScope?.CanonicalIdentityMode, "owned", StringComparison.OrdinalIgnoreCase);
+        CanMatchCurrentTarget && string.Equals(ActiveScope?.CanonicalIdentityMode, "owned", StringComparison.OrdinalIgnoreCase);
     protected bool HasInheritedCanonicalIdentity =>
         ActiveScope?.CanonicalIdentityMode is "inherited" or "shared";
     protected MediaEditorScopeDto? CanonicalIdentityOwnerScope =>
@@ -183,10 +185,8 @@ public partial class SharedMediaEditorShell
     protected MediaEditorScopeDto? InheritedArtworkOwnerScope => GetScopeById(ActiveScope?.ArtworkOwnerScopeId);
     protected string CanonicalIdentityHeading =>
         string.Equals(ActiveIdentitySummary?.QidResolutionMethod, "comic_series_rollup", StringComparison.OrdinalIgnoreCase)
-            ? "Series-level canonical identity"
-            : HasInheritedCanonicalIdentity
-                ? "Inherited Canonical Identity"
-                : "Canonical Identity";
+            ? "Current series/run canonical match"
+            : "Current canonical match";
     protected string RetailIdentityHeading =>
         (EditorMediaType, ActiveScope?.ScopeId) switch
         {
@@ -264,7 +264,8 @@ public partial class SharedMediaEditorShell
         || _pendingMembershipPreview is not null
         || IsDirty
         || Request.Mode == SharedMediaEditorMode.Review;
-    protected bool IsArtworkBusy => _artworkUrlSubmitting || _providerArtworkRefreshing || _artworkApplyingKeys.Count > 0;
+    private bool _automaticArtworkRestoring;
+    protected bool IsArtworkBusy => _automaticArtworkRestoring || _artworkUrlSubmitting || _providerArtworkRefreshing || _artworkApplyingKeys.Count > 0;
     protected ArtworkSlotDefinition? SelectedArtworkSlot =>
         ArtworkSlots.FirstOrDefault(slot => string.Equals(slot.AssetType, _selectedArtworkAssetType, StringComparison.OrdinalIgnoreCase))
         ?? ArtworkSlots.FirstOrDefault();
@@ -353,7 +354,7 @@ public partial class SharedMediaEditorShell
             .OrderByDescending(item => item.Item2)
             .ThenBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
-    protected string CurrentTargetTitle => IdentityTargetScope?.DisplayTitle ?? ActiveScope?.DisplayTitle ?? HeaderTitle;
+    protected string CurrentTargetTitle => ActiveScope?.DisplayTitle ?? HeaderTitle;
 
     protected string GetContentTotalDurationLabel()
     {
@@ -430,29 +431,25 @@ public partial class SharedMediaEditorShell
 
     protected string HeaderKicker =>
         IsSharedEntityMode
-            ? _sharedEntityContext?.category ?? "Universe"
+            ? "Universe"
             : Request.Mode switch
         {
             SharedMediaEditorMode.Batch => $"{Request.EntityIds.Count} items",
-            _ => ActiveScope?.Label ?? _schema.MediaType,
+            _ => NavigatorRootNode?.Label ?? ActiveScope?.Label ?? _schema.MediaType,
         };
 
     protected string HeaderTitle =>
-        (IsSharedEntityMode ? _sharedEntityContext?.label : ActiveScope?.DisplayTitle)
+        (IsSharedEntityMode ? _sharedEntityContext?.breadcrumb?.FirstOrDefault() ?? _sharedEntityContext?.label : NavigatorRootNode?.Title ?? ActiveScope?.DisplayTitle)
         ?? Request.HeaderTitle
         ?? _detail?.Title
         ?? (IsBatchMode ? $"Edit {Request.EntityIds.Count} Items" : "Edit Item");
 
     protected string? HeaderSubtitle =>
-        (IsSharedEntityMode ? SharedEntityHeaderSubtitle : ActiveScope?.DisplaySubtitle)
+        (IsSharedEntityMode ? SharedEntityHeaderSubtitle : NavigatorRootNode?.Subtitle ?? ActiveScope?.DisplaySubtitle)
         ?? Request.HeaderSubtitle
         ?? (IsSingleItem ? BuildHeaderSubtitle() : string.Join(" | ", Request.PreviewItems.Take(3).Select(x => x.Title)));
 
-    private string? SharedEntityHeaderSubtitle => _sharedEntityContext is null
-        ? Request.SharedEntityTarget?.UniverseQid
-        : string.Equals(_sharedEntityContext.target.Kind, SharedEntityEditorTargetKinds.Universe, StringComparison.OrdinalIgnoreCase)
-            ? $"Universe · {_sharedEntityContext.target.UniverseQid}"
-            : $"{_sharedEntityContext.category} · {_sharedEntityContext.target.Qid}";
+    private string? SharedEntityHeaderSubtitle => Request.SharedEntityTarget?.UniverseQid;
 
     protected string EditorPageTitle => _activeTab switch
     {
@@ -1020,7 +1017,22 @@ public partial class SharedMediaEditorShell
 
     private async Task PerformTargetSwitchAsync(Guid entityId, string? preferredScopeId)
     {
+        var previousContext = _editorContext;
+        var previousNavigator = _navigator;
+        var previousScopeId = _activeScopeId;
+        var previousTab = _activeTab;
+        var previousState = new ScopeEditorState { Detail = _detail, CanonicalValues = _canonicalValues,
+            Claims = _claims, History = _history, Artwork = _artwork ?? new ArtworkEditorDto() };
         await LoadSingleItemAsync(entityId, resetEditorState: false, preferredScopeId: preferredScopeId);
+        if (_loadError is not null)
+        {
+            _editorContext = previousContext;
+            _navigator = previousNavigator;
+            _activeScopeId = previousScopeId;
+            ApplyScopeState(previousState);
+            _tabState.Activate(previousTab);
+            _loadError = null; // LoadSingleItemAsync already logged and displayed the recoverable error.
+        }
         EnsureActiveTabVisible();
     }
 
@@ -1066,7 +1078,7 @@ public partial class SharedMediaEditorShell
             : discoveredMaxDepth;
         var levels = new List<EditorContextLevel>(maximumDepth + 1);
 
-        for (var depth = 0; depth <= maximumDepth; depth++)
+        for (var depth = 1; depth <= maximumDepth; depth++)
         {
             var selectedNode = GetSelectedContextNodeAtDepth(depth);
             var parentNode = depth == 0 ? null : GetSelectedContextNodeAtDepth(depth - 1);
@@ -1105,7 +1117,7 @@ public partial class SharedMediaEditorShell
                 selectedNode is { CanSelectAsEditorTarget: true },
                 depth > 0,
                 options,
-                GetContextArtworkUrl(representativeNode),
+                GetContextArtworkUrl(selectedNode),
                 selectedNode is null ? null : GetContextRetailStatus(selectedNode),
                 selectedNode is null ? null : GetContextCanonicalStatus(selectedNode),
                 IsTextOnlyContextNode(representativeNode)));
@@ -1114,19 +1126,55 @@ public partial class SharedMediaEditorShell
         return levels;
     }
 
-    private string? GetContextArtworkUrl(MediaEditorNavigatorNodeDto? node)
-    {
-        if (node is null || IsTextOnlyContextNode(node))
-        {
-            return null;
-        }
+    private string? GetContextArtworkUrl(MediaEditorNavigatorNodeDto? node) =>
+        node is null || IsTextOnlyContextNode(node) || string.IsNullOrWhiteSpace(node.ArtworkUrl)
+            ? null : ApiClient.ToAbsoluteEngineUrl(node.ArtworkUrl);
 
-        var assetId = node.PrimaryAssetId
-            ?? GetNavigatorDescendants(node).FirstOrDefault(candidate => candidate.PrimaryAssetId.HasValue)?.PrimaryAssetId;
-        return assetId is Guid value && value != Guid.Empty
-            ? ApiClient.ToAbsoluteEngineUrl($"/stream/{value:D}/cover")
-            : null;
+    protected bool HasAutomaticGroupArtwork => ActiveScope?.ArtworkPresentation == "automatic_group";
+    protected bool HasParentGroupArtwork => NavigatorRootNode is { NodeKind: "series" or "film_series" } && EditorMediaType != "TV";
+    protected IReadOnlyList<ArtworkStackItem> AutomaticGroupArtwork => BuildAutomaticGroupArtwork(SelectedNavigatorNode);
+    protected IReadOnlyList<ArtworkStackItem> ParentGroupArtwork => BuildAutomaticGroupArtwork(NavigatorRootNode);
+
+    private IReadOnlyList<ArtworkStackItem> BuildAutomaticGroupArtwork(MediaEditorNavigatorNodeDto? owner) =>
+        GetNavigatorDescendants(owner).Where(node => node.IsLeaf && node.IsOwned && !string.IsNullOrWhiteSpace(node.ArtworkUrl))
+            .DistinctBy(node => node.EntityId).Take(4).Select(node => new ArtworkStackItem
+            {
+                Id = node.EntityId.ToString(), WorkId = node.EntityId, AssetId = node.PrimaryAssetId,
+                Title = node.Title, ImageUrl = GetContextArtworkUrl(node) ?? string.Empty, MediaType = EditorMediaType,
+                Shape = node.ArtworkShape switch { "wide" => ArtworkShape.Wide, "square" => ArtworkShape.Square, _ => ArtworkShape.Portrait },
+            }).ToList();
+
+    protected async Task RestoreAutomaticArtworkAsync()
+    {
+        if (!HasAutomaticGroupArtwork || IsArtworkBusy || _artwork is null) return;
+        var variants = _artwork.Slots.Where(slot => slot.AssetType == "CoverArt")
+            .SelectMany(slot => slot.Variants).Where(variant => variant.Id != Guid.Empty).ToList();
+        if (variants.Any(variant => !variant.CanDelete)) return;
+        if (await DialogService.ShowMessageBoxAsync("Restore automatic artwork?",
+            "Remove this shelf's custom covers and use artwork from its owned titles?",
+            yesText: "Restore automatic artwork", cancelText: "Keep custom covers") != true) return;
+
+        _automaticArtworkRestoring = true;
+        try
+        {
+            foreach (var variant in variants)
+            {
+                if (!await ApiClient.DeleteArtworkAsync(variant.Id))
+                {
+                    Snackbar.Add("Could not restore automatic artwork. Please try again.", Severity.Error);
+                    await RefreshArtworkStateAsync(notifyParent: true);
+                    return;
+                }
+            }
+            await RefreshArtworkStateAsync(notifyParent: true);
+        }
+        finally
+        {
+            _automaticArtworkRestoring = false;
+        }
     }
+
+    protected bool IsParentEditorTarget => HasContextNavigator && NavigatorRootNode?.EntityId == _navigator?.SelectedEntityId;
 
     private string GetContextRetailStatus(MediaEditorNavigatorNodeDto? node)
     {
@@ -1792,11 +1840,6 @@ public partial class SharedMediaEditorShell
                     return;
                 }
 
-                if (await CompletePendingSharedEntityModeSwitchAsync())
-                {
-                    return;
-                }
-
                 await CloseEditorAsync(applied: false);
                 return;
             }
@@ -1816,11 +1859,6 @@ public partial class SharedMediaEditorShell
                     return;
                 }
 
-                if (await CompletePendingSharedEntityModeSwitchAsync())
-                {
-                    return;
-                }
-
                 await CloseEditorAsync(applied: true);
                 return;
             }
@@ -1829,11 +1867,6 @@ public partial class SharedMediaEditorShell
                 ? "Changes saved and membership updated."
                 : "Changes saved.", Severity.Success);
             if (await CompletePendingTargetSwitchAsync())
-            {
-                return;
-            }
-
-            if (await CompletePendingSharedEntityModeSwitchAsync())
             {
                 return;
             }
@@ -2786,7 +2819,7 @@ public partial class SharedMediaEditorShell
 
     protected async Task SearchCanonicalAsync()
     {
-        if (!IsSingleItem || IsFileScope)
+        if (!IsSingleItem || IsFileScope || !SupportsCanonicalSearch)
         {
             return;
         }
@@ -3016,7 +3049,7 @@ public partial class SharedMediaEditorShell
             Title: title,
             Creator: creator,
             Year: year,
-            CoverUrl: CurrentCoverUrl,
+            CoverUrl: HasContextNavigator ? GetContextArtworkUrl(SelectedNavigatorNode) : CurrentCoverUrl,
             Chips: chips,
             Links: links,
             Note: UsesParentRetailIdentityOnly
@@ -3637,6 +3670,7 @@ public partial class SharedMediaEditorShell
 
     protected async Task ApplyUnlinkedCanonicalAsync()
     {
+        if (!CanEditCanonicalIdentity) return;
         var searchResponse = ActiveMatchSearchResponse;
         if (searchResponse is null)
         {
@@ -3912,7 +3946,7 @@ public partial class SharedMediaEditorShell
     }
 
     protected bool CanApplyRetailCandidate(ItemCanonicalRetailCandidateDto candidate) =>
-        IsCandidateSelected(GetCandidateId(candidate))
+        CanMatchCurrentTarget && IsCandidateSelected(GetCandidateId(candidate))
         && candidate.IsApplicable
         && RetailHierarchyPreviewPolicy.CanApply(
             previewRequired: BuildRetailHierarchyPreviewRequest(candidate) is not null,
@@ -3949,7 +3983,7 @@ public partial class SharedMediaEditorShell
         && string.Equals(_retailHierarchyPreviewCandidateId, GetCandidateId(candidate), StringComparison.Ordinal);
 
     protected bool CanApplyLinkedCandidate(ItemCanonicalLinkedCandidateDto candidate) =>
-        IsCandidateSelected(GetCandidateId(candidate))
+        CanMatchCurrentTarget && CanEditCanonicalIdentity && IsCandidateSelected(GetCandidateId(candidate))
         && candidate.IsApplicable
         && !_matchActionPending
         && (!string.IsNullOrWhiteSpace(candidate.Qid)
@@ -4649,7 +4683,7 @@ public partial class SharedMediaEditorShell
 
         return (EditorMediaType, ActiveScope?.ScopeId) switch
         {
-            ("TV", "series") => [("show", "Show")],
+            ("TV", "series") => [],
             ("TV", "season") => [],
             ("TV", "episode") => [("show_episode", "Episode")],
             ("Music", "album") => [("album", "Album")],
@@ -4671,6 +4705,7 @@ public partial class SharedMediaEditorShell
 
         return (EditorMediaType, ActiveScope.ScopeId) switch
         {
+            (_, "series") when EditorMediaType != "TV" => ["title", "description", "custom_tags", "sort_title"],
             ("TV", "series") => ["show_name", "tagline", "year", "network", "runtime", "genre", "custom_tags", "language", "description", "rating", "sort_series"],
             ("TV", "season") => ["title", "description", "custom_tags"],
             ("TV", "episode") => ["episode_title", "description", "custom_tags", "sort_title"],
@@ -4773,7 +4808,8 @@ public partial class SharedMediaEditorShell
             return tabId is "details" or "options";
         }
 
-        return GetAvailableTabIds().Contains(tabId, StringComparer.OrdinalIgnoreCase);
+        return (tabId != "links" || CanMatchCurrentTarget)
+            && GetAvailableTabIds().Contains(tabId, StringComparer.OrdinalIgnoreCase);
     }
 
     private string? GetCanonicalSearchUnavailableReason()
@@ -5292,7 +5328,7 @@ public partial class SharedMediaEditorShell
             : value.Trim();
     }
 
-    protected string ArtworkShapeClass => GetArtworkShapeClass(EditorMediaType, ActiveScope?.ScopeId);
+    protected string ArtworkShapeClass => GetArtworkShapeClass(EditorMediaType, NavigatorRootNode?.ScopeId ?? ActiveScope?.ScopeId);
 
     private static string GetArtworkShapeClass(string? mediaType, string? scopeId)
     {
@@ -5711,43 +5747,17 @@ public partial class SharedMediaEditorShell
     }
 
     private IReadOnlyList<ArtworkSlotDefinition> ResolveArtworkSlots(MediaEditorScopeDto? scope) =>
-        (EditorMediaType, scope?.ScopeId, scope?.CanEditArtwork) switch
-        {
-            ("TV", "series", true) =>
-            [
-                PosterCoverArtworkSlot,
-                BackgroundArtworkSlot,
-                LogoArtworkSlot,
-            ],
-            ("Movies", "item", true) =>
-            [
-                PosterCoverArtworkSlot,
-                BackgroundArtworkSlot,
-                LogoArtworkSlot,
-            ],
-            ("TV", "season", true) =>
-            [
-                SeasonPosterArtworkSlot,
-                SeasonThumbArtworkSlot,
-            ],
-            ("Music", "album", true) =>
-            [
-                PosterCoverArtworkSlot,
-                BackgroundArtworkSlot,
-                LogoArtworkSlot,
-            ],
-            ("TV", "episode", true) =>
-            [
-                EpisodeStillArtworkSlot,
-            ],
-            ("Books", "item", true) or ("Audiobooks", "item", true) or ("Comics", "item", true) =>
-            [
-                PosterCoverArtworkSlot,
-                BackgroundArtworkSlot,
-                LogoArtworkSlot,
-            ],
-            _ => [],
-        };
+        scope is not { CanEditArtwork: true } ? [] : scope.ArtworkSlots
+            .Select(type => type switch
+            {
+                "CoverArt" => PosterCoverArtworkSlot,
+                "Background" => BackgroundArtworkSlot,
+                "Logo" => LogoArtworkSlot,
+                "SeasonPoster" => SeasonPosterArtworkSlot,
+                "SeasonThumb" => SeasonThumbArtworkSlot,
+                "EpisodeStill" => EpisodeStillArtworkSlot,
+                _ => null,
+            }).OfType<ArtworkSlotDefinition>().ToList();
 
     private IReadOnlyList<string> GetPlacementFieldKeysForActiveScope()
     {
@@ -6229,6 +6239,8 @@ public partial class SharedMediaEditorShell
             await LoadArtworkStateAsync(targetScopeId, forceReload: true);
         }
 
+        if (HasContextNavigator)
+            _navigator = await ApiClient.GetMediaEditorNavigatorAsync(EditorContextEntityId) ?? _navigator;
         CloseArtworkZoom();
         NormalizeArtworkSelection();
         StateHasChanged();
@@ -6365,6 +6377,8 @@ public partial class SharedMediaEditorShell
 
     private string? GetHeaderArtworkPreviewUrl()
     {
+        if (HasContextNavigator && NavigatorRootNode?.EntityId != ActiveScope?.FieldEntityId)
+            return GetContextArtworkUrl(NavigatorRootNode);
         var headerScope = ActiveScope;
         foreach (var slot in ResolveArtworkSlots(headerScope))
         {
@@ -6375,7 +6389,7 @@ public partial class SharedMediaEditorShell
             }
         }
 
-        return Request.CoverUrl;
+        return HasContextNavigator ? GetContextArtworkUrl(NavigatorRootNode) : Request.CoverUrl;
     }
 
     private string? GetHeaderArtworkPreviewUrl(MediaEditorScopeDto? scope, string assetType)

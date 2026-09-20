@@ -130,6 +130,10 @@ The name came from the same idea. [ElfDict lists **túvima**](https://www.elfdic
 
 Tuvima Library is the library I wanted for myself, built in the hope that it can become that library for others too.
 
+## Editing your library
+
+Open **Edit** on a detail page to customize that item or shelf. The editor keeps its parent title visible while season, episode, and title selectors mark what you are editing. Match information appears in Details. Structural shelves support their own descriptions and a custom cover, or an automatic stack of owned artwork. To edit a Universe or character, follow the named Universe relationship from a detail page and use Edit while exploring it.
+
 ## What Tuvima Library Means by a Universe
 
 A **Universe** is not another folder or playlist. It is the living map of a creative world.

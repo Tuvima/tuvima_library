@@ -75,3 +75,6 @@
 .chronicle-source-table td {
     overflow-wrap: anywhere;
 }
+
+.chronicle-heading { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.chronicle-heading ::deep button { flex:0 0 auto; }

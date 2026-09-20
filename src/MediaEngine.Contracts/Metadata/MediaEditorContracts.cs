@@ -145,6 +145,12 @@ public sealed class MediaEditorScopeDto
     [JsonPropertyName("can_edit_fields")]
     public bool CanEditFields { get; set; } = true;
 
+    [JsonPropertyName("artwork_slots")]
+    public List<string> ArtworkSlots { get; set; } = [];
+
+    [JsonPropertyName("artwork_presentation")]
+    public string ArtworkPresentation { get; set; } = "single";
+
     [JsonPropertyName("can_edit_artwork")]
     public bool CanEditArtwork { get; set; }
 
@@ -246,6 +252,12 @@ public sealed class MediaEditorNavigatorNodeDto
 
     [JsonPropertyName("primary_asset_id")]
     public Guid? PrimaryAssetId { get; set; }
+
+    [JsonPropertyName("artwork_url")]
+    public string? ArtworkUrl { get; set; }
+
+    [JsonPropertyName("artwork_shape")]
+    public string ArtworkShape { get; set; } = "portrait";
 
     [JsonPropertyName("compact_ordinal_label")]
     public string? CompactOrdinalLabel { get; set; }

@@ -21,6 +21,10 @@ public sealed class Phase8AdvancedIntelligenceTests : AsyncBunitContext
         Services.AddLocalization();
         Services.AddLogging();
         Services.AddMudServices();
+        Services.AddHttpClient();
+        Services.AddScoped<DashboardSessionAccessor>();
+        Services.AddScoped<DashboardIdentityClient>();
+        Services.AddScoped<MediaEngine.Web.Services.Editing.MediaEditorLauncherService>();
     }
 
     [Fact]

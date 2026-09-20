@@ -108,6 +108,8 @@ public static partial class MetadataEndpoints
                 IsLeaf = node.IsLeaf,
                 IsOwned = node.IsOwned,
                 PrimaryAssetId = node.PrimaryAssetId,
+                ArtworkUrl = node.ArtworkUrl,
+                ArtworkShape = node.ArtworkShape,
                 CompactOrdinalLabel = node.CompactOrdinalLabel,
                 TechnicalBadges = node.TechnicalBadges.ToList(),
                 IsClickable = node.IsClickable,

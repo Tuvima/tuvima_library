@@ -358,7 +358,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("OnEditGroup", source);
         Assert.DoesNotContain("OpenSeasonEditorAsync", detailPage);
         Assert.Contains("SeasonPosterArtworkSlot", editor);
-        Assert.Contains("(\"TV\", \"season\", true)", editor);
+        Assert.Contains("scope.ArtworkSlots", editor);
         Assert.Contains("tl-season-toggle__chevron", source);
         Assert.Contains("Icons.Material.Outlined.ExpandMore", source);
         Assert.DoesNotContain("SeasonCountSummary", source);

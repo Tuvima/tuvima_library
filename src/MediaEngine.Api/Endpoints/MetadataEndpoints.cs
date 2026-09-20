@@ -647,6 +647,8 @@ public static partial class MetadataEndpoints
                         ReadOnlyHint = scope.ReadOnlyHint,
                         CanEditFields = scope.CanEditFields,
                         CanEditArtwork = scope.CanEditArtwork,
+                        ArtworkSlots = ArtworkScopeService.GetScopedArtworkSlots(scope.MediaType, scope.ScopeId).ToList(),
+                        ArtworkPresentation = scope.ScopeId == "series" && scope.MediaType != "TV" ? "automatic_group" : "single",
                         AvailableTabs = capabilities.AvailableTabs.ToList(),
                         ContentTabLabel = capabilities.ContentTabLabel,
                         RetailIdentityMode = capabilities.RetailIdentityMode,
@@ -2237,7 +2239,6 @@ public static partial class MetadataEndpoints
         {
             case ("TV", "series"):
                 AddArtwork();
-                tabs.Add("links");
                 AddFiles(aggregate: true);
                 tabs.Add("history");
                 break;
@@ -2560,25 +2561,26 @@ public static partial class MetadataEndpoints
                 break;
 
             case "Movies":
-                scopes.Add(new EditorScopeResolution(
-                    "item",
-                    "Movie",
-                    0,
-                    launch.WorkId,
-                    "Work",
-                    launch.WorkId,
-                    "Work",
-                    itemTitle,
-                    StringHelpers.FirstNonBlankOr(string.Empty, detail?.Director, itemYear),
-                    itemTitle,
-                    "movie_identity",
-                    "Movie metadata and artwork live here.",
-                    null,
-                    CanEditFields: true,
-                    CanEditArtwork: true,
-                    MediaType: mediaType,
-                    ArtworkFolderPath: containerFolder,
-                    RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                if (hasDistinctRoot || isParentLaunch)
+                {
+                    scopes.Add(new EditorScopeResolution(
+                        "series", "Film series", 0, rootWorkId, "Work", rootWorkId, "Work",
+                        seriesName, rootYear, seriesName, "series",
+                        "Series appearance and ordered movies live here.", null,
+                        CanEditFields: true, CanEditArtwork: true, MediaType: mediaType,
+                        ArtworkFolderPath: seriesFolder ?? containerFolder,
+                        RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                }
+                if (!isParentLaunch)
+                {
+                    scopes.Add(new EditorScopeResolution(
+                        "item", "Movie", hasDistinctRoot ? 1 : 0, launch.WorkId, "Work", launch.WorkId, "Work",
+                        itemTitle, StringHelpers.FirstNonBlankOr(string.Empty, detail?.Director, itemYear), itemTitle,
+                        "movie_identity", "Movie metadata and artwork live here.", null,
+                        CanEditFields: true, CanEditArtwork: true, MediaType: mediaType,
+                        ArtworkFolderPath: containerFolder,
+                        RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                }
                 break;
 
             case "Comics":

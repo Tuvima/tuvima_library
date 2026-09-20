@@ -98,7 +98,9 @@ public sealed class AudiobookSeriesDetailTests : IDisposable
         Assert.Equal("The Expanse", detail.Title);
         Assert.Empty(detail.Facts?.Authors ?? []);
         Assert.Empty(detail.ContributorGroups);
-        Assert.Null(detail.EditorTarget);
+        Assert.NotNull(detail.EditorTarget);
+        Assert.Equal(rootWorkId.ToString("D"), detail.EditorTarget.EntityId);
+        Assert.Equal("Work", detail.EditorTarget.EntityKind);
 
         var items = Assert.Single(detail.MediaGroups).Items;
         Assert.Equal(["Leviathan Wakes", "Caliban's War"], items.Select(item => item.Title));
@@ -146,7 +148,7 @@ public sealed class AudiobookSeriesDetailTests : IDisposable
             string groupValue,
             string? mediaType,
             string? artistName,
-            CancellationToken ct)
+            CancellationToken ct, Guid? rootWorkId = null)
         {
             DetailRequest = (groupField, groupValue, mediaType, artistName);
             return Task.FromResult(works);

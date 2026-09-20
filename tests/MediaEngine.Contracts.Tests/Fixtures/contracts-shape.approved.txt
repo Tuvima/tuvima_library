@@ -3963,6 +3963,8 @@ MediaEngine.Contracts.Metadata.MediaEngine.Contracts.Metadata.MediaEditorNavigat
   IsLeaf: System.Boolean | nullability=not-null | accessors=get,set
   IsOwned: System.Boolean | nullability=not-null | accessors=get,set
   PrimaryAssetId: System.Guid? | nullability=nullable | accessors=get,set
+  ArtworkUrl: System.String | nullability=nullable | accessors=get,set
+  ArtworkShape: System.String | nullability=not-null | accessors=get,set
   CompactOrdinalLabel: System.String | nullability=nullable | accessors=get,set
   TechnicalBadges: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
   IsClickable: System.Boolean | nullability=not-null | accessors=get,set
@@ -3986,6 +3988,8 @@ MediaEngine.Contracts.Metadata.MediaEngine.Contracts.Metadata.MediaEditorScopeDt
   ScopeSummary: System.String | nullability=nullable | accessors=get,set
   ReadOnlyHint: System.String | nullability=nullable | accessors=get,set
   CanEditFields: System.Boolean | nullability=not-null | accessors=get,set
+  ArtworkSlots: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
+  ArtworkPresentation: System.String | nullability=not-null | accessors=get,set
   CanEditArtwork: System.Boolean | nullability=not-null | accessors=get,set
   AvailableTabs: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
   ContentTabLabel: System.String | nullability=nullable | accessors=get,set

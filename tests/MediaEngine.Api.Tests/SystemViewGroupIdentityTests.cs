@@ -7,6 +7,15 @@ namespace MediaEngine.Api.Tests;
 public sealed class SystemViewGroupIdentityTests
 {
     [Fact]
+    public void StructuralOwnerIdentitySurvivesPresentationEdits()
+    {
+        var root = Guid.NewGuid();
+        Assert.Equal(
+            SystemViewGroupIdentity.CreateId(new ContentGroupDto { RootWorkId = root, DisplayName = "Original" }, "Books", "series"),
+            SystemViewGroupIdentity.CreateId(new ContentGroupDto { RootWorkId = root, DisplayName = "Custom" }, "Books", "series"));
+    }
+
+    [Fact]
     public void CreateId_IsStableAcrossEndpointAndDetailLookupFormatting()
     {
         var original = new ContentGroupDto

@@ -14,6 +14,9 @@ public static class SystemViewGroupIdentity
 
     private static string BuildIdentity(ContentGroupDto group, string? mediaType, string? groupField)
     {
+        if (string.Equals(groupField, "series", StringComparison.OrdinalIgnoreCase)
+            && group.RootWorkId is Guid rootWorkId && rootWorkId != Guid.Empty)
+            return rootWorkId.ToString("D");
         var name = Normalize(group.DisplayName);
         if (string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
             && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase))

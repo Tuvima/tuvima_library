@@ -22,6 +22,8 @@ public sealed class CollectionSystemViewGroupReadModel
     public Guid? FirstAssetId { get; init; }
     public Guid? RootWorkId { get; init; }
     public Guid? RootCoverAssetId { get; init; }
+    public string? DisplayTitleOverride { get; init; }
+    public string? DescriptionOverride { get; init; }
     public Guid? RootBackgroundAssetId { get; init; }
     public Guid? RootLogoAssetId { get; init; }
     public string? Creator { get; init; }
@@ -264,7 +266,7 @@ public sealed class CollectionBrowseReadService(
         string groupValue,
         string? mediaType,
         string? artistName,
-        CancellationToken ct)
+        CancellationToken ct, Guid? rootWorkId = null)
     {
         var sortFields = groupField.ToLowerInvariant() switch
         {
@@ -294,6 +296,8 @@ public sealed class CollectionBrowseReadService(
                 LEFT JOIN works p ON p.id = w.parent_work_id
                 LEFT JOIN works gp ON gp.id = p.parent_work_id
                 WHERE (
+                    (@RootWorkId IS NOT NULL AND @RootWorkId IN (w.id, p.id, gp.id))
+                    OR (@RootWorkId IS NULL AND (
                     (
                         @IsMusicAlbumGroup = 1
                         AND COALESCE(
@@ -324,7 +328,7 @@ public sealed class CollectionBrowseReadService(
                               AND cv.entity_id IN (ma.id, w.id, p.id, gp.id)
                         )
                     )
-                )
+                )))
                   AND (
                       @ArtistName IS NULL
                       OR EXISTS (
@@ -440,6 +444,7 @@ public sealed class CollectionBrowseReadService(
             {
                 GroupField = groupField,
                 GroupValue = groupValue,
+                RootWorkId = rootWorkId,
                 ArtistName = string.IsNullOrWhiteSpace(artistName) ? null : artistName,
                 IsMusicAlbumGroup = isMusicAlbumGroup ? 1 : 0,
                 MediaType = mediaType,
@@ -801,11 +806,14 @@ public sealed class CollectionBrowseReadService(
                    g.AlbumCount,
                    g.FirstAssetId,
                    g.RootWorkId,
-                   CASE WHEN @IsTvShowGroup = 1 THEN (SELECT ea.id
+                   (SELECT json_extract(w.display_overrides_json, '$.title') FROM works w WHERE w.id = g.RootWorkId) AS DisplayTitleOverride,
+                   (SELECT json_extract(w.display_overrides_json, '$.description') FROM works w WHERE w.id = g.RootWorkId) AS DescriptionOverride,
+                   CASE WHEN @IsTvShowGroup = 1 OR @GroupField = 'series' THEN (SELECT ea.id
                      FROM entity_assets ea
                      WHERE ea.entity_id = g.RootWorkId
                        AND ea.entity_type = 'Work'
                        AND ea.asset_type = 'CoverArt'
+                       AND (@IsTvShowGroup = 1 OR ea.is_user_override = 1)
                        AND COALESCE(NULLIF(ea.local_image_path_m, ''), NULLIF(ea.local_image_path, '')) IS NOT NULL
                      ORDER BY ea.is_user_override DESC, ea.is_preferred DESC, COALESCE(ea.updated_at, ea.created_at) DESC
                      LIMIT 1) ELSE NULL END AS RootCoverAssetId,
@@ -1029,12 +1037,14 @@ public sealed class CollectionBrowseReadService(
             {
                 CollectionId = collection.Id,
                 RootWorkId = row.RootWorkId,
-                DisplayName = row.GroupName,
+                DisplayName = groupByField == "series" ? row.DisplayTitleOverride ?? row.GroupName : row.GroupName,
                 PrimaryMediaType = primaryMediaType,
                 WorkCount = row.WorkCount,
                 DistinctTitleCount = row.DistinctTitleCount,
-                PreviewItems = previews.GetValueOrDefault(row.GroupName) ?? [],
-                CoverUrl = usesRootTvArtwork
+                PreviewItems = !usesRootTvArtwork && groupByField == "series" && row.RootCoverAssetId is Guid customCoverId && row.RootWorkId is Guid ownerId
+                    ? [new ContentGroupPreviewItemDto(ownerId, row.DisplayTitleOverride ?? row.GroupName, $"/stream/artwork/{customCoverId:D}", "portrait", null)]
+                    : previews.GetValueOrDefault(row.GroupName) ?? [],
+                CoverUrl = usesRootTvArtwork || (groupByField == "series" && row.RootCoverAssetId.HasValue)
                     ? row.RootCoverAssetId is { } rootCoverId ? $"/stream/artwork/{rootCoverId:D}" : null
                     : assetRoute is null ? null : $"/stream/{assetRoute}/cover",
                 BackgroundUrl = usesRootTvArtwork
@@ -1056,7 +1066,7 @@ public sealed class CollectionBrowseReadService(
                 BackgroundHeightPx = ToInt32(row.BackgroundHeightPx),
                 BannerWidthPx = ToInt32(row.BannerWidthPx),
                 BannerHeightPx = ToInt32(row.BannerHeightPx),
-                Description = row.Description,
+                Description = groupByField == "series" ? row.DescriptionOverride ?? row.Description : row.Description,
                 Tagline = row.Tagline,
                 Creator = row.Creator ?? (ResolvePersonRole(groupByField) is not null ? row.GroupName : null),
                 UniverseStatus = "Complete",

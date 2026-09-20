@@ -8598,3 +8598,131 @@
         min-width: 42rem;
     }
 }
+
+/* Parent identity and child targets form one responsive header. */
+.sme-shell .sme-header {
+    align-items:center;
+    gap:1.25rem;
+    position:relative;
+    padding-right:3.5rem;
+}
+
+.sme-header-identity {
+    display:flex;
+    align-items:center;
+    gap:1.1rem;
+    position:relative;
+    min-width:0;
+    flex:0 1 28rem;
+    border:1px solid transparent;
+    border-radius:.6rem;
+    padding:.45rem;
+}
+
+.sme-header-identity.is-active {
+    border-color:var(--tl-accent-primary);
+    box-shadow:0 0 14px var(--tl-accent-primary-soft);
+}
+
+.sme-header-identity:focus-within {
+    outline:2px solid var(--tl-accent-primary);
+    outline-offset:3px;
+}
+
+/* This hit target sits above the identity; its surface must stay transparent. */
+.sme-header-identity ::deep .sme-parent-target,
+.sme-header-identity ::deep .sme-parent-target:hover,
+.sme-header-identity ::deep .sme-parent-target:focus-visible,
+.sme-header-identity ::deep .sme-parent-target:active {
+    position:absolute;
+    inset:0;
+    border:0;
+    background:transparent !important;
+    border-radius:inherit;
+    cursor:pointer;
+}
+
+.sme-header-identity:has(.sme-parent-target:hover:not(:disabled)) {
+    border-color:var(--tl-accent-primary);
+}
+
+.sme-shell .sme-header ::deep .sme-close {
+    position:absolute;
+    right:1rem;
+    top:1rem;
+}
+
+
+
+
+
+.sme-automatic-artwork {
+    width:100%;
+    aspect-ratio:16/9;
+    max-height:24rem;
+    position:relative;
+}
+
+.sme-automatic-artwork ::deep .media-artwork-group-preview {
+    width:100%;
+    height:100%;
+}
+
+.sme-header-identity .sme-automatic-artwork {
+    width:10rem;
+    height:7rem;
+    flex:0 0 10rem;
+}
+
+@media(max-width:1100px) {
+    .sme-shell .sme-header {
+        flex-wrap:wrap;
+    }
+    .sme-header-identity {
+        flex:1 1 100%;
+    }
+    .sme-header ::deep .editor-context {
+        flex-basis:100%;
+    }
+}
+
+@media(max-width:700px) {
+    .sme-shell .sme-header {
+        gap:.7rem;
+        padding:1rem 2.75rem 1rem 1rem;
+    }
+
+
+}
+
+.sme-header-identity .sme-cover-cluster--group {
+    width:10rem;
+    height:7rem;
+    flex:0 0 10rem;
+}
+
+
+/* Preserve the complete logo, including tall or square transparent wordmarks. */
+.sme-artwork-primary-card .sme-art-row-stage--logo {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    aspect-ratio:auto;
+    height:auto;
+    min-height:10rem;
+    padding:1rem 1rem 3.5rem;
+}
+.sme-artwork-primary-card .sme-art-slot-image--logo {
+    width:100%;
+    height:auto;
+    max-width:100%;
+    max-height:18rem;
+    padding:0;
+    object-fit:contain;
+}
+.sme-match-replacement-heading { margin-bottom:1rem; }
+.sme-match-replacement-heading h3 { font-size:1.1rem; margin-bottom:.4rem; }
+.sme-match-replacement-heading p, .sme-current-match-status {
+    color:var(--tl-text-secondary);
+    font-size:.85rem;
+}

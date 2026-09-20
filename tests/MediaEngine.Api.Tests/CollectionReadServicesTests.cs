@@ -469,6 +469,41 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task SeriesOverrides_PreserveMembershipAndRestoreOrderedAutomaticArtwork()
+    {
+        var first = await SeedBookSeriesMemberAsync("First Book", "1", 1649, "override-first", 1997);
+        var second = await SeedBookSeriesMemberAsync("Second Book", "2", 1800, "override-second", 2024);
+        var rootId = Guid.NewGuid();
+        var artworkId = Guid.NewGuid();
+        using var connection = _database.CreateConnection();
+        await connection.ExecuteAsync("""
+            INSERT INTO works (id, media_type, work_kind, display_overrides_json)
+            VALUES (@rootId, 'Books', 'parent', '{"title":"My shelf title","description":"My shelf description"}');
+            UPDATE works SET parent_work_id = @rootId, work_kind = 'child' WHERE id IN (@firstId, @secondId);
+            INSERT INTO entity_assets (id, entity_id, entity_type, asset_type, local_image_path, is_preferred, is_user_override)
+            VALUES (@artworkId, @rootId, 'Work', 'CoverArt', 'custom-cover.jpg', 1, 1);
+            """, new { rootId, artworkId, firstId = first.WorkId, secondId = second.WorkId });
+
+        var group = Assert.Single(await _browse.GetSystemViewGroupsAsync("Books", "series", CancellationToken.None));
+        Assert.Equal(rootId, group.RootWorkId);
+        Assert.Equal("My shelf title", group.DisplayName);
+        Assert.Equal("My shelf description", group.Description);
+        Assert.Equal($"/stream/artwork/{artworkId:D}", Assert.Single(group.PreviewItems).ImageUrl);
+        Assert.Equal(group.PreviewItems[0].ImageUrl, group.CoverUrl);
+        var routeId = SystemViewGroupIdentity.CreateId(group, "Books", "series");
+        var members = await _browse.GetSystemViewDetailWorksAsync(
+            "series", group.DisplayName, "Books", null, CancellationToken.None, rootId);
+        Assert.Equal(2, members.Count);
+        Assert.Equal(new[] { first.WorkId, second.WorkId }, members.Select(member => member.WorkId));
+
+        await connection.ExecuteAsync("DELETE FROM entity_assets WHERE id = @artworkId; UPDATE works SET display_overrides_json = '{}' WHERE id = @rootId;", new { artworkId, rootId });
+        var restored = Assert.Single(await _browse.GetSystemViewGroupsAsync("Books", "series", CancellationToken.None));
+        Assert.Equal(routeId, SystemViewGroupIdentity.CreateId(restored, "Books", "series"));
+        Assert.Equal("The Test Series", restored.DisplayName);
+        Assert.Equal(new[] { first.WorkId, second.WorkId }, restored.PreviewItems.Select(item => item.WorkId));
+    }
+
+    [Fact]
     public async Task SystemViewGroups_MusicAlbumsExposeTheTrackLevelArtist()
     {
         var seeded = await SeedMusicHierarchyAsync();

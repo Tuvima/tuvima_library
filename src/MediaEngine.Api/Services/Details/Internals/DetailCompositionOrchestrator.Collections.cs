@@ -193,7 +193,12 @@ internal sealed partial class DetailCompositionOrchestrator
         var rootValues = rootWorkId.HasValue
             ? await LoadCanonicalMapAsync(rootWorkId.Value, ct)
             : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var displayOverrides = rootWorkId.HasValue
+            ? await LoadWorkDisplayOverridesAsync(rootWorkId.Value, ct)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var values = MergeCanonicalMaps(collectionValues, rootValues);
+        foreach (var (key, value) in displayOverrides) values[key] = value;
+        var displayDescription = ResolveDisplayOverride(displayOverrides, "description");
         var works = entityType == DetailEntityType.MusicAlbum
             ? MergeMusicAlbumManifestTracks(ownedWorks, values, row.CoverUrl)
             : ownedWorks;
@@ -238,10 +243,10 @@ internal sealed partial class DetailCompositionOrchestrator
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(8)
             .ToList();
-        var longDescription = entityType == DetailEntityType.TvShow
+        var longDescription = displayDescription ?? (entityType == DetailEntityType.TvShow
             ? GetValue(values, MetadataFieldConstants.ShortDescription)
             : FirstText(GetValue(values, MetadataFieldConstants.Description),
-                GetValue(values, "overview"), GetValue(values, "plot_summary"), row.Description);
+                GetValue(values, "overview"), GetValue(values, "plot_summary"), row.Description));
         var heroSummary = entityType == DetailEntityType.TvShow ? longDescription : BuildHeroSummary(values);
         // Episode artwork must never stand in for show artwork. An unenriched TV show
         // deliberately falls back to its own cover (or the generated placeholder).
@@ -266,8 +271,18 @@ internal sealed partial class DetailCompositionOrchestrator
             row.BannerUrl,
             GetValue(values, "banner_url"),
             GetValue(values, "banner"));
+        var shelfCoverId = IsStructuralContainer(entityType) && rootWorkId.HasValue
+            ? await conn.QueryFirstOrDefaultAsync<Guid?>(new CommandDefinition(
+                """
+                SELECT id FROM entity_assets
+                WHERE entity_id = @rootWorkId AND entity_type = 'Work' AND asset_type = 'CoverArt'
+                  AND is_user_override = 1
+                  AND COALESCE(NULLIF(local_image_path_m, ''), NULLIF(local_image_path, '')) IS NOT NULL
+                ORDER BY is_preferred DESC, COALESCE(updated_at, created_at) DESC LIMIT 1;
+                """, new { rootWorkId }, cancellationToken: ct))
+            : null;
         var collectionCover = IsStructuralContainer(entityType)
-            ? null
+            ? shelfCoverId.HasValue ? $"/stream/artwork/{shelfCoverId.Value:D}" : rootWorkId.HasValue ? null : row.CoverUrl
             : StringHelpers.FirstNonBlankOr(string.Empty,
                 row.CoverUrl,
                 GetValue(values, "cover_url"),
@@ -322,8 +337,9 @@ internal sealed partial class DetailCompositionOrchestrator
             0,
             null,
             collectionLogo);
-        var relationships = BuildCollectionRelationships(row, entityType);
-        var collectionTitle = ResolveCollectionTitle(entityType, row.DisplayName, rootValues, values);
+        var relationshipOwner = rootWorkId.HasValue ? await _libraryItems.GetDetailAsync(rootWorkId.Value, ct) : null;
+        var relationships = relationshipOwner is not null ? BuildRelationshipStrip(relationshipOwner, null) : [];
+        var collectionTitle = ResolveDisplayOverride(displayOverrides, "title") ?? ResolveCollectionTitle(entityType, row.DisplayName, rootValues, values);
         var sequenceCollectionId = manifest?.CollectionId ?? collectionId;
         var seasonArtwork = entityType == DetailEntityType.TvShow
             ? await LoadTvSeasonArtworkAsync(rootWorkId ?? collectionId, ct)
@@ -342,8 +358,7 @@ internal sealed partial class DetailCompositionOrchestrator
         var mediaGroups = entityType == DetailEntityType.TvShow
             ? []
             : BuildCollectionMediaGroups(entityType, displayWorks, favoriteWorkIds, expectedTotal);
-        var canEdit = ((entityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.MusicAlbum)
-                       && rootWorkId.HasValue)
+        var canEdit = ((IsCanonicalContainerEntity(entityType) || audiobookSeriesGroup is not null) && rootWorkId.HasValue)
                       || (isAdminView
                           && string.Equals(row.CollectionType, CollectionTypeNames.Custom, StringComparison.OrdinalIgnoreCase));
 
@@ -370,7 +385,7 @@ internal sealed partial class DetailCompositionOrchestrator
                 : heroSummary,
             UsesEpisodeArtwork = tvInProgressEpisode is not null,
             Description = longDescription,
-            DescriptionAttribution = entityType == DetailEntityType.TvShow
+            DescriptionAttribution = displayDescription is not null ? BuildLocalDescriptionAttribution() : entityType == DetailEntityType.TvShow
                 ? new DescriptionAttributionViewModel { SourceName = "TMDB", SourceTitle = "Series synopsis", SourceUrl = GetValue(values, "tmdb_id") is { } tmdbId ? $"https://www.themoviedb.org/tv/{tmdbId}" : null }
                 : BuildWikipediaDescriptionAttribution(longDescription, GetValue(values, "wikipedia_url")),
             SourceLinks = BuildExternalSourceLinks(row.WikidataQid, GetValue(values, "wikipedia_url"), null, values),
@@ -615,7 +630,7 @@ internal sealed partial class DetailCompositionOrchestrator
             group.DisplayName,
             "Audiobooks",
             group.Creator,
-            ct);
+            ct, rootWorkId: group.RootWorkId);
         var previewsByWorkId = group.PreviewItems
             .GroupBy(item => item.WorkId)
             .ToDictionary(items => items.Key, items => items.First());

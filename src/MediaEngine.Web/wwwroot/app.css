@@ -4960,7 +4960,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .app-select__popover.mud-popover {
     width: max-content !important;
     min-width: var(--tl-menu-min-width) !important;
-    max-width: min(20rem, calc(100vw - 1.5rem)) !important;
+
     padding: 0 !important;
     overflow: hidden !important;
     color: var(--tl-text-primary) !important;
@@ -4969,6 +4969,19 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     border-radius: var(--tl-radius-lg) !important;
     box-shadow: 0 1.35rem 3.5rem rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(255, 255, 255, 0.025) !important;
     backdrop-filter: blur(20px) saturate(120%);
+}
+
+.app-menu-popover.mud-popover:not(.app-overflow-menu__popover--match-anchor),
+.app-select__popover.mud-popover {
+    max-width: min(20rem, calc(100vw - 1.5rem)) !important;
+}
+
+/* MudPopover maintains an inline max-width from the full anchor, including
+   while it resizes. Do not override that limit with the compact menu cap. */
+.app-menu-popover.app-overflow-menu__popover--match-anchor.mud-popover {
+    width: calc(100vw - 16px) !important;
+    min-width: 0 !important;
+    max-width: none;
 }
 
 .app-overflow-menu {
@@ -5382,3 +5395,9 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
         max-height: 100%;
     }
 }
+
+/* Rich editor menus are portalled: sizing and option layout belong here. */
+.editor-context-level__popover.mud-popover { padding:.25rem; box-sizing:border-box; }
+.editor-context-level__popover .app-overflow-menu__content { min-width:0; max-height:min(28rem,60svh); overflow-y:auto; overscroll-behavior:contain; }
+.editor-context-level__popover .app-menu-item.editor-context-option { width:100%; max-width:none; min-width:0; padding:.65rem!important; gap:.75rem!important; align-items:center; }
+.editor-context-level__popover .editor-context-option.is-active { background:var(--tl-accent-primary-soft); }

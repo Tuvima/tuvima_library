@@ -105,3 +105,9 @@ TV detail uses one profile-aware continuation policy: unstarted/reset shows reta
 TMDB episode credits are stored separately from show aggregates; full credits support episode, season, and role filtering. Season coverage currently reflects owned episode evidence. More exposes media-appropriate personal completion/reset, history, Undo, Continue visibility, and applicable queue/playlist/collection utilities independently of metadata-edit permission. Revision checks prevent stale progress writes from reversing a reset; bookmarks, genuine consumption history, and music play counts are preserved.
 
 These changes require fresh pre-beta ingestion. Runtime and responsive visual acceptance are pending; see the TV episode consistency proposal for validation status and remaining scope.
+
+## Editor ownership and navigation (September 2026)
+
+The shared modal has one stable parent header and adjacent child selectors. Active borders identify the editing target; dropdowns use the selected owner's art, match the full control width, and omit repeated type/status badges. Details owns the compact source summary. Use Engine `ArtworkSlots` and `ArtworkPresentation` capabilities for shelf artwork, including automatic ordered stacks, custom covers, and restoration. Shelf title/description overrides must refresh the same owner in detail and browse without changing membership or route identity.
+
+Media detail → named Universe → Explore → authorized Universe/entity Edit is the navigation path. Do not reintroduce a Universe shortcut or media/Universe mode switch in a media editor. Explore launches the existing shared entity workspace, retaining its dirty-state guard and permission checks.

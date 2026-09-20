@@ -1,139 +1,81 @@
 @namespace MediaEngine.Web.Components.MediaEditor
 @using MediaEngine.Web.Components.Shared
 
-<nav class="editor-context" aria-label="Edit context">
-    <span class="editor-context__heading">Edit context</span>
-    <div class="editor-context__track">
-        @foreach (var entry in Levels.Select((level, index) => (level, index)))
-        {
-            var level = entry.level;
-            @if (entry.index > 0)
-            {
-                <MudIcon Icon="@Icons.Material.Outlined.ChevronRight"
-                         Class="editor-context__separator"
-                         aria-hidden="true" />
-            }
-
-            <div class="@GetLevelClass(level)">
-                <AppButton ButtonStyle="AppButtonStyle.Text"
-                           Tone="AppUiTone.Neutral"
-                           FullWidth="true"
-                           Disabled="@(!level.CanOpen)"
-                           Class="editor-context-level__body"
-                           aria-current="@(level.IsActive ? "page" : null)"
-                           OnClick="@(() => OpenLevelAsync(level))">
-                    @if (!level.IsTextOnly && !string.IsNullOrWhiteSpace(level.ArtworkUrl))
-                    {
-                        <img class="editor-context-level__artwork" src="@level.ArtworkUrl" alt="" loading="lazy" />
-                    }
-                    else
-                    {
-                        <span class="editor-context-level__icon" aria-hidden="true">
-                            <MudIcon Icon="@GetLevelIcon(level.NodeKind)" Size="Size.Small" />
-                        </span>
-                    }
-                    <span class="editor-context-level__copy">
-                        <span class="editor-context-level__label">@level.Label</span>
-                        <span class="editor-context-level__identity">
+<nav class="editor-context" aria-label="Editing target">
+    @foreach (var level in Levels)
+    {
+        <div class="@GetLevelClass(level) is-@level.NodeKind">
+            <AppOverflowMenu Icon="@Icons.Material.Outlined.KeyboardArrowDown"
+                             AriaLabel="@($"Select {level.Label.ToLowerInvariant()}")"
+                             Class="editor-context-level__selector"
+                             TriggerClass="editor-context-level__selector-trigger"
+                             PopoverClass="editor-context-level__popover"
+                             MatchAnchorWidth="true" FocusOnOpen="true" Disabled="@(!level.ShowSelector || level.Options.Count == 0)"
+                             AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
+                <AnchorContent>
+                    <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral"
+                               Disabled="@(!level.CanOpen)" Class="editor-context-level__body"
+                               aria-current="@(level.IsActive ? "page" : null)" OnClick="@(() => OpenLevelAsync(level))">
+                        @if (!level.IsTextOnly && !string.IsNullOrWhiteSpace(level.ArtworkUrl))
+                        {
+                            <img class="editor-context-level__artwork" src="@level.ArtworkUrl" alt="" loading="lazy" />
+                        }
+                        else
+                        {
+                            <span class="editor-context-level__icon" aria-hidden="true"><MudIcon Icon="@GetLevelIcon(level.NodeKind)" Size="Size.Small" /></span>
+                        }
+                        <span class="editor-context-level__copy">
+                            <span class="editor-context-level__label">@level.Label</span>
                             <strong>@level.Title</strong>
                             @if (!string.IsNullOrWhiteSpace(level.Subtitle))
                             {
-                                <span>@level.Subtitle</span>
+                                <span class="editor-context-level__subtitle">@level.Subtitle</span>
                             }
                         </span>
-                        @if (!string.IsNullOrWhiteSpace(level.RetailStatus) || !string.IsNullOrWhiteSpace(level.CanonicalStatus))
-                        {
-                            <span class="editor-context-level__statuses" aria-label="Identity status">
-                                @if (!string.IsNullOrWhiteSpace(level.RetailStatus))
+                    </AppButton>
+                </AnchorContent>
+                <ChildContent>
+                    @if (level.Options.Count > SearchThreshold)
+                    {
+                        <div class="editor-context-option-search" @onclick:stopPropagation="true">
+                            <AppNativeInput Type="search" Class="editor-context-option-search__input"
+                                            Value="@GetQuery(level)" ValueChanged="@(value => SetQuery(level, value?.ToString() ?? string.Empty))"
+                                            Placeholder="Search options" AriaLabel="@($"Search {level.Label.ToLowerInvariant()} options")" />
+                        </div>
+                    }
+                    @foreach (var option in GetVisibleOptions(level))
+                    {
+                        <AppMenuItem Disabled="@(!option.IsEnabled)" Class="@(option.IsActive ? "editor-context-option is-active" : "editor-context-option")"
+                                     OnClick="@(() => SelectOptionAsync(option))">
+                            @if (!option.IsTextOnly && !string.IsNullOrWhiteSpace(option.ArtworkUrl))
+                            {
+                                <img class="editor-context-option__artwork is-@level.NodeKind" src="@option.ArtworkUrl" alt="" loading="lazy" />
+                            }
+                            else
+                            {
+                                <span class="editor-context-option__icon" aria-hidden="true"><MudIcon Icon="@GetLevelIcon(level.NodeKind)" Size="Size.Small" /></span>
+                            }
+                            <span class="editor-context-option__copy">
+                                <strong>@option.Title</strong>
+                                @if (!string.IsNullOrWhiteSpace(option.Subtitle))
                                 {
-                                    <span class="editor-context-level__status editor-context-level__status--retail">Retail @level.RetailStatus</span>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(level.CanonicalStatus))
-                                {
-                                    <span class="editor-context-level__status editor-context-level__status--canonical">Canonical @level.CanonicalStatus</span>
+                                    <span class="editor-context-option__subtitle">@option.Subtitle</span>
                                 }
                             </span>
-                        }
-                    </span>
-                </AppButton>
-
-                @if (level.ShowSelector)
-                {
-                    @if (level.Options.Count > 0)
-                    {
-                        <AppOverflowMenu Icon="@Icons.Material.Outlined.KeyboardArrowDown"
-                                         AriaLabel="@($"Select {level.Label.ToLowerInvariant()}")"
-                                         Class="editor-context-level__selector"
-                                         TriggerClass="editor-context-level__selector-trigger"
-                                         PopoverClass="editor-context-level__popover"
-                                         AnchorOrigin="Origin.BottomRight"
-                                         TransformOrigin="Origin.TopRight">
-                            @if (level.Options.Count > SearchThreshold)
+                            @if (option.IsActive)
                             {
-                                <div class="editor-context-option-search" @onclick:stopPropagation="true">
-                                    <AppNativeInput Type="search"
-                                                    Class="editor-context-option-search__input"
-                                                    Value="@GetQuery(level)"
-                                                    ValueChanged="@(value => SetQuery(level, value?.ToString() ?? string.Empty))"
-                                                    Placeholder="Search options"
-                                                    AriaLabel="@($"Search {level.Label.ToLowerInvariant()} options")" />
-                                </div>
+                                <MudIcon Icon="@Icons.Material.Outlined.Check" Size="Size.Small" />
                             }
-                            @foreach (var option in GetVisibleOptions(level))
-                            {
-                                <AppMenuItem Disabled="@(!option.IsEnabled)"
-                                             Class="@(option.IsActive ? "editor-context-option is-active" : "editor-context-option")"
-                                             OnClick="@(() => SelectOptionAsync(option))">
-                                    @if (!option.IsTextOnly && !string.IsNullOrWhiteSpace(option.ArtworkUrl))
-                                    {
-                                        <img class="editor-context-option__artwork" src="@option.ArtworkUrl" alt="" loading="lazy" />
-                                    }
-                                    else
-                                    {
-                                        <span class="editor-context-option__icon" aria-hidden="true">
-                                            <MudIcon Icon="@GetLevelIcon(level.NodeKind)" Size="Size.Small" />
-                                        </span>
-                                    }
-                                    <span class="editor-context-option__copy">
-                                        <span class="editor-context-option__label">@option.Label</span>
-                                        <strong>@option.Title</strong>
-                                        @if (!string.IsNullOrWhiteSpace(option.Subtitle))
-                                        {
-                                            <span class="editor-context-option__subtitle">@option.Subtitle</span>
-                                        }
-                                        @if (!string.IsNullOrWhiteSpace(option.RetailStatus) || !string.IsNullOrWhiteSpace(option.CanonicalStatus))
-                                        {
-                                            <span class="editor-context-option__statuses">
-                                                @if (!string.IsNullOrWhiteSpace(option.RetailStatus))
-                                                {
-                                                    <small>Retail @option.RetailStatus</small>
-                                                }
-                                                @if (!string.IsNullOrWhiteSpace(option.CanonicalStatus))
-                                                {
-                                                    <small>Canonical @option.CanonicalStatus</small>
-                                                }
-                                            </span>
-                                        }
-                                    </span>
-                                    @if (option.IsActive)
-                                    {
-                                        <MudIcon Icon="@Icons.Material.Outlined.Check" Size="Size.Small" />
-                                    }
-                                </AppMenuItem>
-                            }
-                        </AppOverflowMenu>
+                        </AppMenuItem>
                     }
-                    else
+                    @if (GetVisibleOptions(level).Count == 0)
                     {
-                        <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowDown"
-                                       AriaLabel="@($"No {level.Label.ToLowerInvariant()} options available")"
-                                       Disabled="true"
-                                       Class="editor-context-level__selector editor-context-level__selector--disabled" />
+                        <p class="editor-context-empty" role="status">No matching items</p>
                     }
-                }
-            </div>
-        }
-    </div>
+                </ChildContent>
+            </AppOverflowMenu>
+        </div>
+    }
 </nav>
 
 @code {
@@ -141,7 +83,6 @@
     [Parameter] public EventCallback<Guid> OnTargetSelected { get; set; }
 
     private const int SearchThreshold = 8;
-    private const int MaxVisibleOptions = 50;
     private readonly Dictionary<string, string> _queries = new(StringComparer.Ordinal);
 
     private string GetQuery(EditorContextLevel level) =>
@@ -157,7 +98,6 @@
             .Where(option => string.IsNullOrWhiteSpace(query)
                 || string.Join(" ", option.Label, option.Title, option.Subtitle)
                     .Contains(query, StringComparison.OrdinalIgnoreCase))
-            .Take(MaxVisibleOptions)
             .ToList();
     }
 

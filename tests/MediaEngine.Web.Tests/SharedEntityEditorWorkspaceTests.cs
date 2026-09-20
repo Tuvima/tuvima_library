@@ -157,15 +157,12 @@ public sealed class SharedEntityEditorWorkspaceTests : AsyncBunitContext
 
         Assert.True(branch >= 0 && branch < providerInit);
         Assert.Contains("Request.EntityIds.FirstOrDefault()", code, StringComparison.Ordinal);
-        Assert.Contains("SharedEntityTarget = Model.EntityType != DetailEntityType.Person", detailPage, StringComparison.Ordinal);
-        Assert.Contains("item.EntityType == RelatedEntityType.Universe", detailPage, StringComparison.Ordinal);
-        Assert.Contains("IsCanonicalUniverseQid", detailPage, StringComparison.Ordinal);
-        Assert.Contains("CanSwitchEditorSurface", shell, StringComparison.Ordinal);
-        Assert.Contains("SaveAndSwitchSharedEntityModeAsync", shell, StringComparison.Ordinal);
-        Assert.Contains("DiscardAndSwitchSharedEntityModeAsync", shell, StringComparison.Ordinal);
-        Assert.Contains("Request.LaunchEntityId ?? Request.EntityIds.FirstOrDefault()", sharedEntityIntegration, StringComparison.Ordinal);
-        Assert.Contains("LoadSingleItemAsync(returnEntityId, resetEditorState: true)", sharedEntityIntegration, StringComparison.Ordinal);
-        Assert.Contains("CurrentEditorSurfaceTitle", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("SharedEntityTarget =", detailPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("CanSwitchEditorSurface", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Edit shared Universe", sharedEntityIntegration, StringComparison.Ordinal);
+        var explorer = ReadSource("src/MediaEngine.Web/Components/Pages/ChronicleExplorer.razor");
+        Assert.Contains("MediaEditorLauncher.OpenAsync", explorer, StringComparison.Ordinal);
+        Assert.Contains("EffectiveAdministrator", explorer, StringComparison.Ordinal);
         Assert.Contains("if (IsSharedEntityMode)", shell, StringComparison.Ordinal);
         Assert.Contains("<SharedEntityEditorWorkspace", shell, StringComparison.Ordinal);
         Assert.Contains("<AppTextarea", workspace, StringComparison.Ordinal);

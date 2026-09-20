@@ -13,9 +13,10 @@
 <MediaEditorSurface Inline="@Inline" HeroConstrained="@HeroConstrained">
         <div class="sme-shell @(HeroConstrained ? "sme-shell--hero" : string.Empty)">
             <div class="sme-header">
+                <div class="sme-header-identity @(IsParentEditorTarget ? "is-active" : "")">
                 @if (!Inline)
                 {
-                    <div class="sme-cover-cluster @(IsSingleItem ? $"sme-cover-cluster--single {ArtworkShapeClass}" : "sme-cover-cluster--batch")">
+                    <div class="sme-cover-cluster @(HasParentGroupArtwork && string.IsNullOrWhiteSpace(CurrentCoverUrl) ? "sme-cover-cluster--group" : "") @(IsSingleItem ? $"sme-cover-cluster--single {ArtworkShapeClass}" : "sme-cover-cluster--batch")">
                     @if (IsBatchMode)
                     {
                         <div class="sme-batch-cover-grid">
@@ -33,6 +34,10 @@
                                 </div>
                             }
                         </div>
+                    }
+                    else if (HasParentGroupArtwork && string.IsNullOrWhiteSpace(CurrentCoverUrl))
+                    {
+                        <div class="sme-automatic-artwork"><MediaArtworkGroupPreview Items="ParentGroupArtwork" Layout="MediaArtworkGroupPreviewLayout.Cluster" ShowOverflowCount="false" AriaLabel="Automatic stacked shelf artwork" /></div>
                     }
                     else if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
                     {
@@ -61,23 +66,20 @@
                         {
                             <div class="sme-subtitle">@HeaderSubtitle</div>
                         }
-                        @if (IsSingleItem && !IsSharedEntityMode)
-                        {
-                            <div class="sme-header-match-state" aria-label="Identity match status">
-                                <span class="sme-header-match-state__item @(HasCurrentRetailMatch ? "is-matched" : "is-unmatched")"
-                                      title="@RetailStatusDescription">
-                                    <MudIcon Icon="@(HasCurrentRetailMatch ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.Close)" Size="Size.Small" />
-                                    @RetailStatusLabel
-                                </span>
-                                <span class="sme-header-match-state__item @(HasCurrentCanonicalIdentity ? "is-matched" : "is-unmatched")"
-                                      title="@(HasCurrentCanonicalIdentity ? "Canonical identity linked" : "No canonical identity")">
-                                    <MudIcon Icon="@(HasCurrentCanonicalIdentity ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.Close)" Size="Size.Small" />
-                                    @CanonicalStatusLabel
-                                </span>
-                            </div>
-                        }
                     }
                 </div>
+
+                @if (HasContextNavigator && !IsSharedEntityMode)
+                {
+                    <AppButton ButtonStyle="AppButtonStyle.Text" Class="sme-parent-target" aria-label="@($"Edit {HeaderTitle}")"
+                               aria-current="@(IsParentEditorTarget ? "page" : null)" Disabled="@_loading"
+                               OnClick="@(() => SelectEditorContextTargetAsync(NavigatorRootNode!.EntityId))" />
+                }
+                </div>
+                @if (!IsSharedEntityMode && HasContextNavigator && EditorContextLevels.Count > 0)
+                {
+                    <EditorContextNavigator Levels="@EditorContextLevels" OnTargetSelected="SelectEditorContextTargetAsync" />
+                }
 
                 @if (Inline)
                 {
@@ -198,7 +200,7 @@
                     <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
                     <div>
                         <strong>Save changes before editing @PendingTargetSwitchTitle?</strong>
-                        <span>Choose what to do with the changes on @HeaderTitle.</span>
+                        <span>Choose what to do with the changes on @CurrentTargetTitle.</span>
                     </div>
                     <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" OnClick="KeepEditingCurrentTarget">
                         Stay here
@@ -212,33 +214,6 @@
                 </div>
             }
 
-            @if (CanSwitchEditorSurface)
-            {
-                <div class="sme-editor-surface-switch">
-                    <AppButton ButtonStyle="AppButtonStyle.Outlined"
-                               Tone="AppUiTone.Neutral"
-                               Class="sme-editor-surface-switch__button"
-                               OnClick="RequestSharedEntityModeSwitchAsync">
-                        <MudIcon Icon="@(IsSharedEntityMode ? Icons.Material.Outlined.ArrowBack : Icons.Material.Outlined.AccountTree)" />
-                        @SharedEntityModeActionLabel
-                    </AppButton>
-                </div>
-            }
-
-            @if (HasPendingSharedEntityModeSwitch)
-            {
-                <div class="sme-inline-decision sme-target-switch-decision" role="alert">
-                    <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
-                    <div>
-                        <strong>Save changes before switching to @PendingSharedEntityModeTitle?</strong>
-                        <span>Unsaved edits on @CurrentEditorSurfaceTitle will be kept only if you save them.</span>
-                    </div>
-                    <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" OnClick="KeepEditingCurrentSurface">Stay here</AppButton>
-                    <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Error" OnClick="DiscardAndSwitchSharedEntityModeAsync">Discard and switch</AppButton>
-                    <AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@_saving" OnClick="SaveAndSwitchSharedEntityModeAsync">@(_saving ? "Saving..." : "Save and switch")</AppButton>
-                </div>
-            }
-
             @if (IsSharedEntityMode)
             {
                 <SharedEntityEditorWorkspace @ref="_sharedEntityWorkspace"
@@ -249,14 +224,6 @@
             }
             else
             {
-            @if (HasContextNavigator)
-            {
-                <div class="sme-context-rail" aria-label="Media hierarchy">
-                    <EditorContextNavigator Levels="@EditorContextLevels"
-                                            OnTargetSelected="SelectEditorContextTargetAsync" />
-                </div>
-            }
-
             <div class="sme-workspace">
                 <nav class="sme-section-nav" aria-label="Editor sections">
                     @for (var index = 0; index < Tabs.Count; index++)
@@ -326,10 +293,16 @@
                 {
                     <div class="sme-details sme-details--single">
                         <div class="sme-fields-pane sme-details-main">
-                            <div class="sme-source-managed-note">
-                                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
-                                <span>Source-managed facts refresh when matching changes. Customize only the values that control how this item appears in your library.</span>
-                            </div>
+                            <EditorTargetSummary Label="@(ActiveScope?.Label ?? "item")"
+                                                 Title="@CurrentTargetTitle"
+                                                 Subtitle="@ActiveScope?.DisplaySubtitle"
+                                                 RetailMatched="@HasCurrentRetailMatch"
+                                                 CanonicalMatched="@HasCurrentCanonicalIdentity">
+                                @if (IsTabVisible("links"))
+                                {
+                                    <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" OnClick="@(() => SelectTabInternalAsync("links"))">Review matches</AppButton>
+                                }
+                            </EditorTargetSummary>
 
                             @if (HasInheritedArtwork && InheritedArtworkOwnerScope is not null)
                             {
@@ -615,6 +588,9 @@
                         @if (IsSingleItem)
                         {
                             <div class="sme-match-workflow">
+                                <EditorTargetSummary Label="@(ActiveScope?.Label ?? "item")" Title="@CurrentTargetTitle"
+                                                     Subtitle="@ActiveScope?.DisplaySubtitle" RetailMatched="@HasCurrentRetailMatch"
+                                                     CanonicalMatched="@HasCurrentCanonicalIdentity" />
                                 @{
                                     var currentRetail = BuildCurrentRetailMatchCard();
                                     var currentQid = BuildCurrentWikidataMatchCard();
@@ -622,7 +598,8 @@
                                 <div class="sme-match-current-grid">
                                     <section class="sme-match-current-panel sme-match-summary-card">
                                         <div class="sme-match-summary-heading">
-                                            <h3>@RetailIdentityHeading</h3>
+                                            <h3>Current retail match</h3>
+                                            <span class="sme-current-match-status">@(HasCurrentRetailMatch ? "Matched" : "Not matched")</span>
                                         </div>
                                         <div class="sme-match-summary-body">
                                             <div class="sme-match-identity-art @ArtworkShapeClass">
@@ -665,6 +642,7 @@
                                     <section class="sme-canonical-identity-panel sme-match-summary-card">
                                         <div class="sme-match-summary-heading">
                                             <h3>@CanonicalIdentityHeading</h3>
+                                            <span class="sme-current-match-status">@(HasCurrentCanonicalIdentity ? "Matched" : "Not matched")</span>
                                         </div>
                                         <div class="sme-match-summary-body">
                                             <div class="sme-match-canonical-art"><MudIcon Icon="@Icons.Material.Outlined.Hub" /></div>
@@ -681,7 +659,7 @@
                                             </div>
                                             <dl class="sme-match-provider-facts">
                                                 <div><dt>Source</dt><dd>Wikidata</dd></div>
-                                                <div><dt>Status</dt><dd>@(HasCurrentCanonicalIdentity ? "Matched" : "Not matched")</dd></div>
+                                                <div><dt>Identifier</dt><dd>@CurrentCanonicalQid</dd></div>
                                             </dl>
                                         </div>
                                         @if (currentQid.Links.Count > 0)
@@ -693,7 +671,7 @@
                                                 }
                                             </div>
                                         }
-                                        @if (HasInheritedCanonicalIdentity && CanonicalIdentityOwnerScope is not null)
+                                        @if (HasInheritedCanonicalIdentity && CanonicalIdentityOwnerScope is not null && EditorMediaType != "TV")
                                         {
                                             <div class="sme-inherited-capability">
                                                 <span>Inherited from <strong>@CanonicalIdentityOwnerScope.DisplayTitle</strong></span>
@@ -708,6 +686,12 @@
                                 </div>
 
                                 <section class="sme-match-search-panel">
+                                    <div class="sme-match-replacement-heading">
+                                        <h3>@(HasActiveMatch ? "Find a replacement match" : "Find a match")</h3>
+                                        <p>@(HasActiveMatch
+                                            ? "Searching keeps the current match. Applying a result overrides the match shown above."
+                                            : "Searching does not change this item. Select a result to apply a match.")</p>
+                                    </div>
                                     @if (SupportsCanonicalSearch)
                                     {
                                         <div class="sme-match-search-modes" role="tablist" aria-label="Match search type">
@@ -866,7 +850,7 @@
                                                                            Class="sme-match-use-action"
                                                                            Disabled="@(!CanApplyLinkedCandidate(candidate))"
                                                                            OnClick="@(() => ApplyLinkedCandidateAsync(candidate))">
-                                                                    @(_matchActionPending ? "Applying…" : "Apply selection")
+                                                                    @(_matchActionPending ? "Applying…" : HasCurrentCanonicalIdentity ? "Override canonical match" : "Apply canonical match")
                                                                 </AppButton>
                                                             }
                                                         </div>
@@ -995,7 +979,7 @@
                                                                            Class="sme-match-use-action"
                                                                            Disabled="@(!CanApplyRetailCandidate(candidate))"
                                                                            OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
-                                                                    @(_matchActionPending ? "Applying…" : "Apply selection")
+                                                                    @(_matchActionPending ? "Applying…" : HasCurrentRetailMatch ? "Override retail match" : "Apply retail match")
                                                                 </AppButton>
                                                             }
                                                         </div>
@@ -1200,9 +1184,13 @@
                                             <div class="sme-artwork-editor-heading">
                                                 <div>
                                                     <h3>@slot.Label artwork</h3>
-                                                    <p>Choose the preferred @slot.Label.ToLowerInvariant() or add a new image.</p>
+                                                    <p>@(HasAutomaticGroupArtwork ? "Use automatic artwork from owned titles or add a custom shelf cover." : $"Choose the preferred {slot.Label.ToLowerInvariant()} or add a new image.")</p>
                                                 </div>
                                                 <div class="sme-artwork-editor-actions">
+                                                    @if (HasAutomaticGroupArtwork && focusedItem is not null)
+                                                    {
+                                                        <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" Disabled="@IsArtworkBusy" OnClick="RestoreAutomaticArtworkAsync">Restore automatic artwork</AppButton>
+                                                    }
                                                     <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="sme-artwork-action-upload">
                                                         Upload
                                                         <span class="sme-art-slot-input-shell">
@@ -1284,6 +1272,11 @@
                                                                 </div>
                                                             }
                                                         </div>
+                                                    }
+                                                    else if (HasAutomaticGroupArtwork)
+                                                    {
+                                                        <div class="sme-automatic-artwork"><MediaArtworkGroupPreview Items="AutomaticGroupArtwork" Layout="MediaArtworkGroupPreviewLayout.Cluster" ShowOverflowCount="false" AriaLabel="Automatic stacked shelf artwork" /></div>
+                                                        <span>Automatic artwork · Owned titles in series order</span>
                                                     }
                                                     else
                                                     {

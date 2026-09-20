@@ -139,3 +139,5 @@
 @media (prefers-reduced-motion: reduce) {
     .see-category-rail { scroll-behavior: auto; }
 }
+
+.see-shared-scope { color:var(--tl-text-secondary); font-size:var(--tl-font-size-sm); margin:0 0 1rem; }
