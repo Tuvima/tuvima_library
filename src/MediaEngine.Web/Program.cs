@@ -425,7 +425,7 @@ try
 catch (IOException ex) when (StartupFailureClassifier.IsAddressAlreadyInUse(ex))
 {
     app.Logger.LogError(ex, "Tuvima Library Dashboard could not start because one of its configured addresses is already in use");
-    Console.Error.WriteLine("Tuvima Library Dashboard could not start because port 5016 is already in use. Stop the process using that port, then start Tuvima again.");
+    Console.Error.WriteLine("Tuvima Library Dashboard could not start because port 5016 is already in use. Stop the process using that port, then start Tuvima Library again.");
     Environment.ExitCode = 98;
 }
 

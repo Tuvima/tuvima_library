@@ -10,7 +10,7 @@
         <div>
             <h2>Needs Review</h2>
             <strong>@(_items.Count == 1 ? "1 item needs attention" : $"{_items.Count:N0} items need attention")</strong>
-            <p>Items Tuvima could not identify or complete automatically.</p>
+            <p>Items Tuvima Library could not identify or complete automatically.</p>
         </div>
         <AppButton Label="Refresh" Size="AppControlSize.Compact" StartIcon="@Icons.Material.Outlined.Refresh" Disabled="@_loading" OnClick="LoadAsync" />
     </header>

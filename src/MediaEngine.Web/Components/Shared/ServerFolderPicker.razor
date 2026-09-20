@@ -34,7 +34,7 @@
                 {
                     <div class="server-folder-picker__manual-callout">
                         <strong>Can't find your folder?</strong>
-                        <span>Enter a path visible to the Tuvima server.</span>
+                        <span>Enter a path visible to the Tuvima Library server.</span>
                         <AppButton Label="Enter path manually"
                                    ButtonStyle="AppButtonStyle.Text"
                                    EndIcon="@Icons.Material.Outlined.ArrowForward"
@@ -49,7 +49,7 @@
                     <div class="server-folder-picker__manual">
                         <div>
                             <h3>Enter a server path</h3>
-                            <p>The path must be inside an approved storage location and is evaluated on the Tuvima server.</p>
+                            <p>The path must be inside an approved storage location and is evaluated on the Tuvima Library server.</p>
                         </div>
                         <div class="server-folder-picker__manual-controls">
                             <AppTextField Label="Server path"
@@ -218,7 +218,7 @@
     [Parameter] public string? SetupSession { get; set; }
     [CascadingParameter] private IMudDialogInstance DialogInstance { get; set; } = null!;
     [Parameter] public string Title { get; set; } = "Select Folder";
-    [Parameter] public string HelpText { get; set; } = "Choose a folder on the Tuvima server.";
+    [Parameter] public string HelpText { get; set; } = "Choose a folder on the Tuvima Library server.";
     [Parameter] public string SelectionMode { get; set; } = ServerFolderSelectionModes.ExistingLibrary;
     [Parameter] public string? CurrentSourceId { get; set; }
     [Parameter] public string? InitialPath { get; set; }
@@ -335,7 +335,7 @@
         if (generation != _browseGeneration) return;
         if (browse is null)
         {
-            _error = "Tuvima could not reach this server folder. Check that the location is online and try again.";
+            _error = "Tuvima Library could not reach this server folder. Check that the location is online and try again.";
             return;
         }
 
@@ -416,7 +416,7 @@
         }
         if (generation != _validationGeneration) return;
         _validation = validation;
-        if (_validation is null) _error = "Tuvima could not validate this server folder. Check that the location is online and try again.";
+        if (_validation is null) _error = "Tuvima Library could not validate this server folder. Check that the location is online and try again.";
     }
 
     private async Task ValidateManualPathAsync()

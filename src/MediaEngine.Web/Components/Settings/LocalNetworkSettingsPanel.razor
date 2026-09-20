@@ -7,22 +7,22 @@
 
 <div class="network-panel">
     <header class="network-panel__heading">
-        <div><h3>Local Network Settings</h3><p>Configure how Tuvima works on your home network.</p></div>
+        <div><h3>Local Network Settings</h3><p>Configure how Tuvima Library works on your home network.</p></div>
     </header>
 
     <SettingsSectionPanel Title="Local network" Icon="@Icons.Material.Outlined.Lan">
         <div class="network-setting-rows">
             <div class="network-setting-row">
-                <div><strong>Server Port</strong><span>Port used by Tuvima for local connections.</span></div>
+                <div><strong>Server Port</strong><span>Port used by Tuvima Library for local connections.</span></div>
                 <div class="network-setting-row__control"><code>@Settings.Local.Port</code><AppButton Label="Change Port" OnClick="OpenPortDialog" /></div>
             </div>
             <div class="network-setting-row">
-                <div><strong>Network Interface</strong><span>Which network interface should Tuvima listen on.</span></div>
+                <div><strong>Network Interface</strong><span>Which network interface should Tuvima Library listen on.</span></div>
                 <AppSelect T="string" Value="@InterfaceValue" ValueChanged="ChangeInterfaceAsync"
                            Label="Network interface" HideLabel="true" Options="@InterfaceOptions" />
             </div>
             <AppSwitchRow Label="Local Discovery"
-                          Description="Allow other devices on your network to find Tuvima automatically."
+                          Description="Allow other devices on your network to find Tuvima Library automatically."
                           Value="@Settings.Local.DiscoveryEnabled"
                           ValueChanged="ChangeDiscoveryAsync" />
             <div class="network-setting-row">

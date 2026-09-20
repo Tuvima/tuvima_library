@@ -38,15 +38,15 @@ public static class ReviewIssuePresentationBuilder
 
     private static string Summary(ReviewItemViewModel item, string media, string fallback) => item.Trigger switch
     {
-        "RetailMatchFailed" => $"Tuvima searched the configured providers but couldn't confirm a reliable match for this {media}, so it wasn't linked automatically.",
-        "RetailMatchAmbiguous" => $"Tuvima found more than one possible match for this {media} and couldn't safely choose between them.",
-        "PlaceholderTitle" => $"Tuvima could not find enough identifying information in this {media} to search for it reliably.",
-        "StagedUnidentifiable" => $"Tuvima could not determine a reliable identity for this {media}, so it stopped before organizing it.",
-        "MissingQid" or "WikidataBridgeFailed" => $"The retail edition was identified, but Tuvima couldn't determine the shared canonical identity for this {media}.",
-        "MultipleQidMatches" => $"Tuvima found several possible canonical identities for this {media} and needs you to choose the correct one.",
-        "MetadataConflict" => $"Tuvima found conflicting metadata for this {media} and could not safely choose which value to keep.",
-        "AmbiguousMediaType" or "RootWatchFolder" => "Tuvima could not confidently decide which part of the library this file belongs in.",
-        "WritebackFailed" => "Tuvima identified this item, but could not save the updated metadata to its physical file.",
+        "RetailMatchFailed" => $"Tuvima Library searched the configured providers but couldn't confirm a reliable match for this {media}, so it wasn't linked automatically.",
+        "RetailMatchAmbiguous" => $"Tuvima Library found more than one possible match for this {media} and couldn't safely choose between them.",
+        "PlaceholderTitle" => $"Tuvima Library could not find enough identifying information in this {media} to search for it reliably.",
+        "StagedUnidentifiable" => $"Tuvima Library could not determine a reliable identity for this {media}, so it stopped before organizing it.",
+        "MissingQid" or "WikidataBridgeFailed" => $"The retail edition was identified, but Tuvima Library couldn't determine the shared canonical identity for this {media}.",
+        "MultipleQidMatches" => $"Tuvima Library found several possible canonical identities for this {media} and needs you to choose the correct one.",
+        "MetadataConflict" => $"Tuvima Library found conflicting metadata for this {media} and could not safely choose which value to keep.",
+        "AmbiguousMediaType" or "RootWatchFolder" => "Tuvima Library could not confidently decide which part of the library this file belongs in.",
+        "WritebackFailed" => "Tuvima Library identified this item, but could not save the updated metadata to its physical file.",
         _ => fallback,
     };
 
@@ -115,10 +115,10 @@ public static class ReviewIssuePresentationBuilder
     {
         "RetailMatchFailed" => $"Search for the correct retail record. Adding {IdentityHints(item.MediaType)} may improve the results.",
         "RetailMatchAmbiguous" => $"Compare the possible matches using {IdentityHints(item.MediaType)} and choose the record that represents this {media}.",
-        "PlaceholderTitle" or "StagedUnidentifiable" => $"Add the missing {IdentityHints(item.MediaType)} so Tuvima can search again.",
+        "PlaceholderTitle" or "StagedUnidentifiable" => $"Add the missing {IdentityHints(item.MediaType)} so Tuvima Library can search again.",
         "MissingQid" or "WikidataBridgeFailed" or "MultipleQidMatches" => "Search for the shared work or person identity while keeping the confirmed retail edition unchanged.",
-        "MetadataConflict" => $"Compare the conflicting values using {IdentityHints(item.MediaType)} and choose which information Tuvima should keep.",
-        "AmbiguousMediaType" or "RootWatchFolder" => "Choose the correct media type so Tuvima can continue with the appropriate matching workflow.",
+        "MetadataConflict" => $"Compare the conflicting values using {IdentityHints(item.MediaType)} and choose which information Tuvima Library should keep.",
+        "AmbiguousMediaType" or "RootWatchFolder" => "Choose the correct media type so Tuvima Library can continue with the appropriate matching workflow.",
         "WritebackFailed" => "Check that the file is available and writable, then retry saving its metadata.",
         _ => "Open the focused review to inspect the available evidence and make the missing decision.",
     };

@@ -1859,8 +1859,8 @@ public sealed partial class IngestionLiveDashboardState
             },
             LibraryUpdatePageState.Complete => string.Empty,
             LibraryUpdatePageState.Idle => string.Empty,
-            LibraryUpdatePageState.Interrupted => "Tuvima paused before the update finished.",
-            LibraryUpdatePageState.Failed => "Tuvima stopped before the update was complete.",
+            LibraryUpdatePageState.Interrupted => "Tuvima Library paused before the update finished.",
+            LibraryUpdatePageState.Failed => "Tuvima Library stopped before the update was complete.",
             LibraryUpdatePageState.StatusUnavailable => "Status temporarily unavailable",
             _ => "Start a scan to find new or changed media.",
         };
@@ -1970,8 +1970,8 @@ public sealed partial class IngestionLiveDashboardState
             LibraryUpdatePageState.Idle when lastCompletedAt.HasValue => $"Last scan completed {FormatRelativeLong(lastCompletedAt.Value, now)}",
             LibraryUpdatePageState.Idle when reviewItems > 0 => $"{reviewItems.ToString("N0", CultureInfo.CurrentCulture)} items need review before they can be fully added.",
             LibraryUpdatePageState.Interrupted => "The last update was interrupted before all work finished.",
-            LibraryUpdatePageState.Failed => "Tuvima stopped before the update was complete.",
-            LibraryUpdatePageState.StatusUnavailable => "Tuvima could not refresh the latest status.",
+            LibraryUpdatePageState.Failed => "Tuvima Library stopped before the update was complete.",
+            LibraryUpdatePageState.StatusUnavailable => "Tuvima Library could not refresh the latest status.",
             _ => "Start a scan to find new or changed media.",
         };
     }
@@ -2007,12 +2007,12 @@ public sealed partial class IngestionLiveDashboardState
     {
         return pageState switch
         {
-            LibraryUpdatePageState.Running => "Tuvima is matching new media against retail providers, then confirming identity with Wikidata.",
-            LibraryUpdatePageState.Complete => "Tuvima finished scanning and matching your library.",
+            LibraryUpdatePageState.Running => "Tuvima Library is matching new media against retail providers, then confirming identity with Wikidata.",
+            LibraryUpdatePageState.Complete => "Tuvima Library finished scanning and matching your library.",
             LibraryUpdatePageState.Idle when lastCompletedAt.HasValue => $"Your library is ready. The most recent scan finished {FormatRelativeLong(lastCompletedAt.Value, now)}.",
-            LibraryUpdatePageState.Interrupted => "Tuvima stopped receiving fresh work updates before this update reached a clean finish.",
-            LibraryUpdatePageState.Failed => "Tuvima stopped before the update was complete.",
-            LibraryUpdatePageState.StatusUnavailable => "Tuvima could not refresh the latest status. Last known counts are still shown.",
+            LibraryUpdatePageState.Interrupted => "Tuvima Library stopped receiving fresh work updates before this update reached a clean finish.",
+            LibraryUpdatePageState.Failed => "Tuvima Library stopped before the update was complete.",
+            LibraryUpdatePageState.StatusUnavailable => "Tuvima Library could not refresh the latest status. Last known counts are still shown.",
             _ => "No library updates have run yet.",
         };
     }

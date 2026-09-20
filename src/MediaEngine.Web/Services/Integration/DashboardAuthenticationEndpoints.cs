@@ -71,7 +71,7 @@ public static class DashboardAuthenticationEndpoints
                 Pin = profileId is null ? null : form["pin"].ToString(),
                 DeviceId = deviceId,
                 DeviceName = deviceName,
-                Client = "Tuvima Dashboard",
+                Client = "Tuvima Library Dashboard",
                 OriginalClientIsLocal = IsLocalClient(context, configuration.LoadCore().Auth),
                 OriginalClientIsHttps = context.Request.IsHttps,
             }, context.RequestAborted).ConfigureAwait(false);
@@ -450,7 +450,7 @@ public static class DashboardAuthenticationEndpoints
         "text/html",
         Encoding.UTF8,
         StatusCodes.Status503ServiceUnavailable);
-    private static string EngineUnavailablePage(string returnUrl) => Shell($"<p class=\"eyebrow\">Tuvima Library</p><h1>Engine unavailable</h1><p class=\"supporting\">Tuvima cannot reach the library Engine yet. Start or restart the Engine, then try again.</p><p><a class=\"button\" href=\"/auth/login?returnUrl={Uri.EscapeDataString(returnUrl)}\">Try again</a></p>");
+    private static string EngineUnavailablePage(string returnUrl) => Shell($"<p class=\"eyebrow\">Tuvima Library</p><h1>Engine unavailable</h1><p class=\"supporting\">Tuvima Library cannot reach the library Engine yet. Start or restart the Engine, then try again.</p><p><a class=\"button\" href=\"/auth/login?returnUrl={Uri.EscapeDataString(returnUrl)}\">Try again</a></p>");
     private static string Shell(string body) => $$"""
         <!doctype html>
         <html lang="en">

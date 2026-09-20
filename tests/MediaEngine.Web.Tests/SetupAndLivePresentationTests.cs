@@ -1,6 +1,8 @@
 using System.Reflection;
 using Bunit;
 using MediaEngine.Contracts.Ingestion;
+using MediaEngine.Contracts.Setup;
+using MediaEngine.Web.Components.Shared;
 using MediaEngine.Web.Components.Setup;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Tests.Support;
@@ -43,6 +45,38 @@ public sealed class SetupAndLivePresentationTests : AsyncBunitContext
         cut.WaitForAssertion(() => Assert.Equal("true", input.GetAttribute("aria-invalid")));
         input.Input("eight888");
         cut.WaitForAssertion(() => Assert.Equal("false", input.GetAttribute("aria-invalid")));
+    }
+
+    [Fact]
+    public void RecoveryCodesUseOneReadOnlyCopyFriendlyField()
+    {
+        var cut = Render<RecoveryCodesDisplay>(parameters => parameters
+            .Add(component => component.Codes, ["alpha-bravo", "charlie-delta"]));
+
+        var field = cut.Find("textarea[readonly]");
+        Assert.Contains("alpha-bravo", field.TextContent);
+        Assert.Contains("charlie-delta", field.TextContent);
+        Assert.Single(cut.FindAll("textarea"));
+        Assert.Contains(cut.FindAll("button"), button => button.TextContent.Contains("Copy all"));
+        Assert.NotEmpty(cut.FindAll("a[download]"));
+    }
+
+    [Fact]
+    public void ReadinessNavigationSharesOneFooterRow()
+    {
+        var readiness = new SetupReadinessDto(true,
+        [
+            new SetupCapabilityDto("preflight", "Preflight", "passed", true, "Server capabilities validated.", null),
+            new SetupCapabilityDto("media-locations", "Media", "deferred", false, "Libraries can be added later.", "/setup?step=media-locations"),
+        ]);
+        var cut = Render<SetupReadinessStage>(parameters => parameters
+            .Add(component => component.Readiness, readiness));
+
+        var footer = cut.Find(".setup-stage__footer");
+        Assert.Contains("Back", footer.TextContent);
+        Assert.Contains("Run a sample scan", footer.TextContent);
+        Assert.Contains("Finish setup", footer.TextContent);
+        Assert.Single(cut.FindAll(".setup-stage__footer"));
     }
 
     [Fact]

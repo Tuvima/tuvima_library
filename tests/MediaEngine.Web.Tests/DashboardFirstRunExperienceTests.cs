@@ -82,6 +82,7 @@ public sealed class DashboardFirstRunExperienceTests
         var providerDialog = Read("src/MediaEngine.Web/Components/Shared/Providers/ProviderOnboardingDialog.razor");
         var metadataSettings = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
         var readiness = Read("src/MediaEngine.Web/Components/Setup/SetupReadinessStage.razor");
+        var stageFooter = Read("src/MediaEngine.Web/Components/Setup/SetupStageFooter.razor");
         var workflow = Read("src/MediaEngine.Contracts/Setup/SetupContracts.cs");
         var overview = Read("src/MediaEngine.Web/Components/Settings/OverviewTab.razor");
 
@@ -91,7 +92,8 @@ public sealed class DashboardFirstRunExperienceTests
         Assert.Contains("Copy all", recoveryCodes, StringComparison.Ordinal);
         Assert.Contains("Save and check again", preflight, StringComparison.Ordinal);
         Assert.Contains("CanNavigateTo(key)", setup, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Back\"", setup, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Back\"", stageFooter, StringComparison.Ordinal);
+        Assert.Contains("SetupStageFooter", readiness, StringComparison.Ordinal);
         Assert.Contains("ProviderOnboardingDialog", providers, StringComparison.Ordinal);
         Assert.Contains("ProviderOnboardingDialog", metadataSettings, StringComparison.Ordinal);
         Assert.Contains("provider.MediaTypes.Any(ConfiguredMediaTypes.Contains)", providers, StringComparison.Ordinal);

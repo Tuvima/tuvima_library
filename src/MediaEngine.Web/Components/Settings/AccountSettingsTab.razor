@@ -23,7 +23,7 @@
         <AppPageState Kind="AppPageStateKind.Error"
                       Icon="@Icons.Material.Outlined.CloudOff"
                       Title="Account security is unavailable"
-                      Message="Tuvima could not load your account identity. Your security settings have not been changed." />
+                      Message="Tuvima Library could not load your account identity. Your security settings have not been changed." />
     }
     else
     {
@@ -39,7 +39,7 @@
                         </span>
                         <div>
                             <strong>@AccountEmail</strong>
-                            <span>@(_account.IsLocalOnly ? "Local profile account" : "Tuvima account")</span>
+                            <span>@(_account.IsLocalOnly ? "Local profile account" : "Tuvima Library account")</span>
                         </div>
                     </div>
                     <div class="account-security-settings__methods">
@@ -137,7 +137,7 @@
 
             @if (ShowLinkedAccounts)
             {
-                <SettingsSectionPanel Title="Linked accounts" Description="Use another account to sign in to Tuvima."
+                <SettingsSectionPanel Title="Linked accounts" Description="Use another account to sign in to Tuvima Library."
                                       Icon="@Icons.Material.Outlined.Link">
                     @if (_loginsLoading)
                     {
@@ -428,7 +428,7 @@
 
     private async Task UnlinkExternalLoginAsync(AccountExternalLoginDto login)
     {
-        if (!await ConfirmAsync("Disconnect linked account?", "You will no longer be able to use this account to sign in to Tuvima.", "Disconnect")) return;
+        if (!await ConfirmAsync("Disconnect linked account?", "You will no longer be able to use this account to sign in to Tuvima Library.", "Disconnect")) return;
         _busy = true;
         try
         {

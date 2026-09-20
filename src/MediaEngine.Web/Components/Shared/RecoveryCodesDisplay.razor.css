@@ -4,20 +4,33 @@
     margin-top: var(--tl-space-4, 16px);
 }
 
-.recovery-codes-display__grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 8px;
+.recovery-codes-display__label {
+    color: var(--tl-text-primary);
+    font-weight: 700;
 }
 
-.recovery-codes-display__grid code {
-    padding: 10px 12px;
+.recovery-codes-display__field {
+    width: 100%;
+    min-height: 220px;
+    resize: vertical;
+    padding: 16px 18px;
     color: var(--tl-text-primary);
     border: 1px solid var(--tl-border-subtle);
-    border-radius: var(--tl-radius-sm);
+    border-radius: var(--tl-radius-md);
+    outline: none;
     background: var(--tl-bg-surface-raised);
-    font-size: 14px;
-    text-align: center;
+    font: 600 15px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace;
+    letter-spacing: .04em;
+    user-select: all;
+}
+
+.recovery-codes-display__field:focus {
+    border-color: var(--tl-accent-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tl-accent-primary) 22%, transparent);
+}
+
+.recovery-codes-display small {
+    color: var(--tl-text-muted);
 }
 
 .recovery-codes-display__actions {
@@ -27,10 +40,6 @@
 }
 
 @media (max-width: 640px) {
-    .recovery-codes-display__grid {
-        grid-template-columns: 1fr;
-    }
-
     .recovery-codes-display__actions,
     .recovery-codes-display__actions ::deep .app-button {
         width: 100%;

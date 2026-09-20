@@ -859,7 +859,10 @@ public static class DevSeedEndpoints
     {
         ["books"] = ["apple_api"],
         ["audiobooks"] = ["apple_api"],
-        ["music"] = ["musicbrainz", "apple_api"],
+        // Apple can identify and enrich the deterministic music fixtures on its own.
+        // MusicBrainz remains probed and reported, but a transient outage must not
+        // remove the entire Music lane from a full integration run.
+        ["music"] = ["apple_api"],
         ["movies"] = ["tmdb"],
         ["tv"] = ["tmdb"],
         ["comics"] = ["comicvine"],

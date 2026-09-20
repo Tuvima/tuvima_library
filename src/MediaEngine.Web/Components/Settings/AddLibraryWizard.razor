@@ -28,7 +28,7 @@
             {
                 <AppIconButton Icon="@Icons.Material.Outlined.ArrowBack" Tooltip="Back to libraries" AriaLabel="Back to libraries" OnClick="Cancel" />
             }
-            <div>@if (Embedded) { <h2>Add Library</h2> } else { <h1>Add Library</h1> }<p>Choose what you want Tuvima to manage.</p></div>
+            <div>@if (Embedded) { <h2>Add Library</h2> } else { <h1>Add Library</h1> }<p>Choose what you want Tuvima Library to manage.</p></div>
         </div>
 
         <ol class="add-library-wizard__steps" aria-label="Library setup progress">
@@ -129,7 +129,7 @@
                         <AppSwitchRow Label="Show in Photos timeline" Description="The folder remains available under View > Folders when this is off." Value="@_personalSourceTimeline" ValueChanged="@((bool value) => _personalSourceTimeline = value)" />
                     </div>
                     <div class="add-library-wizard__example"><span>Resulting path</span><code>@PersonalSourcePreview</code></div>
-                    <AppAlert Tone="AppUiTone.Info">@(_personalSourceMode == "linked" ? "The existing folder is indexed in place and its originals remain read-only." : "Tuvima creates an empty managed folder. Adding it does not move existing media.")</AppAlert>
+                    <AppAlert Tone="AppUiTone.Info">@(_personalSourceMode == "linked" ? "The existing folder is indexed in place and its originals remain read-only." : "Tuvima Library creates an empty managed folder. Adding it does not move existing media.")</AppAlert>
                 }
             </section>
         }
@@ -329,14 +329,14 @@
 
     private static readonly OrganizationMode[] OrganizationModes =
     [
-        new("tuvima_standard", "Tuvima Standard", "Apply media-aware folders and filenames to new imports.", Icons.Material.Outlined.AutoAwesome),
+        new("tuvima_standard", "Tuvima Library Standard", "Apply media-aware folders and filenames to new imports.", Icons.Material.Outlined.AutoAwesome),
         new("keep_original_names", "Keep original names", "Preserve existing names and folder structure.", Icons.Material.Outlined.FolderCopy),
         new("custom", "Custom", "Use a library-specific naming template.", Icons.Material.Outlined.Tune),
     ];
 
     private static readonly IReadOnlyList<AppSelectOption> FolderModeOptions =
     [
-        new("managed_by_tuvima", "Managed by Tuvima", Icons.Material.Outlined.DriveFileMove),
+        new("managed_by_tuvima", "Managed by Tuvima Library", Icons.Material.Outlined.DriveFileMove),
         new("existing_library", "Existing library", Icons.Material.Outlined.Lock),
     ];
 
@@ -478,7 +478,7 @@
         var parameters = new DialogParameters<ServerFolderPicker>
         {
             { component => component.SelectionMode, mode },
-            { component => component.HelpText, $"Choose a folder on the Tuvima server to add to the {_draft.Name} library." },
+            { component => component.HelpText, $"Choose a folder on the Tuvima Library server to add to the {_draft.Name} library." },
             { component => component.SetupSession, SetupSession },
         };
         var dialog = await DialogService.ShowAsync<ServerFolderPicker>(string.Empty, parameters, new DialogOptions
@@ -750,8 +750,8 @@
     }
 
     private string ModeHelp(string mode) => mode == "managed_by_tuvima"
-        ? "Tuvima may organize new files and apply naming rules."
-        : "Tuvima indexes files without moving, renaming, or modifying them.";
+        ? "Tuvima Library may organize new files and apply naming rules."
+        : "Tuvima Library indexes files without moving, renaming, or modifying them.";
     private string OrganizationExample => _draft.OrganizationPolicy.Mode switch
     {
         "keep_original_names" => "Original Folder / Original Name.ext",

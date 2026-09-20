@@ -788,7 +788,7 @@ public partial class IngestionLiveDashboard
 
         if (label.Contains("unresolved"))
         {
-            return "Items Tuvima could not confidently finish.";
+            return "Items Tuvima Library could not confidently finish.";
         }
 
         if (label.Contains("failed"))

@@ -685,7 +685,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
             Assert.Contains(">Curated<", cut.Markup);
             Assert.Contains(">Shelves<", cut.Markup);
             Assert.Contains(">People<", cut.Markup);
-            Assert.Contains("Broader worlds Tuvima found by connecting trusted relationships", cut.Markup);
+            Assert.Contains("Broader worlds Tuvima Library found by connecting trusted relationships", cut.Markup);
             Assert.DoesNotContain(">Playlists<", cut.Markup);
             Assert.DoesNotContain("CROSS-MEDIA COLLECTIONS", cut.Markup);
             Assert.DoesNotContain("WATCH COLLECTIONS", cut.Markup);

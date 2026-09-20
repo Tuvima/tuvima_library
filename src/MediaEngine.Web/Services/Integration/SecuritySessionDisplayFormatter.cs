@@ -82,5 +82,6 @@ public static class SecuritySessionDisplayFormatter
     private static bool IsUsefulClient(string? value) =>
         !string.IsNullOrWhiteSpace(value)
         && !value.Equals("Dashboard", StringComparison.OrdinalIgnoreCase)
-        && !value.Equals("Tuvima Dashboard", StringComparison.OrdinalIgnoreCase);
+        && !value.Equals("Tuvima Dashboard", StringComparison.OrdinalIgnoreCase)
+        && !value.Equals("Tuvima Library Dashboard", StringComparison.OrdinalIgnoreCase);
 }

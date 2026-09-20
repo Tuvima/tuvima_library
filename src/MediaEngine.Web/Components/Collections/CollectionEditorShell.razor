@@ -1041,7 +1041,7 @@
         _ => "Automatic stacked is the default and updates with membership. Custom posters work best at a 2:3 ratio near 1000 × 1500.",
     };
     private string ArtworkEmptyTitle => _activeArtworkSlot switch { "background" => "Neutral collection background", "logo" => "No custom logo", _ => "Automatic stacked artwork" };
-    private string ArtworkEmptyDescription => _activeArtworkSlot switch { "background" => "The standard Tuvima collection wash will be used until a custom background is uploaded.", "logo" => "The collection name remains the visual identity until a transparent logo is uploaded.", _ => "Representative item art appears as members become available." };
+    private string ArtworkEmptyDescription => _activeArtworkSlot switch { "background" => "The standard Tuvima Library collection wash will be used until a custom background is uploaded.", "logo" => "The collection name remains the visual identity until a transparent logo is uploaded.", _ => "Representative item art appears as members become available." };
     private string ArtworkSlotIcon => _activeArtworkSlot switch { "background" => Icons.Material.Outlined.Panorama, "logo" => Icons.Material.Outlined.BrandingWatermark, _ => Icons.Material.Outlined.AutoAwesomeMotion };
     private IReadOnlyList<ArtworkStackItem> AutomaticArtworkItems => (SupportsManualItems
             ? _manualItems.Select(item => (item.WorkId, item.Title, item.CoverUrl, item.MediaType))

@@ -120,7 +120,7 @@
 
     private static readonly IReadOnlyList<AppSelectOption> OrganizationOptions =
     [
-        new("tuvima_standard", "Tuvima standard"),
+        new("tuvima_standard", "Tuvima Library standard"),
         new("keep_original_names", "Keep original names"),
         new("capture_year_month", "Capture year / month"),
         new("year_month_day", "Year / month / day"),
@@ -131,7 +131,7 @@
 
     private static readonly IReadOnlyList<AppSelectOption> ManagementOptions =
     [
-        new("managed_by_tuvima", "Managed by Tuvima"),
+        new("managed_by_tuvima", "Managed by Tuvima Library"),
         new("existing_library", "Existing library"),
     ];
 
@@ -161,7 +161,7 @@
 
     private static readonly OrganizationDetailOption[] OrganizationDetailOptions =
     [
-        new("tuvima_standard", "Tuvima Standard", "Use media-aware folders and filenames for new imports.", Icons.Material.Outlined.AutoAwesome),
+        new("tuvima_standard", "Tuvima Library Standard", "Use media-aware folders and filenames for new imports.", Icons.Material.Outlined.AutoAwesome),
         new("keep_original_names", "Keep original names", "Preserve existing names and folder structure.", Icons.Material.Outlined.FolderCopy),
         new("custom", "Custom", "Use a library-specific naming template.", Icons.Material.Outlined.Tune),
     ];
@@ -240,7 +240,7 @@
         <div class="libraries__aside-grid">
             <AppPanel Density="AppSurfaceDensity.Compact" Class="libraries-info">
                 <MudIcon Icon="@Icons.Material.Outlined.Shield" />
-                <div><strong>Existing folders stay unchanged</strong><p>Tuvima can scan and index an existing library, but it never moves, renames, tags, or deletes its files.</p></div>
+                <div><strong>Existing folders stay unchanged</strong><p>Tuvima Library can scan and index an existing library, but it never moves, renames, tags, or deletes its files.</p></div>
             </AppPanel>
         </div>
     </div>;
@@ -295,7 +295,7 @@
             <AppAlert Tone="AppUiTone.Info">Changing organization rules does not alter existing files automatically. Preview any reorganization before applying filesystem changes.</AppAlert>
         </AppCard>
         <AppCard Class="libraries-card">
-            <div class="libraries-card__heading"><div><h3>File Handling</h3><p>Control how Tuvima handles existing files and common scenarios.</p></div></div>
+            <div class="libraries-card__heading"><div><h3>File Handling</h3><p>Control how Tuvima Library handles existing files and common scenarios.</p></div></div>
             <div class="library-detail__policies">
                 <AppSwitchRow Label="Protect existing files" Description="Keep media already in library folders unchanged. New imports can still enter the managed destination." Value="@library.OrganizationPolicy.PreserveOriginals" ValueChanged="@((bool value) => EditAsync(library, () => library.OrganizationPolicy.PreserveOriginals = value))" Disabled="@(readOnly || _engineUnavailable || _saving)" />
                 <div class="library-detail__policy-row"><div><strong>When a duplicate is found</strong><small>Exact duplicate content is indexed once.</small></div><AppSelect Label="Duplicate handling" Value="@library.DuplicatePolicy" Options="@DuplicateOptions" ValueChanged="@((string? value) => EditAsync(library, () => library.DuplicatePolicy = value ?? "skip_exact"))" Disabled="@(readOnly || _engineUnavailable || _saving)" /></div>
@@ -790,7 +790,7 @@
 
     private static string OrganizationModeLabel(string? mode) => mode switch
     {
-        "tuvima_standard" => "Tuvima Standard",
+        "tuvima_standard" => "Tuvima Library Standard",
         "keep_original_names" => "Keep original names",
         "custom" => "Custom",
         _ => TitleCase(mode),

@@ -18,7 +18,7 @@ public sealed class DashboardReliabilityGuardrailTests
         var markup = Read(@"src\MediaEngine.Web\Components\Layout\ReconnectModal.razor");
         var script = Read(@"src\MediaEngine.Web\Components\Layout\ReconnectModal.razor.js");
 
-        Assert.Contains("Tuvima will keep retrying", markup, StringComparison.Ordinal);
+        Assert.Contains("Tuvima Library will keep retrying", markup, StringComparison.Ordinal);
         Assert.Contains("scheduleAutoRetry()", script, StringComparison.Ordinal);
         Assert.Contains("autoRetryMaximumDelayMs = 10_000", script, StringComparison.Ordinal);
         Assert.Contains("window.setTimeout", script, StringComparison.Ordinal);
@@ -286,7 +286,7 @@ public sealed class DashboardReliabilityGuardrailTests
         Assert.Contains("Links matched items to Wikidata IDs so relationships can be built.", source, StringComparison.Ordinal);
         Assert.Contains("Files or works that have a direct Wikidata ID.", source, StringComparison.Ordinal);
         Assert.Contains("Extra Wikidata IDs found for people, series, universes, or story details.", source, StringComparison.Ordinal);
-        Assert.Contains("Items Tuvima could not confidently finish.", source, StringComparison.Ordinal);
+        Assert.Contains("Items Tuvima Library could not confidently finish.", source, StringComparison.Ordinal);
         Assert.Contains("People with extra profile data such as biography or images.", source, StringComparison.Ordinal);
     }
 

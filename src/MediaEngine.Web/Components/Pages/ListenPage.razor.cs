@@ -187,12 +187,12 @@ public partial class ListenPage
             : IsArtistsSurface && !string.IsNullOrWhiteSpace(SelectedArtistName)
                 ? $"{SelectedArtistName} - Listen"
                 : IsDefaultEntry
-                    ? "Listen - Tuvima"
+                    ? "Listen - Tuvima Library"
                 : IsMusicBrowseEntry
                     ? "Music - Listen"
                 : IsAudiobooksMode
                     ? "Audiobooks - Listen"
-                    : "Listen - Tuvima";
+                    : "Listen - Tuvima Library";
 
     private IReadOnlyList<WorkViewModel> SortedSongs => SortSongs(_musicWorks);
     private IReadOnlyList<WorkViewModel> FilteredSongs => ApplySongFilters(SortedSongs);

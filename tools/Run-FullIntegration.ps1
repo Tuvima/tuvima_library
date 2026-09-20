@@ -27,6 +27,12 @@ if (-not $OutputPath) {
     $OutputPath = Join-Path $reportsDir "integration-test-$timestamp.html"
 }
 
+$OutputPath = [System.IO.Path]::GetFullPath($OutputPath, (Get-Location).Path)
+$outputDirectory = Split-Path -Parent $OutputPath
+if (-not (Test-Path $outputDirectory)) {
+    New-Item -ItemType Directory -Path $outputDirectory | Out-Null
+}
+
 if ($MusicOnly) {
     $Types = @("music")
 }

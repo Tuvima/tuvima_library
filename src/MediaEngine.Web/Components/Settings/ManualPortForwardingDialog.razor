@@ -5,11 +5,11 @@
 
 <AppDialog Visible="@Visible" VisibleChanged="@VisibleChanged"
            Title="Your router needs one setting changed"
-           Subtitle="Create this port-forwarding rule in your router, then ask Tuvima to test it again."
+           Subtitle="Create this port-forwarding rule in your router, then ask Tuvima Library to test it again."
            Icon="@Icons.Material.Outlined.Router" Size="Medium">
     <ChildContent>
         <dl class="network-manual-rule">
-            @Fact("Name", "Tuvima")
+            @Fact("Name", "Tuvima Library")
             @Fact("External Port", ExternalPort.ToString())
             @Fact("Internal IP", InternalAddress)
             @Fact("Internal Port", InternalPort.ToString())

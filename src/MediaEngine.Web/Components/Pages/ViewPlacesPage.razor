@@ -5,7 +5,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject ViewMediaGrantService MediaGrants
 @namespace MediaEngine.Web.Components.Pages
-<PageTitle>Places - Tuvima</PageTitle>
+<PageTitle>Places - Tuvima Library</PageTitle>
 <ViewSectionShell><div class="view-feature-page"><header class="view-feature-page__header"><div><span>View</span><h1>Places</h1><p>Explore personal media using location metadata already stored in its files.</p></div></header>
 <label class="view-search"><MudIcon Icon="@Icons.Material.Outlined.Search" /><AppNativeInput Type="search" Value="@_search" ValueChanged="SearchChanged" Placeholder="Search places" AriaLabel="Search places" /></label>
 @if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Places" Message="Looking at indexed location metadata." /> }

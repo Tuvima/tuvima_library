@@ -6,7 +6,7 @@
 
 <div class="network-panel">
     <header class="network-panel__heading">
-        <div><h3>Remote Access</h3><p>Use a verified private HTTPS path. Tuvima sign-in is always required.</p></div>
+        <div><h3>Remote Access</h3><p>Use a verified private HTTPS path. Tuvima Library sign-in is always required.</p></div>
     </header>
 
     <SettingsSectionPanel Title="Access" Icon="@Icons.Material.Outlined.Public"
@@ -59,7 +59,7 @@
                 </dl>
             }
             <AppSwitchRow Label="Enable Remote Access"
-                          Description="Requires Tuvima authentication and the verified secure path above."
+                          Description="Requires Tuvima Library authentication and the verified secure path above."
                           Value="@Settings.Remote.Enabled" ValueChanged="ChangeEnabledAsync" />
             <div class="network-card-actions">
                 <AppButton Label="Check again" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="RefreshReadinessAsync" />

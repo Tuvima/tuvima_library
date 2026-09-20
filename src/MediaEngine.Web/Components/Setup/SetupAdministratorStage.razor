@@ -1,17 +1,20 @@
 @namespace MediaEngine.Web.Components.Setup
 
 <div class="setup-stage-content">
-    <div class="setup-stage__heading"><MudIcon Icon="@Icons.Material.Outlined.AdminPanelSettings" /><div><h2 id="setup-stage-title">Administrator</h2><p>Create the account that manages this Tuvima server.</p></div></div>
+    <div class="setup-stage__heading"><MudIcon Icon="@Icons.Material.Outlined.AdminPanelSettings" /><div><h2 id="setup-stage-title">Administrator</h2><p>Create the account that manages this Tuvima Library server.</p></div></div>
     @if (RecoveryCodes.Count > 0)
     {
         <RecoveryCodesDisplay Codes="@RecoveryCodes"
                               Heading="Tuvima Library administrator recovery codes"
                               FileName="tuvima-administrator-recovery-codes.txt" />
-        <div class="setup-actions setup-actions--end"><AppButton Label="I saved the codes — sign in" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="SignIn" /></div>
+        <SetupStageFooter Back="Back" ShowReturnToCurrentStep="ShowReturnToCurrentStep" ReturnToCurrentStep="ReturnToCurrentStep">
+            <AppButton Label="I saved the codes — sign in" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="SignIn" />
+        </SetupStageFooter>
     }
     else if (AdministratorConfigured)
     {
         <AppAlert Tone="AppUiTone.Success">The administrator account is configured.</AppAlert>
+        <SetupStageFooter Back="Back" ShowReturnToCurrentStep="ShowReturnToCurrentStep" ReturnToCurrentStep="ReturnToCurrentStep" />
     }
     else
     {
@@ -29,8 +32,10 @@
             <AppTextField Label="Confirm PIN" InputType="InputType.Password" Value="@PinConfirmation" ValueChanged="PinConfirmationChanged" InputMode="@MudBlazor.InputMode.numeric" MaxLength="12"
                           Validation="@(new Func<string?, string?>(value => !string.IsNullOrEmpty(value) && value != Pin ? "PINs do not match." : null))" Error="@(PinConfirmation.Length > 0 && Pin != PinConfirmation)" ErrorText="PINs do not match." />
         </div>
-        <small>Your credentials remain on your Tuvima server.</small>
-        <div class="setup-actions setup-actions--end"><AppButton Label="Create administrator" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@Busy" Disabled="@(Busy || string.IsNullOrWhiteSpace(Email) || Password.Length is < 8 or > 128 || !PasswordsMatch || !PinValid || Pin != PinConfirmation)" OnClick="CreateAdministrator" /></div>
+        <small>Your credentials remain on your Tuvima Library server.</small>
+        <SetupStageFooter Back="Back" ShowReturnToCurrentStep="ShowReturnToCurrentStep" ReturnToCurrentStep="ReturnToCurrentStep">
+            <AppButton Label="Create administrator" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@Busy" Disabled="@(Busy || string.IsNullOrWhiteSpace(Email) || Password.Length is < 8 or > 128 || !PasswordsMatch || !PinValid || Pin != PinConfirmation)" OnClick="CreateAdministrator" />
+        </SetupStageFooter>
     }
 </div>
 
@@ -56,5 +61,8 @@
     [Parameter] public bool Busy { get; set; }
     [Parameter] public EventCallback CreateAdministrator { get; set; }
     [Parameter] public EventCallback SignIn { get; set; }
+    [Parameter] public EventCallback Back { get; set; }
+    [Parameter] public bool ShowReturnToCurrentStep { get; set; }
+    [Parameter] public EventCallback ReturnToCurrentStep { get; set; }
     private bool PasswordsMatch => string.Equals(Password, PasswordConfirmation, StringComparison.Ordinal);
 }
