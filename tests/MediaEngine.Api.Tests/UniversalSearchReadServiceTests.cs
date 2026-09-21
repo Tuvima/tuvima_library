@@ -259,6 +259,69 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SearchAsync_CharacterNameReturnsTheOwnedWorksCanonicalPerformer()
+    {
+        var personId = Guid.NewGuid();
+        var characterId = Guid.NewGuid();
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        using (var connection = _db.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO persons (id, name, created_at)
+                VALUES (@personId, 'Keanu Reeves', CURRENT_TIMESTAMP);
+                INSERT INTO person_roles (person_id, role)
+                VALUES (@personId, 'Actor');
+                INSERT INTO works (id, media_type, work_kind)
+                VALUES (@workId, 'Movies', 'standalone');
+                INSERT INTO editions (id, work_id)
+                VALUES (@editionId, @workId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES (@assetId, @editionId, @contentHash, 'C:/movies/matrix.mkv');
+                INSERT INTO person_media_links (media_asset_id, person_id, role)
+                VALUES (@assetId, @personId, 'Actor');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                VALUES (@workId, 'cast_member', 0, 'Keanu Reeves');
+                INSERT INTO fictional_entities (
+                    id, wikidata_qid, label, entity_sub_type, fictional_universe_qid, created_at)
+                VALUES (@characterId, 'Q92740', 'Neo', 'Character', 'Q83495', CURRENT_TIMESTAMP);
+                INSERT INTO character_performer_links (person_id, fictional_entity_id, work_qid)
+                VALUES (@personId, @characterId, 'Q83495');
+                """,
+                new
+                {
+                    personId,
+                    characterId,
+                    workId,
+                    editionId,
+                    assetId,
+                    contentHash = Guid.NewGuid().ToString("N"),
+                });
+        }
+
+        var service = CreateService(new StubDisplayProjection(
+        [
+            new DisplayWorkRow
+            {
+                WorkId = workId,
+                AssetId = assetId,
+                MediaType = "Movies",
+                Title = "The Matrix",
+            },
+        ]));
+
+        var response = await service.SearchAsync("Neo", 20, CancellationToken.None);
+
+        var result = Assert.Single(response.Sections.Single(section => section.Key == "people").Results);
+        Assert.Equal(personId, result.Id);
+        Assert.Equal("Keanu Reeves", result.Title);
+        Assert.Equal("Plays Neo", result.Subtitle);
+        Assert.Equal("Matched character portrayal", result.MatchReason);
+    }
+
+    [Fact]
     public async Task OwnedWorkSearch_MaterializesCanonicalFactsAndNormalizedCreatorFromGuidBlobStorage()
     {
         var workId = Guid.NewGuid();

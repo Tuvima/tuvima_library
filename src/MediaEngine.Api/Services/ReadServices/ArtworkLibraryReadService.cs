@@ -81,11 +81,14 @@ public sealed class ArtworkLibraryReadService(
             EntityKind = normalizedKind,
             ArtworkType = normalizedArtworkType,
         }, cancellationToken: ct)).AsList();
+        var characterPerformerIds = LoadCharacterPerformerMatches(connection, normalizedSearch, ct);
 
         var items = baseRows
             .Where(row => MatchesBrowse(row, normalizedBrowse))
             .Where(row => MatchesMediaType(row.MediaType, normalizedMediaType))
-            .Where(row => MatchesSearch(row.DisplayTitle, normalizedSearch))
+            .Where(row => MatchesSearch(row.DisplayTitle, normalizedSearch)
+                || (string.Equals(row.EntityType, "Person", StringComparison.OrdinalIgnoreCase)
+                    && characterPerformerIds.Contains(row.EntityId)))
             .Select(MapBaseItem)
             .Where(item => MatchesArtworkState(item, normalizedArtworkState))
             .ToList();
@@ -596,6 +599,29 @@ public sealed class ArtworkLibraryReadService(
 
     private static bool MatchesSearch(string? value, string? search) =>
         search is null || (value?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false);
+
+    private static IReadOnlySet<Guid> LoadCharacterPerformerMatches(
+        System.Data.IDbConnection connection,
+        string? search,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return new HashSet<Guid>();
+        }
+
+        return connection.Query<Guid>(new CommandDefinition(
+                """
+                SELECT DISTINCT link.person_id
+                  FROM character_performer_links link
+                  INNER JOIN fictional_entities entity ON entity.id=link.fictional_entity_id
+                  LEFT JOIN fictional_entity_user_overrides user ON user.entity_id=entity.id
+                 WHERE COALESCE(NULLIF(user.label, ''), entity.label) LIKE '%' || @Search || '%' COLLATE NOCASE;
+                """,
+                new { Search = search },
+                cancellationToken: ct))
+            .ToHashSet();
+    }
 
     private static bool MatchesArtworkState(ArtworkLibraryItemDto item, string state)
     {

@@ -80,6 +80,7 @@ public sealed class ViewLibrarySurfaceTests
         var artwork = Read("src/MediaEngine.Web/Components/Pages/ViewArtworkPage.razor");
         var client = Read("src/MediaEngine.Web/Services/Integration/EngineApiClient.Artwork.cs");
         var readModel = Read("src/MediaEngine.Api/Services/ReadServices/ArtworkLibraryReadService.cs");
+        var artworkStyles = Read("src/MediaEngine.Web/Components/Pages/ViewArtworkPage.razor.css");
 
         Assert.Contains("Library Artwork", artwork, StringComparison.Ordinal);
         Assert.Contains("GetArtworkLibraryAsync", artwork, StringComparison.Ordinal);
@@ -106,7 +107,14 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("/api/v1/display/artwork", client, StringComparison.Ordinal);
         Assert.Contains("GetUniverseArtworkHierarchyAsync", client, StringComparison.Ordinal);
         Assert.Contains("generation != _loadGeneration", artwork, StringComparison.Ordinal);
+        Assert.Contains("_entityKind = value ?? \"media\"", artwork, StringComparison.Ordinal);
+        Assert.Contains("await LoadAsync();", artwork, StringComparison.Ordinal);
+        Assert.Contains("view-artwork-card--square", artworkStyles, StringComparison.Ordinal);
+        Assert.Contains("Icons.Material.Outlined.Public", artwork, StringComparison.Ordinal);
+        Assert.Contains("Icons.Material.Outlined.PersonOutline", artwork, StringComparison.Ordinal);
         Assert.Contains("primary_person_media_credits", readModel, StringComparison.Ordinal);
+        Assert.Contains("LoadCharacterPerformerMatches", readModel, StringComparison.Ordinal);
+        Assert.Contains("character_performer_links", readModel, StringComparison.Ordinal);
         Assert.Contains("CollectionGroupByField", readModel, StringComparison.Ordinal);
         Assert.DoesNotContain("Wikidata", artwork, StringComparison.OrdinalIgnoreCase);
     }

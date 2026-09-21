@@ -34,7 +34,7 @@
                 @foreach (var entity in FilteredHierarchyItems)
                 {
                     <AppNativeButton Type="button" Class="@(entity.EntityId == ActiveItem.EntityId ? "is-active" : string.Empty)" OnClick="@(() => SelectHierarchyEntityAsync(entity))">
-                        <span>@if (!string.IsNullOrWhiteSpace(entity.ImageUrl)) { <img src="@entity.ImageUrl" alt="" loading="lazy" /> } else { <MudIcon Icon="@Icons.Material.Outlined.ImageNotSupported" /> }</span>
+                        <span>@if (!string.IsNullOrWhiteSpace(entity.ImageUrl)) { <img src="@entity.ImageUrl" alt="" loading="lazy" /> } else { <MudIcon Icon="@HierarchyPlaceholderIcon(entity)" /> }</span>
                         <strong>@entity.DisplayTitle</strong>
                     </AppNativeButton>
                 }
@@ -73,7 +73,7 @@
                 }
                 else
                 {
-                    <div class="artwork-workspace-core__empty"><MudIcon Icon="@ActiveRole.Icon" /><span>No @ActiveRole.Label.ToLowerInvariant() selected</span></div>
+                    <div class="artwork-workspace-core__empty"><MudIcon Icon="@EmptyArtworkIcon" /><span>No @ActiveRole.Label.ToLowerInvariant() selected</span></div>
                 }
             </section>
 
@@ -173,6 +173,11 @@
     private string? LegacyRoleUrl => _role switch { "Background" => ActiveItem.BackgroundImageUrl, "Logo" => ActiveItem.LogoImageUrl, _ => ActiveItem.ImageUrl };
     private string Dimensions => SelectedVariant is { Width: not null, Height: not null } variant ? $"{variant.Width} × {variant.Height}" : "—";
     private string StatusLine => _editMode ? "Edit the selected artwork slot without leaving this workspace." : "Browse variants, source details, and image dimensions.";
+    private string EmptyArtworkIcon => _role == "Portrait" && string.Equals(ActiveItem.GroupKind, "Character", StringComparison.OrdinalIgnoreCase)
+        ? Icons.Material.Outlined.PersonOutline
+        : _role == "Primary" && string.Equals(ActiveItem.GroupKind, "Universe", StringComparison.OrdinalIgnoreCase)
+            ? Icons.Material.Outlined.Public
+            : ActiveRole.Icon;
     private string PrimaryStatus => SelectedVariant is not null && ActiveItem.PreviewItems.Count > 0 ? "Explicit artwork is selected. The automatic owned-title composition remains available as a fallback." : ActiveItem.PreviewItems.Count > 0 ? "Automatic artwork · built from owned titles in series order." : "No automatic group artwork is available.";
     private bool CanRefreshProvider => string.Equals(ActiveItem.EntityType, "Work", StringComparison.OrdinalIgnoreCase)
         && !string.IsNullOrWhiteSpace(ResolvedProviderRefreshScope);
@@ -188,6 +193,7 @@
     private string HierarchyClass(string section) => $"artwork-workspace-core__hierarchy-item{(string.Equals(_hierarchySection, section, StringComparison.OrdinalIgnoreCase) ? " is-active" : string.Empty)}";
     private async Task SelectHierarchySectionAsync(string section) { _hierarchySection = section; _activeHierarchyItem = null; _role = "Primary"; if (!string.Equals(section, "Overview", StringComparison.OrdinalIgnoreCase) && FilteredHierarchyItems.FirstOrDefault() is { } first) await SelectHierarchyEntityAsync(first); else await ReloadAsync(); }
     private async Task SelectHierarchyEntityAsync(ArtworkLibraryItemDto entity) { _activeHierarchyItem = entity; _role = string.Equals(entity.GroupKind, "Character", StringComparison.OrdinalIgnoreCase) ? "Portrait" : "Primary"; await ReloadAsync(); }
+    private static string HierarchyPlaceholderIcon(ArtworkLibraryItemDto entity) => entity.GroupKind switch { "Character" => Icons.Material.Outlined.PersonOutline, "Location" => Icons.Material.Outlined.Place, "Organization" => Icons.Material.Outlined.AccountBalance, "Event" => Icons.Material.Outlined.Event, _ => Icons.Material.Outlined.Category };
     private void SelectRole(string role) { _role = role; _selectedAssetId = RoleVariants.FirstOrDefault(variant => variant.IsPreferred)?.ArtworkAssetId ?? RoleVariants.FirstOrDefault()?.ArtworkAssetId; }
     private Task ToggleEditAsync() { _editMode = !_editMode; return Task.CompletedTask; }
     private string RoleClass(string role) => $"artwork-workspace-core__role {(role == _role ? "is-active" : string.Empty)}";

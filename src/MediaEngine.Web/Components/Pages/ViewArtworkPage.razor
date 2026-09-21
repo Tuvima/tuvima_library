@@ -329,9 +329,14 @@
         _loading = false;
     }
 
-    private Task SelectEntityKindAsync(string? value)
+    private async Task SelectEntityKindAsync(string? value)
     {
-        if (string.Equals(_entityKind, value, StringComparison.OrdinalIgnoreCase)) return Task.CompletedTask;
+        if (string.Equals(_entityKind, value, StringComparison.OrdinalIgnoreCase)) return;
+        _entityKind = value ?? "media";
+        _mediaType = "all";
+        _page = null;
+        _assetPage = null;
+        _loading = true;
         var route = value switch
         {
             "people" => "/view/artwork/people",
@@ -340,7 +345,7 @@
             _ => "/view/artwork",
         };
         Navigation.NavigateTo(route);
-        return Task.CompletedTask;
+        await LoadAsync();
     }
 
     private async Task SelectBrowseModeAsync(string value)
@@ -490,6 +495,9 @@
     }
 
     private static string CardShape(ArtworkLibraryItemDto item) =>
+        string.Equals(item.GroupKind, "MusicAlbum", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(item.MediaType, "Music", StringComparison.OrdinalIgnoreCase)
+            ? "square" :
         item.IsStructural ? "group" :
         item.EntityType == "Person" || string.Equals(item.PrimaryAssetType, "Headshot", StringComparison.OrdinalIgnoreCase)
             ? "person"
@@ -499,40 +507,28 @@
                     ? "wide"
                     : "portrait";
 
-    private static string PlaceholderIcon(ArtworkLibraryItemDto item) => item.EntityType == "Person"
-        ? Icons.Material.Outlined.Person
-        : Icons.Material.Outlined.Image;
+    private static string PlaceholderIcon(ArtworkLibraryItemDto item) =>
+        item.EntityType == "Person" || string.Equals(item.GroupKind, "Character", StringComparison.OrdinalIgnoreCase)
+            ? Icons.Material.Outlined.PersonOutline
+            : string.Equals(item.GroupKind, "Universe", StringComparison.OrdinalIgnoreCase)
+                ? Icons.Material.Outlined.Public
+                : Icons.Material.Outlined.Image;
 
     private static string Metadata(ArtworkLibraryItemDto item)
     {
         if (item.IsStructural)
         {
             var groupIdentity = string.Join(" · ", new[] { item.Subtitle, item.Year }.Where(value => !string.IsNullOrWhiteSpace(value)));
-            var artwork = item.ResolutionMode == ArtworkResolutionMode.AutomaticGroup
-                ? "Automatic artwork"
-                : item.ResolutionMode == ArtworkResolutionMode.Explicit
-                    ? $"{item.VariantCount} managed {(item.VariantCount == 1 ? "image" : "images")}"
-                    : "No artwork yet";
             var owned = $"{item.OwnedWorkCount} owned {(item.OwnedWorkCount == 1 ? "item" : "items")}";
-            return string.Join(" · ", new[] { groupIdentity, owned, artwork }.Where(value => !string.IsNullOrWhiteSpace(value)));
+            return string.Join(" · ", new[] { groupIdentity, owned }.Where(value => !string.IsNullOrWhiteSpace(value)));
         }
 
         if (item.EntityType == "Person")
         {
-            var imageText = item.VariantCount > 0
-                ? $"{item.VariantCount} managed {(item.VariantCount == 1 ? "image" : "images")}"
-                : item.UsesLegacyPersonImage ? "Provider image" : "No artwork yet";
-            return string.Join(" · ", new[]
-            {
-                item.Subtitle,
-                imageText,
-                item.OwnedWorkCount > 0 ? $"{item.OwnedWorkCount} owned works" : null,
-            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+            return item.Subtitle ?? string.Empty;
         }
 
-        var identity = string.Join(" · ", new[] { item.MediaType, item.Year }.Where(value => !string.IsNullOrWhiteSpace(value)));
-        var variants = $"{item.VariantCount} {(item.VariantCount == 1 ? "variant" : "variants")}";
-        return string.IsNullOrWhiteSpace(identity) ? variants : $"{identity} · {variants}";
+        return string.Join(" · ", new[] { item.MediaType, item.Year }.Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
     private static string FormatAssetType(string value) => value switch
@@ -552,7 +548,7 @@
     private bool IsUniverseView => string.Equals(_entityKind, "universes", StringComparison.OrdinalIgnoreCase);
     private bool IsAssetView => string.Equals(_entityKind, "assets", StringComparison.OrdinalIgnoreCase);
     private static string AssetTitle(ArtworkAssetDto asset) => asset.Contexts.FirstOrDefault()?.EntityLabel ?? "Library artwork";
-    private static string AssetShape(ArtworkAssetDto asset) => asset.Aspect switch { "LandscapeWide" or "BannerStrip" => "wide", "Square" => "person", _ => "portrait" };
+    private static string AssetShape(ArtworkAssetDto asset) => asset.Aspect switch { "LandscapeWide" or "BannerStrip" => "wide", "Square" => "square", _ => "portrait" };
 
     private IReadOnlyList<BrowseGroupingOption> AvailableMediaTypes => _browseAs switch
     {

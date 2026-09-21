@@ -80,10 +80,23 @@ public sealed class UniversalSearchReadService(
                    p.biography AS Biography,
                    p.occupation AS Occupation,
                    p.local_headshot_path AS LocalHeadshotPath,
-                   GROUP_CONCAT(DISTINCT pr.role) AS Roles
+                   GROUP_CONCAT(DISTINCT pr.role) AS Roles,
+                   (SELECT GROUP_CONCAT(DISTINCT COALESCE(NULLIF(user.label, ''), entity.label))
+                      FROM character_performer_links portrayal
+                      INNER JOIN fictional_entities entity ON entity.id=portrayal.fictional_entity_id
+                      LEFT JOIN fictional_entity_user_overrides user ON user.entity_id=entity.id
+                     WHERE portrayal.person_id=p.id
+                       AND COALESCE(NULLIF(user.label, ''), entity.label) LIKE @Like COLLATE NOCASE) AS MatchedCharacters
             FROM persons p
             LEFT JOIN person_roles pr ON pr.person_id = p.id
-            WHERE p.name LIKE @Like COLLATE NOCASE
+            WHERE (p.name LIKE @Like COLLATE NOCASE
+                   OR EXISTS (
+                       SELECT 1
+                         FROM character_performer_links portrayal
+                         INNER JOIN fictional_entities entity ON entity.id=portrayal.fictional_entity_id
+                         LEFT JOIN fictional_entity_user_overrides user ON user.entity_id=entity.id
+                        WHERE portrayal.person_id=p.id
+                          AND COALESCE(NULLIF(user.label, ''), entity.label) LIKE @Like COLLATE NOCASE))
               AND EXISTS (
                   SELECT 1
                   FROM primary_person_media_credits credit
@@ -91,7 +104,21 @@ public sealed class UniversalSearchReadService(
             GROUP BY p.id, p.name, p.biography, p.occupation, p.local_headshot_path
             ORDER BY CASE WHEN lower(p.name) = lower(@Query) THEN 0
                           WHEN lower(p.name) LIKE lower(@Prefix) THEN 1
-                          ELSE 2 END,
+                          WHEN EXISTS (
+                              SELECT 1
+                                FROM character_performer_links portrayal
+                                INNER JOIN fictional_entities entity ON entity.id=portrayal.fictional_entity_id
+                                LEFT JOIN fictional_entity_user_overrides user ON user.entity_id=entity.id
+                               WHERE portrayal.person_id=p.id
+                                 AND lower(COALESCE(NULLIF(user.label, ''), entity.label))=lower(@Query)) THEN 2
+                          WHEN EXISTS (
+                              SELECT 1
+                                FROM character_performer_links portrayal
+                                INNER JOIN fictional_entities entity ON entity.id=portrayal.fictional_entity_id
+                                LEFT JOIN fictional_entity_user_overrides user ON user.entity_id=entity.id
+                               WHERE portrayal.person_id=p.id
+                                 AND lower(COALESCE(NULLIF(user.label, ''), entity.label)) LIKE lower(@Prefix)) THEN 3
+                          ELSE 4 END,
                      p.name COLLATE NOCASE
             LIMIT @Limit
             """,
@@ -108,7 +135,11 @@ public sealed class UniversalSearchReadService(
         return rows.Select(row =>
         {
             var roles = Split(row.Roles);
-            var subtitle = roles.Count > 0 ? string.Join(", ", roles.Take(3)) : row.Occupation;
+            var matchedCharacters = Split(row.MatchedCharacters);
+            var matchedByCharacter = matchedCharacters.Count > 0 && !Contains(row.Name, query);
+            var subtitle = matchedByCharacter
+                ? $"Plays {string.Join(", ", matchedCharacters.Take(2))}"
+                : roles.Count > 0 ? string.Join(", ", roles.Take(3)) : row.Occupation;
             return new UniversalSearchResultDto(
                 row.Id,
                 "person",
@@ -121,8 +152,8 @@ public sealed class UniversalSearchReadService(
                 row.Biography,
                 $"/details/person/{row.Id:D}",
                 "View Person",
-                MatchReason(row.Name, query, "person name"),
-                Score(row.Name, query, 0.98))
+                matchedByCharacter ? "Matched character portrayal" : MatchReason(row.Name, query, "person name"),
+                matchedByCharacter ? Score(matchedCharacters.FirstOrDefault(), query, 0.93) : Score(row.Name, query, 0.98))
             {
                 Facts = roles,
             };
@@ -434,6 +465,7 @@ public sealed class UniversalSearchReadService(
         public string? Occupation { get; init; }
         public string? LocalHeadshotPath { get; init; }
         public string? Roles { get; init; }
+        public string? MatchedCharacters { get; init; }
     }
 
     private sealed class CollectionSearchRow
