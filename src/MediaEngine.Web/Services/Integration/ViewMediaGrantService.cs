@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using MediaEngine.Domain.PersonalMedia;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -20,6 +21,8 @@ public sealed record ViewMediaGrant(
     Guid AssetId,
     ViewMediaResourceKind ResourceKind,
     ViewMediaResourceRole ResourceRole,
+    ViewScopeKind ScopeKind,
+    Guid? ScopeProfileId,
     DateTimeOffset ExpiresAt);
 
 public sealed record ViewMediaGrantToken(string Value, DateTimeOffset ExpiresAt);
@@ -29,8 +32,8 @@ public sealed record ViewMediaGrantToken(string Value, DateTimeOffset ExpiresAt)
 /// </summary>
 public sealed class ViewMediaGrantService
 {
-    private const byte Version = 1;
-    private const int PayloadLength = 59;
+    private const byte Version = 2;
+    private const int PayloadLength = 76;
     private const int SignatureLength = 32;
 
     private readonly byte[] _key;
@@ -58,8 +61,17 @@ public sealed class ViewMediaGrantService
         Guid libraryId,
         Guid assetId,
         ViewMediaResourceKind resourceKind,
-        ViewMediaResourceRole resourceRole = ViewMediaResourceRole.Primary)
+        ViewMediaResourceRole resourceRole = ViewMediaResourceRole.Primary,
+        ViewScopeKind scopeKind = ViewScopeKind.Mine,
+        Guid? scopeProfileId = null)
     {
+        if (!Enum.IsDefined(scopeKind)
+            || (scopeKind == ViewScopeKind.Profile && !scopeProfileId.HasValue)
+            || (scopeKind != ViewScopeKind.Profile && scopeProfileId.HasValue))
+        {
+            throw new ArgumentException("The View scope and scope profile must describe one valid authorized scope.", nameof(scopeKind));
+        }
+
         var expiresAt = _timeProvider.GetUtcNow().Add(_lifetime);
         Span<byte> payload = stackalloc byte[PayloadLength];
         payload[0] = Version;
@@ -68,7 +80,9 @@ public sealed class ViewMediaGrantService
         assetId.TryWriteBytes(payload[33..49], bigEndian: true, out _);
         payload[49] = (byte)resourceKind;
         payload[50] = (byte)resourceRole;
-        BinaryPrimitives.WriteInt64BigEndian(payload[51..59], expiresAt.ToUnixTimeSeconds());
+        payload[51] = (byte)scopeKind;
+        (scopeProfileId ?? Guid.Empty).TryWriteBytes(payload[52..68], bigEndian: true, out _);
+        BinaryPrimitives.WriteInt64BigEndian(payload[68..76], expiresAt.ToUnixTimeSeconds());
 
         var signature = HMACSHA256.HashData(_key, payload);
         return new ViewMediaGrantToken(
@@ -110,13 +124,20 @@ public sealed class ViewMediaGrantService
 
         var resourceKind = (ViewMediaResourceKind)payload[49];
         var resourceRole = (ViewMediaResourceRole)payload[50];
-        if (!Enum.IsDefined(resourceKind) || !Enum.IsDefined(resourceRole))
+        var scopeKind = (ViewScopeKind)payload[51];
+        var encodedScopeProfileId = new Guid(payload.AsSpan(52, 16), bigEndian: true);
+        Guid? scopeProfileId = encodedScopeProfileId == Guid.Empty ? null : encodedScopeProfileId;
+        if (!Enum.IsDefined(resourceKind)
+            || !Enum.IsDefined(resourceRole)
+            || !Enum.IsDefined(scopeKind)
+            || (scopeKind == ViewScopeKind.Profile && !scopeProfileId.HasValue)
+            || (scopeKind != ViewScopeKind.Profile && scopeProfileId.HasValue))
         {
             return false;
         }
 
         var expiresAt = DateTimeOffset.FromUnixTimeSeconds(
-            BinaryPrimitives.ReadInt64BigEndian(payload.AsSpan(51, 8)));
+            BinaryPrimitives.ReadInt64BigEndian(payload.AsSpan(68, 8)));
         if (expiresAt <= _timeProvider.GetUtcNow())
         {
             return false;
@@ -128,6 +149,8 @@ public sealed class ViewMediaGrantService
             new Guid(payload.AsSpan(33, 16), bigEndian: true),
             resourceKind,
             resourceRole,
+            scopeKind,
+            scopeProfileId,
             expiresAt);
         return true;
     }

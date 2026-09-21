@@ -11,14 +11,14 @@
 
 <PageTitle>Folders - Tuvima Library</PageTitle>
 <ViewSectionShell>
-    <div class="view-folders-page">
-        <header class="view-folders-header">
-            <div><span>View</span><h1>Folders</h1><p>Browse files by their real source and folder structure.</p></div>
+    <ViewContentPage Title="Folders" Subtitle="Browse files by their real source and folder structure." Class="view-folders-page">
+        <HeaderActions>
             @if (Workspace.Scopes is not null)
             {
                 <label><span>Scope</span><AppNativeSelect Value="@SelectedScopeValue" OnChange="ScopeChangedAsync" aria-label="Authorized folder scope">@foreach (var scope in Workspace.Scopes.AvailableScopes) { <option value="@ScopeValue(scope.Kind, scope.ProfileId)">@scope.Label</option> }</AppNativeSelect></label>
             }
-        </header>
+        </HeaderActions>
+        <ChildContent>
 
         @if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading folders" Message="Reading the indexed folder structure." /> }
         else if (_page is null) { <AppErrorState Title="Folders could not be loaded" Message="The Engine did not return the authorized folder view." Retry="LoadAsync" /> }
@@ -93,7 +93,8 @@
                 else if (_page.Folders.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="This folder is empty" Message="Indexed media in this folder will appear here." /> }
             }
         }
-    </div>
+        </ChildContent>
+    </ViewContentPage>
 </ViewSectionShell>
 
 @code {
@@ -176,7 +177,7 @@
     private string ThumbnailUrl(LocalAssetDto item)
     {
         if (!_profileId.HasValue) return string.Empty;
-        return $"/view-media/{MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, ViewMediaResourceKind.Thumbnail).Value}";
+        return $"/view-media/{MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, ViewMediaResourceKind.Thumbnail, scopeKind: Workspace.ScopeKind, scopeProfileId: Workspace.ScopeProfileId).Value}";
     }
     public void Dispose() { _searchCts?.Cancel(); _searchCts?.Dispose(); }
 }

@@ -1295,17 +1295,15 @@
                                                 </aside>
 
                                                 <div class="sme-artwork-add-panel">
-                                                    <MudIcon Icon="@Icons.Material.Outlined.Add" />
-                                                    <strong>Add artwork</strong>
-                                                    <span>Upload or link a new @slot.Label.ToLowerInvariant() image.</span>
-                                                    <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="sme-artwork-action-upload">
-                                                        Upload file
-                                                        <span class="sme-art-slot-input-shell">
-                                                            <InputFile class="sme-art-slot-file-input"
-                                                                       OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
-                                                                       accept="@GetArtworkAcceptedTypes(slot.AssetType)" />
-                                                        </span>
-                                                    </AppButton>
+                                                    <div class="sme-artwork-drop-zone">
+                                                        <MudIcon Icon="@Icons.Material.Outlined.CloudUpload" />
+                                                        <strong>Drop image here</strong>
+                                                        <span>or click to browse for a new @slot.Label.ToLowerInvariant()</span>
+                                                        <small>JPG or PNG, up to 20 MB</small>
+                                                        <InputFile class="sme-artwork-drop-input"
+                                                                   OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
+                                                                   accept="@GetArtworkAcceptedTypes(slot.AssetType)" />
+                                                    </div>
                                                     <AppButton Label="From URL" StartIcon="@Icons.Material.Outlined.Link" OnClick="ToggleArtworkUrlInput" />
                                                 </div>
                                             </div>

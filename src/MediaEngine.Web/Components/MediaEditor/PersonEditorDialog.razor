@@ -233,18 +233,15 @@
                                     </aside>
 
                                     <div class="person-editor__artwork-add-panel">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Add" />
-                                        <strong>Add artwork</strong>
-                                        <span>Upload a new @FormatArtworkType(selectedSlot.AssetType).ToLowerInvariant() image.</span>
-                                        <small>JPG or PNG, up to 20 MB</small>
-                                        <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="person-editor__artwork-upload-button">
-                                            Upload file
-                                            <span class="person-editor__artwork-file-shell">
-                                                <InputFile class="person-editor__artwork-file-input"
-                                                           accept="@GetArtworkAcceptedTypes(selectedSlot.AssetType)"
-                                                           OnChange="@((args) => UploadArtworkAsync(selectedSlot.AssetType, args))" />
-                                            </span>
-                                        </AppButton>
+                                        <div class="person-editor__artwork-drop-zone">
+                                            <MudIcon Icon="@Icons.Material.Outlined.CloudUpload" />
+                                            <strong>Drop image here</strong>
+                                            <span>or click to browse for a new @FormatArtworkType(selectedSlot.AssetType).ToLowerInvariant()</span>
+                                            <small>JPG or PNG, up to 20 MB</small>
+                                            <InputFile class="person-editor__artwork-drop-input"
+                                                       accept="@GetArtworkAcceptedTypes(selectedSlot.AssetType)"
+                                                       OnChange="@((args) => UploadArtworkAsync(selectedSlot.AssetType, args))" />
+                                        </div>
                                     </div>
                                 </div>
 
@@ -355,7 +352,14 @@
 
     private Guid PersonId => Request.LaunchEntityId ?? Request.EntityIds.FirstOrDefault();
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        if (Tabs.Any(tab => string.Equals(tab.Id, Request.InitialTab, StringComparison.OrdinalIgnoreCase)))
+        {
+            _activeTab = Request.InitialTab!;
+        }
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {

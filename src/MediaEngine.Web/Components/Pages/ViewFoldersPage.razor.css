@@ -1,9 +1,3 @@
-.view-folders-page { padding: clamp(1rem, 2vw, 2rem); display: grid; gap: 1rem; }
-.view-folders-header { display: flex; justify-content: space-between; gap: 1rem; align-items: end; }
-.view-folders-header span { color: var(--app-accent, #9b6cff); font-weight: 700; }
-.view-folders-header h1 { margin: .15rem 0; }
-.view-folders-header p { margin: 0; color: var(--app-text-secondary); }
-.view-folders-header label { display: grid; gap: .35rem; min-width: 12rem; }
 .view-folder-sources, .view-folder-nodes { display: grid; gap: .65rem; }
 .view-folder-pins { display: grid; gap: .55rem; }
 .view-folder-pins h2 { margin: 0; font-size: 1rem; }
@@ -28,8 +22,6 @@
 .view-folder-items strong, .view-folder-items small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .view-folder-items small { color: var(--app-text-secondary); }
 @media (max-width: 640px) {
-  .view-folders-page { padding: 1rem; }
-  .view-folders-header, .view-folder-tools { align-items: stretch; flex-direction: column; }
-  .view-folders-header label { min-width: 0; }
+  .view-folder-tools { align-items: stretch; flex-direction: column; }
   .view-folder-items { grid-template-columns: 1fr; }
 }

@@ -737,6 +737,41 @@
     width: 100%;
 }
 
+.person-editor__artwork-drop-zone {
+    position: relative;
+    display: grid;
+    place-items: center;
+    gap: var(--tl-space-2);
+    width: 100%;
+    min-height: 10rem;
+    padding: var(--tl-space-4);
+    border: 1px dashed var(--tl-border-strong);
+    border-radius: var(--tl-radius-md);
+    background: rgba(154, 102, 255, 0.035);
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.person-editor__artwork-drop-zone:hover,
+.person-editor__artwork-drop-zone:focus-within {
+    border-color: rgba(179, 138, 255, 0.75);
+    background: rgba(154, 102, 255, 0.09);
+}
+
+.person-editor__artwork-drop-zone > .mud-icon-root {
+    color: #cdbbff;
+    font-size: 2rem;
+}
+
+.person-editor__artwork-drop-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
 .person-editor__artwork-variants-heading {
     display: flex;
     align-items: center;

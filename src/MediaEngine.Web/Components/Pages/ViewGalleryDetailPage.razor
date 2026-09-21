@@ -339,8 +339,16 @@
     }
 
     private string Thumbnail(LocalAssetDto item) => Resource(item, ViewMediaResourceKind.Thumbnail);
-    private string Resource(LocalAssetDto item, ViewMediaResourceKind kind) =>
-        _profileId.HasValue
-            ? $"/view-media/{MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, kind).Value}"
-            : string.Empty;
+    private string Resource(LocalAssetDto item, ViewMediaResourceKind kind)
+    {
+        if (!_profileId.HasValue) return string.Empty;
+        var (scopeKind, scopeProfileId) = ItemScope(item);
+        return $"/view-media/{MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, kind, scopeKind: scopeKind, scopeProfileId: scopeProfileId).Value}";
+    }
+    private (ViewScopeKind Kind, Guid? ProfileId) ItemScope(LocalAssetDto item) =>
+        string.Equals(item.ScopeKind, "shared", StringComparison.OrdinalIgnoreCase)
+            ? (ViewScopeKind.Shared, null)
+            : item.OwnerProfileId.HasValue && item.OwnerProfileId != _profileId
+                ? (ViewScopeKind.Profile, item.OwnerProfileId)
+                : (ViewScopeKind.Mine, null);
 }

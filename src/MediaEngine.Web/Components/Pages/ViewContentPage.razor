@@ -1,0 +1,35 @@
+@namespace MediaEngine.Web.Components.Pages
+
+<div class="@CssClass">
+    <header class="view-content-page__header">
+        <div class="view-content-page__identity">
+            <span class="view-content-page__eyebrow">@Eyebrow</span>
+            <h1>@Title</h1>
+            @if (!string.IsNullOrWhiteSpace(Subtitle))
+            {
+                <p>@Subtitle</p>
+            }
+        </div>
+        @if (HeaderActions is not null)
+        {
+            <div class="view-content-page__actions">
+                @HeaderActions
+            </div>
+        }
+    </header>
+
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Eyebrow { get; set; } = "View";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? HeaderActions { get; set; }
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+
+    private string CssClass => string.IsNullOrWhiteSpace(Class)
+        ? "view-content-page"
+        : $"view-content-page {Class}";
+}

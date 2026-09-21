@@ -45,12 +45,13 @@ public sealed class ViewLibrarySurfaceTests
     }
 
     [Fact]
-    public void ViewWorkspace_UsesOnlyFourPrimaryDestinationsAcrossRealRoutes()
+    public void ViewWorkspace_ExposesArtworkAlongsidePersonalMediaDestinations()
     {
         var shell = Read("src/MediaEngine.Web/Components/Pages/ViewSectionShell.razor");
 
         Assert.Contains("new(\"Photos\", \"/view\"", shell, StringComparison.Ordinal);
         Assert.Contains("new(\"Galleries\", \"/view/galleries\"", shell, StringComparison.Ordinal);
+        Assert.Contains("new(\"Artwork\", \"/view/artwork\"", shell, StringComparison.Ordinal);
         Assert.Contains("new(\"People\", \"/view/people\"", shell, StringComparison.Ordinal);
         Assert.Contains("new(\"Places\", \"/view/places\"", shell, StringComparison.Ordinal);
         Assert.Contains("IsSmart: gallery.Kind == ViewGalleryKind.Smart", shell, StringComparison.Ordinal);
@@ -64,8 +65,51 @@ public sealed class ViewLibrarySurfaceTests
         Assert.DoesNotContain("Trash", shell, StringComparison.Ordinal);
 
         AssertViewRoute("ViewGalleriesPage.razor", "/view/galleries");
+        AssertViewRoute("ViewArtworkPage.razor", "/view/artwork");
         AssertViewRoute("ViewPeoplePage.razor", "/view/people");
         AssertViewRoute("ViewPlacesPage.razor", "/view/places");
+    }
+
+    [Fact]
+    public void ViewArtwork_UsesPagedVirtualGalleriesAndExistingEditors()
+    {
+        var artwork = Read("src/MediaEngine.Web/Components/Pages/ViewArtworkPage.razor");
+        var client = Read("src/MediaEngine.Web/Services/Integration/EngineApiClient.Artwork.cs");
+
+        Assert.Contains("Library Artwork", artwork, StringComparison.Ordinal);
+        Assert.Contains("GetArtworkLibraryAsync", artwork, StringComparison.Ordinal);
+        Assert.Contains("LoadMoreAsync", artwork, StringComparison.Ordinal);
+        Assert.Contains("MediaEditorLauncher.OpenAsync", artwork, StringComparison.Ordinal);
+        Assert.Contains("InitialTab = \"artwork\"", artwork, StringComparison.Ordinal);
+        Assert.Contains("People images", artwork, StringComparison.Ordinal);
+        Assert.Contains("Drop image here", Read("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor"), StringComparison.Ordinal);
+        Assert.Contains("Drop image here", Read("src/MediaEngine.Web/Components/MediaEditor/PersonEditorDialog.razor"), StringComparison.Ordinal);
+        Assert.Contains("/api/v1/display/artwork", client, StringComparison.Ordinal);
+        Assert.DoesNotContain("Wikidata", artwork, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ViewPrimaryRoutes_ShareTheLaneAlignedContentFrame()
+    {
+        string[] routes =
+        [
+            "ViewPage.razor",
+            "ViewFoldersPage.razor",
+            "ViewGalleriesPage.razor",
+            "ViewArtworkPage.razor",
+            "ViewPeoplePage.razor",
+            "ViewPlacesPage.razor",
+        ];
+
+        foreach (var route in routes)
+        {
+            Assert.Contains("<ViewContentPage", Read($"src/MediaEngine.Web/Components/Pages/{route}"), StringComparison.Ordinal);
+        }
+
+        var frame = Read("src/MediaEngine.Web/Components/Pages/ViewContentPage.razor.css");
+        Assert.Contains("align-content: start", frame, StringComparison.Ordinal);
+        Assert.Contains("font-family: var(--font-ui, inherit)", frame, StringComparison.Ordinal);
+        Assert.Contains("padding: 28px clamp(20px, 2.2vw, 40px) 48px", frame, StringComparison.Ordinal);
     }
 
     [Fact]

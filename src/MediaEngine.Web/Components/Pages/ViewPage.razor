@@ -13,17 +13,23 @@
 
 <PageTitle>Photos - Tuvima Library</PageTitle>
 <ViewSectionShell @ref="_viewSectionShell">
-<div class="view-page view-density--@Workspace.Density.ToString().ToLowerInvariant()">
-@if (_initializing) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Photos" Message="Opening your personal space." /> }
-else if (Workspace.Scopes is null) { <AppErrorState Title="Photos could not be loaded" Message="The Dashboard could not resolve an authorized View scope." Retry="InitializeAsync" /> }
-else
-{
-    <header class="view-header"><div class="view-header__identity"><span class="view-header__eyebrow">View</span><h1>Photos</h1><p>@ScopeDescription</p></div><div class="view-header__actions">
+<ViewContentPage Title="Photos"
+                 Subtitle="@ScopeDescription"
+                 Class="@($"view-page view-density--{Workspace.Density.ToString().ToLowerInvariant()}")">
+<HeaderActions>
+    @if (!_initializing && Workspace.Scopes is not null)
+    {
         <label><span>Scope</span><AppNativeSelect Value="@SelectedScopeValue" OnChange="ScopeChangedAsync" aria-label="Authorized photo scope">@foreach (var scope in Workspace.Scopes.AvailableScopes) { <option value="@ScopeValue(scope.Kind, scope.ProfileId)">@scope.Label</option> }</AppNativeSelect></label>
         <label><span>Density</span><AppNativeSelect Value="@Workspace.Density.ToString()" OnChange="DensityChangedAsync" aria-label="Timeline density">@foreach (var density in Enum.GetValues<ViewTimelineDensity>()) { <option value="@density">@density</option> }</AppNativeSelect></label>
         <AppButton Href="/view/contributions" Label="Contributions" StartIcon="@Icons.Material.Outlined.MoveToInbox" ButtonStyle="AppButtonStyle.Text" />
         <label class="view-add-media@(_uploading ? " is-busy" : string.Empty)" aria-disabled="@_uploading"><InputFile class="view-add-media__input" OnChange="UploadMediaAsync" disabled="@_uploading" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" /><span class="view-add-media__label"><MudIcon Icon="@Icons.Material.Outlined.Add" />@(_uploading ? "Uploading…" : "Add media")</span></label>
-    </div></header>
+    }
+</HeaderActions>
+<ChildContent>
+@if (_initializing) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Photos" Message="Opening your personal space." /> }
+else if (Workspace.Scopes is null) { <AppErrorState Title="Photos could not be loaded" Message="The Dashboard could not resolve an authorized View scope." Retry="InitializeAsync" /> }
+else
+{
     @if (_uploading) { <section class="view-upload-status" role="status" aria-live="polite"><span>Uploading @_uploadFileName…</span><MudProgressLinear Color="Color.Primary" Indeterminate="true" /></section> }
     @if (!string.IsNullOrWhiteSpace(_uploadError)) { <section class="view-upload-status is-error" role="alert">@_uploadError</section> }
     <section class="view-toolbar" aria-label="View filters">
@@ -37,13 +43,14 @@ else
     else if (_page.Items.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="@EmptyTitle" Message="@EmptyMessage" /> }
     else { <ViewPhotoTimeline Items="@_page.Items" Selected="@_selected" Density="@Workspace.Density" ThumbnailUrl="@(item => AssetUrl(item, ViewMediaResourceKind.Thumbnail))" OnOpen="OpenItem" OnToggleSelection="ToggleSelection" OnSelectDateGroup="SelectDateGroup" OnDragStarted="BeginDrag" OnDragEnded="EndDrag" /> @if (_page.HasMore) { <div class="view-load-more"><AppButton ButtonStyle="AppButtonStyle.Outlined" Disabled="@_loadingMore" OnClick="LoadMoreAsync">@(_loadingMore ? "Loading…" : "Load more")</AppButton></div> } }
 }
-</div>
+</ChildContent>
+</ViewContentPage>
 </ViewSectionShell>
 @if (_activeItem is not null) { <ViewImmersiveViewer Item="@_activeItem" HasPrevious="@HasPrevious" HasNext="@HasNext" ContentUrl="@AssetUrl(_activeItem, ViewMediaResourceKind.Content)" ThumbnailUrl="@AssetUrl(_activeItem, ViewMediaResourceKind.Thumbnail)" OnClose="CloseItem" OnPrevious="PreviousItem" OnNext="NextItem" OnFavorite="ToggleFavoriteAsync" OnArchive="ArchiveActiveAsync" OnRestore="RestoreActiveAsync" OnTrash="TrashActiveAsync" ManualGalleries="@Workspace.OwnedGalleries.Where(g => g.Kind == ViewGalleryKind.Manual).ToList()" OnAddToGallery="AddActiveToGalleryAsync" /> }
 
 @code {
     private static readonly IReadOnlyDictionary<string, string> PrimaryFilters = new Dictionary<string, string> { ["all"] = "All", ["favorites"] = "Favorites", ["videos"] = "Videos", ["archive"] = "Archive" };
-    private ViewSectionShell? _viewSectionShell; private ViewAssetTimelinePageDto? _page; private LocalAssetDto? _activeItem; private readonly HashSet<Guid> _selected = []; private readonly Dictionary<(Guid, Guid, ViewMediaResourceKind), CachedMediaGrant> _grants = [];
+    private ViewSectionShell? _viewSectionShell; private ViewAssetTimelinePageDto? _page; private LocalAssetDto? _activeItem; private readonly HashSet<Guid> _selected = []; private readonly Dictionary<(Guid, Guid, ViewMediaResourceKind, ViewScopeKind, Guid?), CachedMediaGrant> _grants = [];
     private CancellationTokenSource? _searchCts; private Guid? _profileId; private string _search = ""; private string _filter = "all"; private bool _initializing = true, _loading, _loadingMore, _uploading, _showMoreFilters; private string? _uploadFileName, _uploadError;
     protected override async Task OnInitializedAsync() { Orchestrator.OnProfileChanged += OnProfileChanged; await InitializeAsync(); }
     private async Task InitializeAsync() { _initializing = true; _profileId = (await Orchestrator.GetActiveProfileAsync())?.Id; await Workspace.InitializeAsync(); await Workspace.LoadGalleriesAsync(); _initializing = false; await LoadAsync(); }
@@ -108,7 +115,25 @@ else
     }
     private Task RestoreSelectionAsync() => MutateSelectionAsync(ApiClient.RestoreViewItemAsync, "Restored selected items to Photos.");
     private async Task ToggleFavoriteAsync() { if (_activeItem is null) return; var value = !_activeItem.Favorite; if (await ApiClient.SetViewItemFavoriteAsync(_activeItem.Id, value)) Replace(_activeItem with { Favorite = value }); } private async Task ArchiveActiveAsync() { if (_activeItem is not null && await ApiClient.ArchiveViewItemAsync(_activeItem.Id)) await RemoveActiveAsync(); } private async Task RestoreActiveAsync() { if (_activeItem is not null && await ApiClient.RestoreViewItemAsync(_activeItem.Id)) await RemoveActiveAsync(); } private async Task TrashActiveAsync() { if (_activeItem is not null && await ApiClient.TrashViewItemAsync(_activeItem.Id)) await RemoveActiveAsync(); } private async Task RemoveActiveAsync() { _activeItem = null; await LoadAsync(); } private void Replace(LocalAssetDto updated) { _activeItem = updated; if (_page is not null) _page = _page with { Items = _page.Items.Select(i => i.Id == updated.Id ? updated : i).ToList() }; }
-    private string AssetUrl(LocalAssetDto item, ViewMediaResourceKind kind) { if (!_profileId.HasValue) return ""; var key = (item.LibraryId, item.Id, kind); if (!_grants.TryGetValue(key, out var cached) || cached.ExpiresAt <= DateTimeOffset.UtcNow.AddSeconds(30)) { var grant = MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, kind); cached = new($"/view-media/{grant.Value}", grant.ExpiresAt); _grants[key] = cached; } return cached.Url; }
+    private string AssetUrl(LocalAssetDto item, ViewMediaResourceKind kind)
+    {
+        if (!_profileId.HasValue) return "";
+        var (scopeKind, scopeProfileId) = ItemScope(item);
+        var key = (item.LibraryId, item.Id, kind, scopeKind, scopeProfileId);
+        if (!_grants.TryGetValue(key, out var cached) || cached.ExpiresAt <= DateTimeOffset.UtcNow.AddSeconds(30))
+        {
+            var grant = MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, kind, scopeKind: scopeKind, scopeProfileId: scopeProfileId);
+            cached = new($"/view-media/{grant.Value}", grant.ExpiresAt);
+            _grants[key] = cached;
+        }
+        return cached.Url;
+    }
+    private (ViewScopeKind Kind, Guid? ProfileId) ItemScope(LocalAssetDto item) =>
+        string.Equals(item.ScopeKind, "shared", StringComparison.OrdinalIgnoreCase)
+            ? (ViewScopeKind.Shared, null)
+            : item.OwnerProfileId.HasValue && item.OwnerProfileId != _profileId
+                ? (ViewScopeKind.Profile, item.OwnerProfileId)
+                : (ViewScopeKind.Mine, null);
     private string EmptyTitle => !string.IsNullOrWhiteSpace(_search) ? "No matching items" : _filter switch { "favorites" => "No favorites yet", "videos" => "No videos yet", "archive" => "Archive is empty", "trash" => "Trash is empty", "hidden" => "No hidden items", "documents" => "No documents yet", _ => "No personal media yet" }; private string EmptyMessage => !string.IsNullOrWhiteSpace(_search) ? "Try a different search." : "Items matching this View filter will appear here.";
     private void OnProfileChanged() => _ = InvokeAsync(async () => { _grants.Clear(); Workspace.Reset(); await InitializeAsync(); StateHasChanged(); }); public void Dispose() { Orchestrator.OnProfileChanged -= OnProfileChanged; _searchCts?.Cancel(); _searchCts?.Dispose(); } private sealed record CachedMediaGrant(string Url, DateTimeOffset ExpiresAt);
 }

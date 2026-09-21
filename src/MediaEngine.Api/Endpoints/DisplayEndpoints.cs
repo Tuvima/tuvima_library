@@ -4,6 +4,7 @@ using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Authentication;
+using MediaEngine.Contracts.Artwork;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Paging;
@@ -99,6 +100,29 @@ public static class DisplayEndpoints
             .WithSummary("Returns ranked local media, people, series, collections, and playlists for universal search.")
             .Produces<UniversalSearchResponseDto>(StatusCodes.Status200OK)
             .RequireClientScope(ClientApiScopes.LibraryRead);
+
+        group.MapGet("/artwork", async (
+            string? entityKind,
+            string? artworkType,
+            string? search,
+            int? offset,
+            int? limit,
+            ArtworkLibraryReadService artwork,
+            CancellationToken ct) =>
+        {
+            var paged = PagedRequest.From(offset, limit, defaultLimit: 48);
+            return Results.Ok(await artwork.BrowseAsync(
+                entityKind,
+                artworkType,
+                search,
+                paged.Offset,
+                paged.Limit,
+                ct));
+        })
+            .WithName("GetArtworkLibrary")
+            .WithSummary("Returns the pageable virtual artwork galleries for owned media and library people.")
+            .Produces<ArtworkLibraryPageDto>(StatusCodes.Status200OK)
+            .RequireClientScope(ClientApiScopes.ArtworkRead);
 
         group.MapGet("/shelves/{shelfKey}", async (
             string shelfKey,

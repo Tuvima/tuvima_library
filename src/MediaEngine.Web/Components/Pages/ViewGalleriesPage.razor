@@ -7,14 +7,12 @@
 
 <PageTitle>Galleries - Tuvima Library</PageTitle>
 <ViewSectionShell>
-    <div class="view-feature-page">
-        <header class="view-feature-page__header">
-            <div><span>View</span><h1>Galleries</h1><p>Organize personal photos and videos without changing their source files.</p></div>
-            <div class="view-feature-page__actions">
-                <AppButton ButtonStyle="AppButtonStyle.Outlined" OnClick='@(() => OpenEditorAsync("Smart"))'><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /> Smart Gallery</AppButton>
-                <AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick='@(() => OpenEditorAsync("Manual"))'><MudIcon Icon="@Icons.Material.Outlined.Add" /> New Gallery</AppButton>
-            </div>
-        </header>
+    <ViewContentPage Title="Galleries" Subtitle="Organize personal photos and videos without changing their source files.">
+        <HeaderActions>
+            <AppButton ButtonStyle="AppButtonStyle.Outlined" OnClick='@(() => OpenEditorAsync("Smart"))'><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /> Smart Gallery</AppButton>
+            <AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick='@(() => OpenEditorAsync("Manual"))'><MudIcon Icon="@Icons.Material.Outlined.Add" /> New Gallery</AppButton>
+        </HeaderActions>
+        <ChildContent>
         @if (_loading)
         {
             <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Galleries" Message="Opening your Galleries." />
@@ -34,7 +32,8 @@
                 <section><h2>Shared with you</h2><div class="view-gallery-grid">@foreach (var gallery in Workspace.SharedGalleries) { <a class="view-gallery-card" href="@($"/view/galleries/{gallery.Id:D}")"><MudIcon Icon="@Icons.Material.Outlined.People" /><strong>@gallery.Name</strong><span>@gallery.ItemCount items</span></a> }</div></section>
             }
         }
-    </div>
+        </ChildContent>
+    </ViewContentPage>
 </ViewSectionShell>
 
 @code {

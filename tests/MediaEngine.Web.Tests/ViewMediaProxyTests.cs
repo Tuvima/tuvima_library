@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Web.Services.Integration;
 using Microsoft.AspNetCore.Http;
 
@@ -15,7 +16,7 @@ public sealed class ViewMediaProxyTests
     private static readonly Guid AssetId = Guid.Parse("40000000-0000-0000-0000-000000000004");
 
     [Fact]
-    public void Dashboard_MapsGrantOnlyProxyAndKeepsCleanEnginePathServerSide()
+    public void Dashboard_MapsGrantOnlyProxyAndKeepsSignedScopeServerSide()
     {
         var root = FindRepoRoot();
         var program = File.ReadAllText(Path.Combine(root, "src", "MediaEngine.Web", "Program.cs"));
@@ -26,12 +27,12 @@ public sealed class ViewMediaProxyTests
         Assert.Contains("/view-media/{grant.Value}", page, StringComparison.Ordinal);
         Assert.DoesNotContain("profileId=", page, StringComparison.Ordinal);
         Assert.DoesNotContain("items/{item", page, StringComparison.Ordinal);
-        Assert.Contains("/view/items/{grant.AssetId:D}/{resource}", engineClient, StringComparison.Ordinal);
+        Assert.Contains("/view/items/{grant.AssetId:D}/{resource}?scope={scope}", engineClient, StringComparison.Ordinal);
         Assert.DoesNotContain("profileId=", engineClient, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task EngineProxyClient_SendsCleanPathWithoutProfileAssertion()
+    public async Task EngineProxyClient_SendsSignedMineScopeWithoutProfileAssertion()
     {
         var activeProfile = new ActiveProfileAccessor();
         activeProfile.SetProfile(ProfileId);
@@ -49,6 +50,8 @@ public sealed class ViewMediaProxyTests
             AssetId,
             ViewMediaResourceKind.Content,
             ViewMediaResourceRole.Primary,
+            ViewScopeKind.Mine,
+            null,
             DateTimeOffset.UtcNow.AddMinutes(5));
 
         using var response = await engine.SendAsync(
@@ -59,7 +62,7 @@ public sealed class ViewMediaProxyTests
             CancellationToken.None);
 
         Assert.Equal(
-            $"http://engine.test/view/items/{AssetId:D}/content",
+            $"http://engine.test/view/items/{AssetId:D}/content?scope=mine",
             capture.Request?.RequestUri?.AbsoluteUri);
         Assert.Equal("bytes=0-99", capture.Request?.Headers.Range?.ToString());
         Assert.False(capture.Request?.Headers.Contains(ViewProfileAssertionHandler.SignatureHeader));
@@ -85,7 +88,49 @@ public sealed class ViewMediaProxyTests
         Assert.Equal(AssetId, grant.AssetId);
         Assert.Equal(ViewMediaResourceKind.Content, grant.ResourceKind);
         Assert.Equal(ViewMediaResourceRole.Primary, grant.ResourceRole);
+        Assert.Equal(ViewScopeKind.Mine, grant.ScopeKind);
+        Assert.Null(grant.ScopeProfileId);
         Assert.Equal(token.ExpiresAt, grant.ExpiresAt);
+    }
+
+    [Fact]
+    public void Grant_RoundTripsProfileViewingScope()
+    {
+        var grants = CreateGrantService();
+        var token = grants.Create(
+            ProfileId,
+            LibraryId,
+            AssetId,
+            ViewMediaResourceKind.Thumbnail,
+            scopeKind: ViewScopeKind.Profile,
+            scopeProfileId: OtherProfileId);
+
+        Assert.True(grants.TryValidate(token.Value, out var grant));
+        Assert.Equal(ViewScopeKind.Profile, grant!.ScopeKind);
+        Assert.Equal(OtherProfileId, grant.ScopeProfileId);
+    }
+
+    [Fact]
+    public async Task EngineProxyClient_SendsSignedProfileScopeAndProfileId()
+    {
+        var capture = new CapturingHttpHandler();
+        using var http = new HttpClient(capture) { BaseAddress = new Uri("http://engine.test") };
+        using var engine = new ViewMediaEngineClient(http);
+        var grant = new ViewMediaGrant(
+            ProfileId,
+            LibraryId,
+            AssetId,
+            ViewMediaResourceKind.Thumbnail,
+            ViewMediaResourceRole.Primary,
+            ViewScopeKind.Profile,
+            OtherProfileId,
+            DateTimeOffset.UtcNow.AddMinutes(5));
+
+        using var response = await engine.SendAsync(grant, HttpMethod.Get, null, null, CancellationToken.None);
+
+        Assert.Equal(
+            $"http://engine.test/view/items/{AssetId:D}/thumbnail?scope=profile&scopeProfileId={OtherProfileId:D}",
+            capture.Request?.RequestUri?.AbsoluteUri);
     }
 
     [Fact]
@@ -144,6 +189,7 @@ public sealed class ViewMediaProxyTests
         Assert.Equal(ProfileId, engine.Grant?.ProfileId);
         Assert.Equal(LibraryId, engine.Grant?.LibraryId);
         Assert.Equal(AssetId, engine.Grant?.AssetId);
+        Assert.Equal(ViewScopeKind.Mine, engine.Grant?.ScopeKind);
         Assert.Equal(HttpMethod.Get, engine.Method);
         Assert.Equal("bytes=10-19", engine.Range);
         Assert.Equal("\"asset-etag\"", engine.IfRange);

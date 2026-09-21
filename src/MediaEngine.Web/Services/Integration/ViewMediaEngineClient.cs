@@ -1,5 +1,7 @@
 namespace MediaEngine.Web.Services.Integration;
 
+using MediaEngine.Domain.PersonalMedia;
+
 public interface IViewMediaEngineClient
 {
     Task<HttpResponseMessage> SendAsync(
@@ -28,7 +30,12 @@ public sealed class ViewMediaEngineClient(HttpClient http) : IViewMediaEngineCli
             ViewMediaResourceKind.Content => "content",
             _ => throw new ArgumentOutOfRangeException(nameof(grant), "Unsupported View media resource kind."),
         };
-        var path = $"/view/items/{grant.AssetId:D}/{resource}";
+        var scope = grant.ScopeKind.ToString().ToLowerInvariant();
+        var path = $"/view/items/{grant.AssetId:D}/{resource}?scope={scope}";
+        if (grant.ScopeKind == ViewScopeKind.Profile && grant.ScopeProfileId.HasValue)
+        {
+            path += $"&scopeProfileId={grant.ScopeProfileId.Value:D}";
+        }
         var request = new HttpRequestMessage(method, path);
         AddHeader(request, "Range", range);
         AddHeader(request, "If-Range", ifRange);
