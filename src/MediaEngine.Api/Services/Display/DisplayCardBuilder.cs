@@ -921,6 +921,14 @@ public sealed class DisplayCardBuilder
             return ToPreviewItems(orderedItems, mediaKind, collectionId, tvShowRootId);
         }
 
+        // Structural artwork is a deterministic presentation of the first owned
+        // members in canonical sequence order. Journey-aware callers can still
+        // request progress-biased representatives explicitly below.
+        if (progressByWork is null)
+        {
+            return ToPreviewItems(orderedItems.Take(4).ToList(), mediaKind, collectionId, tvShowRootId);
+        }
+
         var representativeWorkIds = new List<Guid>();
         var hasProgressHistory = progressByWork is not null
                                  && orderedItems.Any(item => progressByWork.ContainsKey(item.Work.WorkId));

@@ -1898,11 +1898,6 @@ public static class CollectionEndpoints
                 return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
-            if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
-            {
-                return ApiErrors.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
-            }
-
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile, hasCollectionsWrite: true))
             {
                 return Results.Forbid();
@@ -1965,7 +1960,7 @@ public static class CollectionEndpoints
             return Results.Ok(new CollectionArtworkUploadResponse($"/collections/{id}/artwork/{normalizedSlot}", normalizedSlot));
         })
         .WithName("UploadCollectionArtwork")
-        .WithSummary("Uploads one custom artwork slot for a managed collection.")
+        .WithSummary("Uploads one explicit artwork slot for a managed or structural collection.")
         .Produces<CollectionArtworkUploadResponse>(StatusCodes.Status200OK)
         .DisableAntiforgery()
         .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite)
@@ -1987,11 +1982,6 @@ public static class CollectionEndpoints
                 return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
-            if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
-            {
-                return ApiErrors.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
-            }
-
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile, hasCollectionsWrite: true))
             {
                 return Results.Forbid();
@@ -2011,7 +2001,7 @@ public static class CollectionEndpoints
             return Results.Ok();
         })
         .WithName("DeleteCollectionArtwork")
-        .WithSummary("Clears one custom artwork slot for a managed collection.")
+        .WithSummary("Clears one explicit collection artwork slot and restores any derived fallback.")
         .Produces(StatusCodes.Status200OK)
         .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite)
         .RequireCatalogueEntityAccess(ApplicationPermissionIds.CollectionsWrite, "Collection", "id");

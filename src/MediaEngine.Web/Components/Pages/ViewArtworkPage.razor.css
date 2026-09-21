@@ -16,6 +16,25 @@
     overflow-x: auto;
 }
 
+.view-artwork-browse-row {
+    display: grid;
+    gap: .9rem;
+}
+
+.view-artwork-control-group {
+    display: grid;
+    gap: .45rem;
+    min-width: 0;
+}
+
+.view-artwork-control-group > span {
+    color: rgba(255, 255, 255, .58);
+    font-size: .72rem;
+    font-weight: 750;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
 .view-artwork-tab {
     display: inline-flex;
     align-items: center;
@@ -84,6 +103,8 @@
 }
 
 .view-artwork-card {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     min-width: 0;
     padding: 0;
     border: 0;
@@ -114,8 +135,35 @@
 }
 
 .view-artwork-card--wide .view-artwork-card__image,
-.view-artwork-card--logo .view-artwork-card__image {
+.view-artwork-card--logo .view-artwork-card__image,
+.view-artwork-card--group .view-artwork-card__image {
     aspect-ratio: 16 / 9;
+}
+
+.view-artwork-card--group .view-artwork-card__image {
+    padding: .75rem;
+    background:
+        radial-gradient(circle at 35% 30%, rgba(126, 78, 211, .24), transparent 42%),
+        linear-gradient(145deg, rgba(18, 26, 42, .96), rgba(7, 10, 18, .98));
+}
+
+.view-artwork-card--group .view-artwork-card__image ::deep .media-artwork-group-preview {
+    width: min(92%, 19rem);
+    height: min(86%, 11rem);
+}
+
+.view-artwork-card__automatic {
+    position: absolute;
+    left: .55rem;
+    bottom: .55rem;
+    z-index: 3;
+    padding: .3rem .5rem;
+    border: 1px solid rgba(192, 166, 255, .3);
+    border-radius: 999px;
+    background: rgba(13, 10, 24, .82);
+    color: rgba(235, 226, 255, .92);
+    font-size: .65rem;
+    font-weight: 700;
 }
 
 .view-artwork-card--person .view-artwork-card__image {

@@ -37,9 +37,9 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal("5 owned titles", card.Subtitle);
         Assert.Equal(["5 owned titles"], card.Facts);
         Assert.Equal(5, card.PreviewTotalCount);
-        Assert.Equal(["Book One", "Book Two", "Book Four", "Book Five"], card.PreviewItems.Select(item => item.Title));
-        Assert.Equal(["1", "2", "4", "5"], card.PreviewItems.Select(item => item.Position));
-        Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/4-s.jpg", "/covers/5-s.jpg"], card.PreviewItems.Select(item => item.ImageUrl));
+        Assert.Equal(["Book One", "Book Two", "Book Three", "Book Four"], card.PreviewItems.Select(item => item.Title));
+        Assert.Equal(["1", "2", "3", "4"], card.PreviewItems.Select(item => item.Position));
+        Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/3-s.jpg", "/covers/4-s.jpg"], card.PreviewItems.Select(item => item.ImageUrl));
         Assert.All(card.PreviewItems, item => Assert.Equal("Book", item.MediaType));
         Assert.All(card.PreviewItems, item => Assert.StartsWith("/details/work/", item.WebUrl, StringComparison.Ordinal));
         Assert.Equal("The first book in the sequence.", card.PreviewItems[0].Description);

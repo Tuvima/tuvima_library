@@ -195,6 +195,7 @@ public sealed class DisplayWorkProjectionReader
                 (SELECT display_name FROM collections WHERE id = CollectionId LIMIT 1) AS CollectionTitle,
                 (SELECT description FROM collections WHERE id = CollectionId LIMIT 1) AS CollectionDescription,
                 (SELECT collection_type FROM collections WHERE id = CollectionId LIMIT 1) AS CollectionType,
+                (SELECT group_by_field FROM collections WHERE id = CollectionId LIMIT 1) AS CollectionGroupByField,
                 COALESCE(
                     (SELECT CAST(value AS INTEGER)
                      FROM canonical_values

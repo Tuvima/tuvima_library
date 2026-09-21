@@ -65,6 +65,7 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? CollectionTitle { get; set; }
     public string? CollectionDescription { get; set; }
     public string? CollectionType { get; set; }
+    public string? CollectionGroupByField { get; set; }
     public int CollectionManifestTotalCount { get; set; }
     public string? Narrator { get; set; }
     public string? Publisher { get; set; }

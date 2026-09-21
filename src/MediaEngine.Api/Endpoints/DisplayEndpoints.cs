@@ -105,6 +105,8 @@ public static class DisplayEndpoints
             string? entityKind,
             string? artworkType,
             string? search,
+            string? browseAs,
+            string? mediaType,
             int? offset,
             int? limit,
             ArtworkLibraryReadService artwork,
@@ -115,6 +117,8 @@ public static class DisplayEndpoints
                 entityKind,
                 artworkType,
                 search,
+                browseAs,
+                mediaType,
                 paged.Offset,
                 paged.Limit,
                 ct));

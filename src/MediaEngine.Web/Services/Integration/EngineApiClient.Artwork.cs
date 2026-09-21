@@ -9,6 +9,8 @@ public sealed partial class EngineApiClient
         string? entityKind = null,
         string? artworkType = null,
         string? search = null,
+        string? browseAs = null,
+        string? mediaType = null,
         int offset = 0,
         int limit = 48,
         CancellationToken ct = default)
@@ -20,6 +22,8 @@ public sealed partial class EngineApiClient
             AddQuery(query, "entityKind", entityKind);
             AddQuery(query, "artworkType", artworkType);
             AddQuery(query, "search", search);
+            AddQuery(query, "browseAs", browseAs);
+            AddQuery(query, "mediaType", mediaType);
             AddQuery(query, "offset", offset.ToString(System.Globalization.CultureInfo.InvariantCulture));
             AddQuery(query, "limit", limit.ToString(System.Globalization.CultureInfo.InvariantCulture));
             var url = "/api/v1/display/artwork?" + string.Join("&", query);
@@ -42,6 +46,12 @@ public sealed partial class EngineApiClient
                 Items = page.Items.Select(item => item with
                 {
                     ImageUrl = string.IsNullOrWhiteSpace(item.ImageUrl) ? null : AbsoluteUrl(item.ImageUrl),
+                    BackgroundImageUrl = string.IsNullOrWhiteSpace(item.BackgroundImageUrl) ? null : AbsoluteUrl(item.BackgroundImageUrl),
+                    LogoImageUrl = string.IsNullOrWhiteSpace(item.LogoImageUrl) ? null : AbsoluteUrl(item.LogoImageUrl),
+                    PreviewItems = item.PreviewItems.Select(preview => preview with
+                    {
+                        ImageUrl = AbsoluteUrl(preview.ImageUrl),
+                    }).ToList(),
                 }).ToList(),
             };
         }

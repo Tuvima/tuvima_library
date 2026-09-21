@@ -1,10 +1,14 @@
 @page "/view/artwork"
 @using MediaEngine.Contracts.Artwork
 @using MediaEngine.Web.Services.Editing
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Components.Browse
+@using MediaEngine.Web.Components.Artwork
 @inject IEngineApiClient ApiClient
 @inject MediaEditorLauncherService MediaEditorLauncher
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 @implements IDisposable
 @namespace MediaEngine.Web.Components.Pages
 
@@ -12,7 +16,7 @@
 
 <ViewSectionShell>
     <ViewContentPage Title="Library Artwork"
-                     Subtitle="Browse covers, backgrounds, logos, stills, and people images as galleries. Open any card to add, replace, choose, or remove artwork."
+                     Subtitle="Browse covers, backgrounds, logos, people images, and automatic series artwork. Open any entity to manage its artwork."
                      Class="view-artwork-page">
         <HeaderActions>
             @if (_page is not null)
@@ -33,6 +37,26 @@
                     </button>
                 }
             </div>
+
+            @if (!IsPeopleView)
+            {
+                <div class="view-artwork-browse-row">
+                    <div class="view-artwork-control-group">
+                        <span>Browse as</span>
+                        <AppBrowseModeSelector Options="@BrowseModes"
+                                               Value="@_browseAs"
+                                               ValueChanged="SelectBrowseModeAsync"
+                                               AriaLabel="Browse artwork as" />
+                    </div>
+                    <div class="view-artwork-control-group">
+                        <span>Media type</span>
+                        <AppBrowseModeSelector Options="@AvailableMediaTypes"
+                                               Value="@_mediaType"
+                                               ValueChanged="SelectMediaTypeAsync"
+                                               AriaLabel="Filter artwork by media type" />
+                    </div>
+                </div>
+            }
 
             <div class="view-artwork-filters">
                 <label class="view-artwork-search">
@@ -74,11 +98,20 @@
                             {
                                 <img src="@item.ImageUrl" alt="" loading="lazy" />
                             }
+                            else if (item.ResolutionMode == ArtworkResolutionMode.AutomaticGroup && item.PreviewItems.Count > 0)
+                            {
+                                <MediaArtworkGroupPreview Items="@PreviewItems(item)"
+                                                          TotalCount="@item.OwnedWorkCount"
+                                                          AriaLabel="@($"Automatic artwork for {item.DisplayTitle}")"
+                                                          Layout="MediaArtworkGroupPreviewLayout.Adaptive"
+                                                          ShowOverflowCount="false" />
+                                <span class="view-artwork-card__automatic">Automatic artwork</span>
+                            }
                             else
                             {
                                 <span class="view-artwork-card__placeholder"><MudIcon Icon="@PlaceholderIcon(item)" /></span>
                             }
-                            <span class="view-artwork-card__open"><MudIcon Icon="@Icons.Material.Outlined.Edit" /> Manage</span>
+                            <span class="view-artwork-card__open"><MudIcon Icon="@Icons.Material.Outlined.Edit" /> @OpenLabel(item)</span>
                         </span>
                         <span class="view-artwork-card__body">
                             <strong>@item.DisplayTitle</strong>
@@ -115,9 +148,26 @@
     private const int PageSize = 48;
     private static readonly (string Label, string? Value, string Icon)[] EntityKinds =
     [
-        ("All", null, Icons.Material.Outlined.Collections),
         ("Media", "media", Icons.Material.Outlined.MovieFilter),
         ("People", "people", Icons.Material.Outlined.People),
+    ];
+    private static readonly IReadOnlyList<BrowseGroupingOption> BrowseModes =
+    [
+        new("all", "All", Icons.Material.Outlined.Collections),
+        new("titles", "Titles", Icons.Material.Outlined.LocalMovies),
+        new("series", "Series / Groups", Icons.Material.Outlined.VideoLibrary),
+        new("tvshows", "TV Shows", Icons.Material.Outlined.Tv),
+        new("albums", "Albums", Icons.Material.Outlined.Album),
+    ];
+    private static readonly IReadOnlyList<BrowseGroupingOption> AllMediaTypes =
+    [
+        new("all", "All media", Icons.Material.Outlined.Apps),
+        new("movies", "Movies", Icons.Material.Outlined.Movie),
+        new("tv", "TV Shows", Icons.Material.Outlined.Tv),
+        new("books", "Books", Icons.Material.Outlined.MenuBook),
+        new("audiobooks", "Audiobooks", Icons.Material.Outlined.Headphones),
+        new("music", "Music", Icons.Material.Outlined.Album),
+        new("comics", "Comics", Icons.Material.Outlined.AutoStories),
     ];
     private static readonly (string Label, string Value)[] ArtworkTypes =
     [
@@ -132,19 +182,44 @@
     ];
 
     private ArtworkLibraryPageDto? _page;
-    private string? _entityKind;
+    private string? _entityKind = "media";
     private string? _artworkType;
+    private string _browseAs = "all";
+    private string _mediaType = "all";
     private string _search = string.Empty;
     private bool _loading = true;
     private bool _loadingMore;
+    private int _loadGeneration;
     private CancellationTokenSource? _searchCts;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
+        var generation = ++_loadGeneration;
+        var entityKind = _entityKind;
+        var artworkType = _artworkType;
+        var search = _search;
+        var browseAs = string.Equals(entityKind, "people", StringComparison.OrdinalIgnoreCase) ? null : _browseAs;
+        var mediaType = string.Equals(entityKind, "people", StringComparison.OrdinalIgnoreCase) || _mediaType == "all"
+            ? null
+            : _mediaType;
         _loading = true;
-        _page = await ApiClient.GetArtworkLibraryAsync(_entityKind, _artworkType, _search, 0, PageSize);
+        _loadingMore = false;
+        var page = await ApiClient.GetArtworkLibraryAsync(
+            entityKind,
+            artworkType,
+            search,
+            browseAs,
+            mediaType,
+            0,
+            PageSize);
+        if (generation != _loadGeneration)
+        {
+            return;
+        }
+
+        _page = page;
         _loading = false;
     }
 
@@ -152,6 +227,28 @@
     {
         if (string.Equals(_entityKind, value, StringComparison.OrdinalIgnoreCase)) return;
         _entityKind = value;
+        if (IsPeopleView)
+        {
+            _mediaType = "all";
+        }
+        await LoadAsync();
+    }
+
+    private async Task SelectBrowseModeAsync(string value)
+    {
+        if (string.Equals(_browseAs, value, StringComparison.OrdinalIgnoreCase)) return;
+        _browseAs = value;
+        if (!AvailableMediaTypes.Any(option => string.Equals(option.Value, _mediaType, StringComparison.OrdinalIgnoreCase)))
+        {
+            _mediaType = "all";
+        }
+        await LoadAsync();
+    }
+
+    private async Task SelectMediaTypeAsync(string value)
+    {
+        if (string.Equals(_mediaType, value, StringComparison.OrdinalIgnoreCase)) return;
+        _mediaType = value;
         await LoadAsync();
     }
 
@@ -185,13 +282,25 @@
     private async Task LoadMoreAsync()
     {
         if (_page is null || !_page.HasMore || _loadingMore) return;
+        var generation = _loadGeneration;
+        var currentPage = _page;
         _loadingMore = true;
-        var next = await ApiClient.GetArtworkLibraryAsync(_entityKind, _artworkType, _search, _page.Items.Count, PageSize);
-        if (next is not null)
+        var next = await ApiClient.GetArtworkLibraryAsync(
+            _entityKind,
+            _artworkType,
+            _search,
+            IsPeopleView ? null : _browseAs,
+            IsPeopleView || _mediaType == "all" ? null : _mediaType,
+            currentPage.Items.Count,
+            PageSize);
+        if (generation == _loadGeneration && next is not null)
         {
-            _page = next with { Items = [.. _page.Items, .. next.Items], Offset = 0 };
+            _page = next with { Items = [.. currentPage.Items, .. next.Items], Offset = 0 };
         }
-        _loadingMore = false;
+        if (generation == _loadGeneration)
+        {
+            _loadingMore = false;
+        }
     }
 
     private async Task OpenArtworkAsync(ArtworkLibraryItemDto item)
@@ -199,6 +308,35 @@
         try
         {
             var profile = await Orchestrator.GetActiveProfileAsync();
+            if (item.IsStructural && string.Equals(item.EntityType, "Collection", StringComparison.OrdinalIgnoreCase))
+            {
+                var dialog = await DialogService.ShowAsync<ArtworkWorkspaceDialog>(
+                    "Manage structural artwork",
+                    new DialogParameters
+                    {
+                        { nameof(ArtworkWorkspaceDialog.Item), item },
+                        { nameof(ArtworkWorkspaceDialog.ActiveProfileId), profile?.Id },
+                    },
+                    new DialogOptions
+                    {
+                        CloseButton = false,
+                        NoHeader = true,
+                        MaxWidth = MaxWidth.ExtraLarge,
+                        FullWidth = true,
+                        BackdropClick = false,
+                        CloseOnEscapeKey = true,
+                    });
+                if (dialog is not null)
+                {
+                    var result = await dialog.Result;
+                    if (result is not null && !result.Canceled)
+                    {
+                        await LoadAsync();
+                    }
+                }
+                return;
+            }
+
             var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
             {
                 EntityIds = [item.EntityId],
@@ -236,6 +374,7 @@
     }
 
     private static string CardShape(ArtworkLibraryItemDto item) =>
+        item.IsStructural ? "group" :
         item.EntityType == "Person" || string.Equals(item.PrimaryAssetType, "Headshot", StringComparison.OrdinalIgnoreCase)
             ? "person"
             : item.PrimaryAssetType == "Logo"
@@ -250,6 +389,18 @@
 
     private static string Metadata(ArtworkLibraryItemDto item)
     {
+        if (item.IsStructural)
+        {
+            var groupIdentity = string.Join(" · ", new[] { item.Subtitle, item.Year }.Where(value => !string.IsNullOrWhiteSpace(value)));
+            var artwork = item.ResolutionMode == ArtworkResolutionMode.AutomaticGroup
+                ? "Automatic artwork"
+                : item.ResolutionMode == ArtworkResolutionMode.Explicit
+                    ? $"{item.VariantCount} managed {(item.VariantCount == 1 ? "image" : "images")}"
+                    : "No artwork yet";
+            var owned = $"{item.OwnedWorkCount} owned {(item.OwnedWorkCount == 1 ? "item" : "items")}";
+            return string.Join(" · ", new[] { groupIdentity, owned, artwork }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        }
+
         if (item.EntityType == "Person")
         {
             var imageText = item.VariantCount > 0
@@ -275,6 +426,37 @@
         "CharacterPortrait" => "Character portrait",
         _ => value,
     };
+
+    private bool IsPeopleView => string.Equals(_entityKind, "people", StringComparison.OrdinalIgnoreCase);
+
+    private IReadOnlyList<BrowseGroupingOption> AvailableMediaTypes => _browseAs switch
+    {
+        "series" => AllMediaTypes.Where(option => option.Value is "all" or "movies" or "books" or "audiobooks" or "comics").ToList(),
+        "tvshows" => AllMediaTypes.Where(option => option.Value is "all" or "tv").ToList(),
+        "albums" => AllMediaTypes.Where(option => option.Value is "all" or "music").ToList(),
+        _ => AllMediaTypes,
+    };
+
+    private static IReadOnlyList<ArtworkStackItem> PreviewItems(ArtworkLibraryItemDto item) => item.PreviewItems
+        .Select(preview => new ArtworkStackItem
+        {
+            Id = preview.AssetId?.ToString("D") ?? preview.WorkId.ToString("D"),
+            WorkId = preview.WorkId,
+            AssetId = preview.AssetId,
+            Title = preview.Title,
+            ImageUrl = preview.ImageUrl,
+            MediaType = preview.MediaType ?? item.MediaType ?? string.Empty,
+            Shape = preview.Shape.ToLowerInvariant() switch
+            {
+                "square" => ArtworkShape.Square,
+                "wide" => ArtworkShape.Wide,
+                _ => ArtworkShape.Portrait,
+            },
+            Position = preview.Position,
+        })
+        .ToList();
+
+    private static string OpenLabel(ArtworkLibraryItemDto item) => "Manage";
 
     public void Dispose()
     {

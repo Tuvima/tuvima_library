@@ -75,16 +75,27 @@ public sealed class ViewLibrarySurfaceTests
     {
         var artwork = Read("src/MediaEngine.Web/Components/Pages/ViewArtworkPage.razor");
         var client = Read("src/MediaEngine.Web/Services/Integration/EngineApiClient.Artwork.cs");
+        var readModel = Read("src/MediaEngine.Api/Services/ReadServices/ArtworkLibraryReadService.cs");
 
         Assert.Contains("Library Artwork", artwork, StringComparison.Ordinal);
         Assert.Contains("GetArtworkLibraryAsync", artwork, StringComparison.Ordinal);
         Assert.Contains("LoadMoreAsync", artwork, StringComparison.Ordinal);
+        Assert.Contains("Series / Groups", artwork, StringComparison.Ordinal);
+        Assert.Contains("TV Shows", artwork, StringComparison.Ordinal);
+        Assert.Contains("Albums", artwork, StringComparison.Ordinal);
+        Assert.Contains("ArtworkResolutionMode.AutomaticGroup", artwork, StringComparison.Ordinal);
+        Assert.Contains("MediaArtworkGroupPreview", artwork, StringComparison.Ordinal);
+        Assert.Contains("ArtworkWorkspaceDialog", artwork, StringComparison.Ordinal);
+        Assert.Contains("Restore automatic artwork", Read("src/MediaEngine.Web/Components/Artwork/ArtworkWorkspaceDialog.razor"), StringComparison.Ordinal);
         Assert.Contains("MediaEditorLauncher.OpenAsync", artwork, StringComparison.Ordinal);
         Assert.Contains("InitialTab = \"artwork\"", artwork, StringComparison.Ordinal);
         Assert.Contains("People images", artwork, StringComparison.Ordinal);
         Assert.Contains("Drop image here", Read("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor"), StringComparison.Ordinal);
         Assert.Contains("Drop image here", Read("src/MediaEngine.Web/Components/MediaEditor/PersonEditorDialog.razor"), StringComparison.Ordinal);
         Assert.Contains("/api/v1/display/artwork", client, StringComparison.Ordinal);
+        Assert.Contains("generation != _loadGeneration", artwork, StringComparison.Ordinal);
+        Assert.Contains("primary_person_media_credits", readModel, StringComparison.Ordinal);
+        Assert.Contains("CollectionGroupByField", readModel, StringComparison.Ordinal);
         Assert.DoesNotContain("Wikidata", artwork, StringComparison.OrdinalIgnoreCase);
     }
 

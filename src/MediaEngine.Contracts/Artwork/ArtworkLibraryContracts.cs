@@ -1,5 +1,21 @@
 namespace MediaEngine.Contracts.Artwork;
 
+public enum ArtworkResolutionMode
+{
+    None,
+    Explicit,
+    AutomaticGroup,
+}
+
+public sealed record ArtworkLibraryPreviewItemDto(
+    Guid WorkId,
+    Guid? AssetId,
+    string Title,
+    string ImageUrl,
+    string Shape,
+    string? Position,
+    string? MediaType);
+
 public sealed record ArtworkLibraryPageDto(
     IReadOnlyList<ArtworkLibraryItemDto> Items,
     int Offset,
@@ -21,4 +37,12 @@ public sealed record ArtworkLibraryItemDto(
     IReadOnlyList<string> AssetTypes,
     int VariantCount,
     int OwnedWorkCount,
-    bool UsesLegacyPersonImage);
+    bool UsesLegacyPersonImage)
+{
+    public bool IsStructural { get; init; }
+    public string? GroupKind { get; init; }
+    public ArtworkResolutionMode ResolutionMode { get; init; }
+    public IReadOnlyList<ArtworkLibraryPreviewItemDto> PreviewItems { get; init; } = [];
+    public string? BackgroundImageUrl { get; init; }
+    public string? LogoImageUrl { get; init; }
+}

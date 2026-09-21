@@ -8,6 +8,8 @@ public partial interface IEngineApiClient
         string? entityKind = null,
         string? artworkType = null,
         string? search = null,
+        string? browseAs = null,
+        string? mediaType = null,
         int offset = 0,
         int limit = 48,
         CancellationToken ct = default);

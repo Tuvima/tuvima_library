@@ -1,0 +1,218 @@
+@namespace MediaEngine.Web.Components.Artwork
+@using MediaEngine.Contracts.Artwork
+@using MediaEngine.Web.Models.ViewDTOs
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+
+<div class="artwork-workspace">
+    <header class="artwork-workspace__header">
+        <div>
+            <span>View · Library Artwork</span>
+            <h2>@Item.DisplayTitle</h2>
+            <p>Manage artwork for this @GroupLabel. Child title artwork remains unchanged.</p>
+        </div>
+        <AppIconButton Icon="@Icons.Material.Outlined.Close"
+                       Tooltip="Close artwork workspace"
+                       AriaLabel="Close artwork workspace"
+                       OnClick="Close" />
+    </header>
+
+    <nav class="artwork-workspace__roles" role="tablist" aria-label="Artwork roles">
+        @foreach (var role in Roles)
+        {
+            <AppNativeButton Type="button"
+                             Class="@RoleClass(role.Slot)"
+                             role="tab"
+                             aria-selected="@(role.Slot == _slot ? "true" : "false")"
+                             OnClick="@(() => _slot = role.Slot)">
+                <MudIcon Icon="@role.Icon" />
+                <span>@role.Label</span>
+            </AppNativeButton>
+        }
+    </nav>
+
+    <div class="artwork-workspace__layout">
+        <section class="artwork-workspace__preview artwork-workspace__preview--@_slot" aria-label="@($"{ActiveRole.Label} preview")">
+            @if (!string.IsNullOrWhiteSpace(CurrentImageUrl))
+            {
+                <img src="@CurrentImageUrl" alt="@($"{ActiveRole.Label} for {Item.DisplayTitle}")" />
+            }
+            else if (_slot == "poster" && Item.PreviewItems.Count > 0)
+            {
+                <MediaArtworkGroupPreview Items="@PreviewItems"
+                                          TotalCount="@Item.OwnedWorkCount"
+                                          AriaLabel="@($"Automatic artwork for {Item.DisplayTitle}")"
+                                          Layout="MediaArtworkGroupPreviewLayout.Adaptive"
+                                          ShowOverflowCount="false" />
+            }
+            else
+            {
+                <div class="artwork-workspace__empty">
+                    <MudIcon Icon="@ActiveRole.Icon" />
+                    <span>No @ActiveRole.Label.ToLowerInvariant() selected</span>
+                </div>
+            }
+        </section>
+
+        <aside class="artwork-workspace__editor">
+            <span class="artwork-workspace__eyebrow">@ActiveRole.Label</span>
+            <h3>@EditorHeading</h3>
+            <p>@EditorDescription</p>
+
+            <label class="artwork-workspace__drop-target">
+                <MudIcon Icon="@Icons.Material.Outlined.CloudUpload" />
+                <strong>Choose an image</strong>
+                <span>@UploadHelp</span>
+                <InputFile OnChange="UploadAsync" accept="@UploadAccept" disabled="@_busy" />
+            </label>
+
+            <div class="artwork-workspace__actions">
+                @if (!string.IsNullOrWhiteSpace(CurrentImageUrl))
+                {
+                    <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                               Tone="AppUiTone.Error"
+                               StartIcon="@Icons.Material.Outlined.DeleteOutline"
+                               Disabled="@_busy"
+                               OnClick="RemoveAsync">
+                        @RemoveLabel
+                    </AppButton>
+                }
+                <AppButton ButtonStyle="AppButtonStyle.Text"
+                           Tone="AppUiTone.Neutral"
+                           Disabled="@_busy"
+                           OnClick="Close">Close</AppButton>
+            </div>
+
+            @if (_slot == "poster")
+            {
+                <div class="artwork-workspace__status">
+                    <MudIcon Icon="@Icons.Material.Outlined.Info" />
+                    <span>@PrimaryStatus</span>
+                </div>
+            }
+        </aside>
+    </div>
+</div>
+
+@code {
+    private const long MaximumUploadBytes = 5L * 1024L * 1024L;
+    private static readonly (string Slot, string Label, string Icon)[] Roles =
+    [
+        ("poster", "Primary", Icons.Material.Outlined.Image),
+        ("background", "Background", Icons.Material.Outlined.Panorama),
+        ("logo", "Logo", Icons.Material.Outlined.BrandingWatermark),
+    ];
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter, EditorRequired] public ArtworkLibraryItemDto Item { get; set; } = default!;
+    [Parameter] public Guid? ActiveProfileId { get; set; }
+
+    private string _slot = "poster";
+    private bool _busy;
+
+    private (string Slot, string Label, string Icon) ActiveRole => Roles.First(role => role.Slot == _slot);
+    private string GroupLabel => Item.Subtitle?.ToLowerInvariant() ?? "structural group";
+    private string? CurrentImageUrl => _slot switch
+    {
+        "poster" => Item.ResolutionMode == ArtworkResolutionMode.Explicit ? Item.ImageUrl : null,
+        "background" => Item.BackgroundImageUrl,
+        "logo" => Item.LogoImageUrl,
+        _ => null,
+    };
+    private string EditorHeading => _slot == "poster" && string.IsNullOrWhiteSpace(CurrentImageUrl)
+        ? "Automatic artwork"
+        : $"Manage {ActiveRole.Label.ToLowerInvariant()}";
+    private string EditorDescription => _slot switch
+    {
+        "poster" => "Upload an explicit cover or poster to replace the automatic owned-title composition.",
+        "background" => "Upload a landscape background owned by this group. Child backgrounds are never assigned automatically.",
+        _ => "Upload a transparent logo owned by this group. Logos have no automatic fallback.",
+    };
+    private string UploadHelp => _slot == "logo" ? "Transparent PNG, up to 5 MB" : "JPG or PNG, up to 5 MB";
+    private string UploadAccept => _slot == "logo" ? "image/png" : "image/jpeg,image/png";
+    private string RemoveLabel => _slot == "poster" && Item.PreviewItems.Count > 0 ? "Restore automatic artwork" : $"Remove {ActiveRole.Label.ToLowerInvariant()}";
+    private string PrimaryStatus => Item.ResolutionMode switch
+    {
+        ArtworkResolutionMode.Explicit when Item.PreviewItems.Count > 0 => "Explicit artwork is selected. The automatic owned-title composition remains available as a fallback.",
+        ArtworkResolutionMode.Explicit => "Explicit artwork is selected for this group.",
+        ArtworkResolutionMode.AutomaticGroup => "Automatic artwork · built from owned titles in series order.",
+        _ => "No explicit or automatic Primary artwork is available.",
+    };
+
+    private IReadOnlyList<ArtworkStackItem> PreviewItems => Item.PreviewItems.Select(preview => new ArtworkStackItem
+    {
+        Id = preview.AssetId?.ToString("D") ?? preview.WorkId.ToString("D"),
+        WorkId = preview.WorkId,
+        AssetId = preview.AssetId,
+        Title = preview.Title,
+        ImageUrl = preview.ImageUrl,
+        MediaType = preview.MediaType ?? Item.MediaType ?? string.Empty,
+        Shape = preview.Shape.ToLowerInvariant() switch
+        {
+            "square" => ArtworkShape.Square,
+            "wide" => ArtworkShape.Wide,
+            _ => ArtworkShape.Portrait,
+        },
+        Position = preview.Position,
+    }).ToList();
+
+    private string RoleClass(string slot) => $"artwork-workspace__role {(slot == _slot ? "is-active" : string.Empty)}";
+
+    private async Task UploadAsync(InputFileChangeEventArgs args)
+    {
+        var file = args.File;
+        if (file.Size > MaximumUploadBytes)
+        {
+            Snackbar.Add("Artwork must be 5 MB or smaller.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            await using var stream = file.OpenReadStream(MaximumUploadBytes);
+            var uploaded = await ApiClient.UploadCollectionArtworkAsync(Item.EntityId, _slot, stream, file.Name, ActiveProfileId);
+            if (!uploaded)
+            {
+                Snackbar.Add(ApiClient.LastError ?? "Artwork could not be uploaded.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add($"{ActiveRole.Label} artwork updated.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Artwork could not be uploaded: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RemoveAsync()
+    {
+        _busy = true;
+        try
+        {
+            var removed = await ApiClient.DeleteCollectionArtworkAsync(Item.EntityId, _slot, ActiveProfileId);
+            if (!removed)
+            {
+                Snackbar.Add(ApiClient.LastError ?? "Artwork could not be removed.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add(_slot == "poster" && Item.PreviewItems.Count > 0
+                ? "Automatic artwork restored."
+                : $"{ActiveRole.Label} artwork removed.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void Close() => MudDialog.Cancel();
+}
