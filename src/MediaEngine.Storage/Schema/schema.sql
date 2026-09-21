@@ -2132,6 +2132,68 @@ CREATE TABLE IF NOT EXISTS profile_saved_items (
     PRIMARY KEY (profile_id, entity_kind, entity_id)
 );
 
+-- Canonical artwork model. image_cache remains the byte/download cache; these
+-- tables provide one durable image identity plus any number of entity usages.
+CREATE TABLE IF NOT EXISTS artwork_assets (
+    id                  BLOB NOT NULL PRIMARY KEY,
+    content_hash        TEXT NOT NULL UNIQUE,
+    original_path       TEXT,
+    small_path          TEXT,
+    medium_path         TEXT,
+    large_path          TEXT,
+    width_px            INTEGER,
+    height_px           INTEGER,
+    aspect_class        TEXT NOT NULL DEFAULT 'UnsupportedRect',
+    primary_hex         TEXT,
+    secondary_hex       TEXT,
+    accent_hex          TEXT,
+    source_provider     TEXT,
+    source_url          TEXT,
+    provider_reference  TEXT,
+    perceptual_hash     INTEGER,
+    created_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at          TEXT
+);
+
+CREATE TABLE IF NOT EXISTS entity_artwork_links (
+    id                  BLOB NOT NULL PRIMARY KEY,
+    entity_id           BLOB NOT NULL,
+    entity_type         TEXT NOT NULL,
+    artwork_asset_id    BLOB NOT NULL REFERENCES artwork_assets(id) ON DELETE RESTRICT,
+    role                TEXT NOT NULL CHECK(role IN ('Primary','Background','Portrait','Logo')),
+    context             TEXT,
+    source_asset_type   TEXT,
+    is_preferred        INTEGER NOT NULL DEFAULT 0,
+    is_user_override    INTEGER NOT NULL DEFAULT 0,
+    sort_order          INTEGER NOT NULL DEFAULT 0,
+    created_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at          TEXT,
+    UNIQUE(entity_id, entity_type, artwork_asset_id, role, context)
+);
+
+CREATE TABLE IF NOT EXISTS artwork_asset_context (
+    artwork_asset_id    BLOB NOT NULL REFERENCES artwork_assets(id) ON DELETE CASCADE,
+    entity_id           BLOB NOT NULL,
+    entity_type         TEXT NOT NULL,
+    entity_label        TEXT NOT NULL,
+    media_type          TEXT,
+    year                TEXT,
+    role                TEXT,
+    provider            TEXT,
+    canonical_id        TEXT,
+    search_text         TEXT NOT NULL,
+    created_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at          TEXT,
+    PRIMARY KEY(artwork_asset_id, entity_id, entity_type, role)
+);
+
+CREATE INDEX IF NOT EXISTS idx_entity_artwork_links_entity_role
+    ON entity_artwork_links(entity_id, entity_type, role, is_preferred DESC, sort_order);
+CREATE INDEX IF NOT EXISTS idx_entity_artwork_links_asset
+    ON entity_artwork_links(artwork_asset_id);
+CREATE INDEX IF NOT EXISTS idx_artwork_asset_context_search
+    ON artwork_asset_context(search_text COLLATE NOCASE);
+
 CREATE INDEX IF NOT EXISTS idx_profile_saved_items_recent
     ON profile_saved_items(profile_id, saved_at DESC);
 

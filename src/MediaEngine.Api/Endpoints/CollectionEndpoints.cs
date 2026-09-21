@@ -7,6 +7,7 @@ using MediaEngine.Api.Services.Collections;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Authentication;
+using MediaEngine.Contracts.Artwork;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Persons;
@@ -1888,6 +1889,7 @@ public static class CollectionEndpoints
             IProfileRepository profileRepo,
             HttpContext httpContext,
             TuvimaDataPaths dataPaths,
+            ArtworkAssetService artworkAssets,
             Guid? profileId,
             CancellationToken ct) =>
         {
@@ -1932,29 +1934,30 @@ public static class CollectionEndpoints
                 return ApiErrors.BadRequest("Artwork must be a JPEG or PNG image.");
             }
 
-            dataPaths.EnsureRootExists();
-            var directory = Path.Combine(dataPaths.Root, "collections", id.ToString("D"));
-            Directory.CreateDirectory(directory);
             if (slot.Equals("logo", StringComparison.OrdinalIgnoreCase) && mimeType != "image/png")
             {
                 return ApiErrors.BadRequest("Collection logos must be transparent PNG images.");
             }
 
             var normalizedSlot = slot.ToLowerInvariant();
-            var targetPath = Path.Combine(directory, $"{normalizedSlot}{extension}");
-
-            if (!string.IsNullOrWhiteSpace(currentPath)
-                && !string.Equals(currentPath, targetPath, StringComparison.OrdinalIgnoreCase)
-                && File.Exists(currentPath))
+            var role = normalizedSlot switch
             {
-                File.Delete(currentPath);
-            }
-
-            await using (var stream = File.Create(targetPath))
-            await using (var upload = file.OpenReadStream())
-            {
-                await upload.CopyToAsync(stream, ct);
-            }
+                "background" => "Background",
+                "logo" => "Logo",
+                _ => "Primary",
+            };
+            await using var upload = file.OpenReadStream();
+            var canonical = await artworkAssets.UploadAsync(
+                upload,
+                extension,
+                "Collection",
+                id,
+                new ArtworkLinkRequest(Guid.Empty, role, Preferred: true, EntityLabel: collection.DisplayName),
+                "user_upload",
+                null,
+                ct);
+            var targetPath = artworkAssets.ResolveContentPath(canonical.Id, null)
+                ?? throw new InvalidOperationException("Canonical artwork was stored without readable content.");
 
             await collectionRepo.UpdateCollectionArtworkAsync(id, normalizedSlot, targetPath, mimeType, ct);
             return Results.Ok(new CollectionArtworkUploadResponse($"/collections/{id}/artwork/{normalizedSlot}", normalizedSlot));
@@ -1972,6 +1975,7 @@ public static class CollectionEndpoints
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
             HttpContext httpContext,
+            ArtworkAssetService artworkAssets,
             Guid? profileId,
             CancellationToken ct) =>
         {
@@ -1992,9 +1996,18 @@ public static class CollectionEndpoints
                 return ApiErrors.BadRequest("Artwork slot must be poster, background, or logo.");
             }
 
-            if (!string.IsNullOrWhiteSpace(artworkPath) && File.Exists(artworkPath))
+            var role = slot.ToLowerInvariant() switch
             {
-                File.Delete(artworkPath);
+                "background" => "Background",
+                "logo" => "Logo",
+                _ => "Primary",
+            };
+            var workspace = await artworkAssets.GetEntityAsync("Collection", id, ct);
+            foreach (var link in workspace.Variants.Where(variant =>
+                         string.Equals(variant.Role, role, StringComparison.OrdinalIgnoreCase)
+                         && variant.IsPreferred))
+            {
+                await artworkAssets.RemoveLinkAsync(link.LinkId, ct);
             }
 
             await collectionRepo.UpdateCollectionArtworkAsync(id, slot, null, null, ct);

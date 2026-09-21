@@ -3,11 +3,13 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Api.Services;
 using MediaEngine.Contracts.Authentication;
 using MediaEngine.Contracts.Artwork;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Domain.Authorization;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -107,6 +109,8 @@ public static class DisplayEndpoints
             string? search,
             string? browseAs,
             string? mediaType,
+            string? artworkState,
+            string? sort,
             int? offset,
             int? limit,
             ArtworkLibraryReadService artwork,
@@ -119,14 +123,185 @@ public static class DisplayEndpoints
                 search,
                 browseAs,
                 mediaType,
+                artworkState,
+                sort,
                 paged.Offset,
                 paged.Limit,
                 ct));
         })
             .WithName("GetArtworkLibrary")
             .WithSummary("Returns the pageable virtual artwork galleries for owned media and library people.")
-            .Produces<ArtworkLibraryPageDto>(StatusCodes.Status200OK)
+            .Produces<ArtworkBrowsePageDto>(StatusCodes.Status200OK)
             .RequireClientScope(ClientApiScopes.ArtworkRead);
+
+        group.MapGet("/artwork/assets", async (
+            string? search,
+            string? role,
+            string? aspect,
+            Guid? targetEntityId,
+            int? offset,
+            int? limit,
+            ArtworkAssetService assets,
+            CancellationToken ct) =>
+        {
+            var paged = PagedRequest.From(offset, limit, defaultLimit: 48);
+            return Results.Ok(await assets.BrowseAsync(
+                search, role, aspect, targetEntityId, paged.Offset, paged.Limit, ct));
+        })
+            .WithName("GetArtworkAssets")
+            .WithSummary("Searches the bounded canonical artwork asset library for galleries and pickers.")
+            .Produces<ArtworkAssetPageDto>(StatusCodes.Status200OK)
+            .RequireClientScope(ClientApiScopes.ArtworkRead);
+
+        group.MapGet("/artwork/universes/{collectionId:guid}/entities", (
+            Guid collectionId,
+            ArtworkLibraryReadService artwork,
+            CancellationToken ct) =>
+            Results.Ok(artwork.LoadUniverseHierarchy(collectionId, ct)))
+            .WithName("GetUniverseArtworkHierarchy")
+            .WithSummary("Returns the canonical characters, places, organizations, events, and objects for one Universe artwork workspace.")
+            .Produces<IReadOnlyList<ArtworkLibraryItemDto>>(StatusCodes.Status200OK)
+            .RequireClientScope(ClientApiScopes.ArtworkRead);
+
+        group.MapGet("/artwork/entities/{entityType}/{entityId:guid}", async (
+            string entityType,
+            Guid entityId,
+            ArtworkAssetService assets,
+            CancellationToken ct) =>
+            Results.Ok(await assets.GetEntityAsync(entityType, entityId, ct)))
+            .WithName("GetEntityArtworkWorkspace")
+            .WithSummary("Returns lazy-loaded artwork variants for one entity workspace.")
+            .Produces<ArtworkEntityWorkspaceDto>(StatusCodes.Status200OK)
+            .RequireClientScope(ClientApiScopes.ArtworkRead);
+
+        group.MapGet("/artwork/assets/{assetId:guid}/content", (
+            Guid assetId,
+            string? size,
+            ArtworkAssetService assets) =>
+        {
+            var path = assets.ResolveContentPath(assetId, size);
+            if (path is null)
+            {
+                return ApiErrors.NotFound("Artwork image not found.");
+            }
+
+            var contentType = Path.GetExtension(path).Equals(".png", StringComparison.OrdinalIgnoreCase)
+                ? "image/png"
+                : Path.GetExtension(path).Equals(".webp", StringComparison.OrdinalIgnoreCase)
+                    ? "image/webp"
+                    : "image/jpeg";
+            return Results.File(path, contentType, enableRangeProcessing: true);
+        })
+            .WithName("GetArtworkAssetContent")
+            .WithSummary("Streams one canonical artwork asset rendition.")
+            .Produces<byte[]>(StatusCodes.Status200OK, "image/jpeg")
+            .RequireClientScope(ClientApiScopes.ArtworkRead);
+
+        group.MapPost("/artwork/entities/{entityType}/{entityId:guid}/links", async (
+            string entityType,
+            Guid entityId,
+            ArtworkLinkRequest request,
+            ArtworkAssetService assets,
+            CancellationToken ct) =>
+        {
+            await assets.LinkAsync(entityType, entityId, request, ct);
+            return Results.Ok(await assets.GetEntityAsync(entityType, entityId, ct));
+        })
+            .WithName("LinkArtworkAsset")
+            .WithSummary("Links an existing canonical image without copying bytes or renditions.")
+            .Produces<ArtworkEntityWorkspaceDto>(StatusCodes.Status200OK)
+            .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+            .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite);
+
+        group.MapPost("/artwork/entities/{entityType}/{entityId:guid}/from-url", async (
+            string entityType,
+            Guid entityId,
+            ArtworkFromUrlRequest request,
+            ArtworkAssetService assets,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await assets.AddFromUrlAsync(entityType, entityId, request, ct));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return ApiErrors.BadRequest(ex.Message);
+            }
+        })
+            .WithName("AddArtworkFromUrl")
+            .WithSummary("Imports or reuses a canonical image from an explicit URL and links it to the entity.")
+            .Produces<ArtworkAssetDto>(StatusCodes.Status200OK)
+            .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+            .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite);
+
+        group.MapPost("/artwork/entities/{entityType}/{entityId:guid}/upload", async (
+            string entityType,
+            Guid entityId,
+            HttpRequest httpRequest,
+            ArtworkAssetService assets,
+            CancellationToken ct) =>
+        {
+            if (!httpRequest.HasFormContentType)
+            {
+                return ApiErrors.BadRequest("Expected multipart form data.");
+            }
+            var form = await httpRequest.ReadFormAsync(ct);
+            var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
+            var role = form["role"].FirstOrDefault() ?? "Primary";
+            if (file is null || file.Length == 0)
+            {
+                return ApiErrors.BadRequest("No image was uploaded.");
+            }
+            if (file.Length > 10 * 1024 * 1024)
+            {
+                return ApiErrors.BadRequest("Artwork must be 10 MB or smaller.");
+            }
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (extension is not (".jpg" or ".jpeg" or ".png"))
+            {
+                return ApiErrors.BadRequest("Artwork must be a JPEG or PNG image.");
+            }
+            try
+            {
+                await using var stream = file.OpenReadStream();
+                var linked = await assets.UploadAsync(stream, extension, entityType, entityId,
+                    new ArtworkLinkRequest(
+                        Guid.Empty,
+                        role,
+                        form["context"].FirstOrDefault(),
+                        true,
+                        form["entityLabel"].FirstOrDefault(),
+                        form["mediaType"].FirstOrDefault(),
+                        form["year"].FirstOrDefault()),
+                    "user_upload", null, ct);
+                return Results.Ok(linked);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return ApiErrors.BadRequest(ex.Message);
+            }
+        })
+            .WithName("UploadCanonicalArtwork")
+            .WithSummary("Adds a user upload to the canonical image store and links it to the entity.")
+            .Produces<ArtworkAssetDto>(StatusCodes.Status200OK)
+            .DisableAntiforgery()
+            .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+            .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite);
+
+        group.MapDelete("/artwork/links/{linkId:guid}", async (
+            Guid linkId,
+            ArtworkAssetService assets,
+            CancellationToken ct) =>
+        {
+            await assets.RemoveLinkAsync(linkId, ct);
+            return Results.NoContent();
+        })
+            .WithName("RemoveArtworkLink")
+            .WithSummary("Removes one entity usage without deleting the shared image.")
+            .Produces(StatusCodes.Status204NoContent)
+            .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+            .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite);
 
         group.MapGet("/shelves/{shelfKey}", async (
             string shelfKey,

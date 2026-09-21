@@ -24,12 +24,14 @@ public sealed class ArtworkLibraryReadService(
         "all", "titles", "series", "tvshows", "albums",
     };
 
-    public async Task<ArtworkLibraryPageDto> BrowseAsync(
+    public async Task<ArtworkBrowsePageDto> BrowseAsync(
         string? entityKind,
         string? artworkType,
         string? search,
         string? browseAs,
         string? mediaType,
+        string? artworkState,
+        string? sort,
         int offset,
         int limit,
         CancellationToken ct = default)
@@ -39,6 +41,7 @@ public sealed class ArtworkLibraryReadService(
         {
             "media" or "work" => "media",
             "people" or "person" => "person",
+            "universes" or "universe" => "universe",
             _ => null,
         };
         var normalizedBrowse = SupportedBrowseModes.Contains(browseAs?.Trim() ?? string.Empty)
@@ -49,10 +52,30 @@ public sealed class ArtworkLibraryReadService(
             ? artworkType!.Trim()
             : null;
         var normalizedSearch = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+        var normalizedArtworkState = artworkState?.Trim().ToLowerInvariant() switch
+        {
+            "has" or "missing" => artworkState.Trim().ToLowerInvariant(),
+            _ => "all",
+        };
+        var normalizedSort = sort?.Trim().ToLowerInvariant() switch
+        {
+            "title-desc" or "year-newest" or "images-most" => sort.Trim().ToLowerInvariant(),
+            _ => "title-asc",
+        };
         offset = Math.Max(0, offset);
         limit = Math.Clamp(limit, 1, 100);
 
         using var connection = database.CreateConnection();
+        if (string.Equals(normalizedKind, "universe", StringComparison.OrdinalIgnoreCase))
+        {
+            var universes = LoadUniverseItems(connection, normalizedSearch, ct)
+                .Where(item => MatchesArtworkState(item, normalizedArtworkState));
+            var orderedUniverses = OrderItems(universes, normalizedSort)
+                .ToList();
+            return new ArtworkBrowsePageDto(
+                orderedUniverses.Skip(offset).Take(limit).ToList(), offset, limit, orderedUniverses.Count);
+        }
+
         var baseRows = connection.Query<ArtworkLibraryRow>(new CommandDefinition(BaseSql, new
         {
             EntityKind = normalizedKind,
@@ -64,6 +87,7 @@ public sealed class ArtworkLibraryReadService(
             .Where(row => MatchesMediaType(row.MediaType, normalizedMediaType))
             .Where(row => MatchesSearch(row.DisplayTitle, normalizedSearch))
             .Select(MapBaseItem)
+            .Where(item => MatchesArtworkState(item, normalizedArtworkState))
             .ToList();
 
         if (!string.Equals(normalizedKind, "person", StringComparison.OrdinalIgnoreCase)
@@ -78,19 +102,141 @@ public sealed class ArtworkLibraryReadService(
             items.AddRange(structuralItems);
         }
 
-        var ordered = items
+        var distinct = items
             .GroupBy(item => (item.EntityId, item.EntityType, item.GroupKind), ArtworkItemKeyComparer.Instance)
             .Select(group => group.First())
-            .OrderBy(item => item.EntityType == "Person" ? 2 : item.IsStructural ? 1 : 0)
-            .ThenBy(item => item.DisplayTitle, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(item => item.EntityId)
-            .ToList();
+            .Where(item => MatchesArtworkState(item, normalizedArtworkState));
+        var ordered = OrderItems(distinct, normalizedSort).ToList();
 
-        return new ArtworkLibraryPageDto(
+        return new ArtworkBrowsePageDto(
             ordered.Skip(offset).Take(limit).ToList(),
             offset,
             limit,
             ordered.Count);
+    }
+
+    private static IEnumerable<ArtworkLibraryItemDto> LoadUniverseItems(
+        System.Data.IDbConnection connection,
+        string? search,
+        CancellationToken ct)
+    {
+        var rows = connection.Query<UniverseArtworkRow>(new CommandDefinition("""
+            SELECT collection.id AS EntityId,
+                   collection.display_name AS DisplayTitle,
+                   collection.description AS Description,
+                   collection.cover_artwork_path AS CoverPath,
+                   collection.background_artwork_path AS BackgroundPath,
+                   collection.logo_artwork_path AS LogoPath,
+                   collection.wikidata_qid AS CanonicalId,
+                   COUNT(DISTINCT item.work_id) AS OwnedWorkCount
+            FROM collections collection
+            LEFT JOIN collection_items item ON item.collection_id = collection.id
+            WHERE collection.collection_type = 'Universe'
+              AND (@Search IS NULL OR collection.display_name LIKE '%' || @Search || '%' COLLATE NOCASE)
+            GROUP BY collection.id, collection.display_name, collection.description,
+                     collection.cover_artwork_path, collection.background_artwork_path, collection.logo_artwork_path;
+            """, new { Search = search }, cancellationToken: ct));
+
+        foreach (var row in rows)
+        {
+            var hasCover = !string.IsNullOrWhiteSpace(row.CoverPath);
+            var hasBackground = !string.IsNullOrWhiteSpace(row.BackgroundPath);
+            var hasLogo = !string.IsNullOrWhiteSpace(row.LogoPath);
+            var types = new[] { hasCover ? "CoverArt" : null, hasBackground ? "Background" : null, hasLogo ? "Logo" : null }
+                .Where(value => value is not null).Cast<string>().ToList();
+            yield return new ArtworkLibraryItemDto(
+                row.EntityId,
+                "Collection",
+                row.DisplayTitle,
+                null,
+                null,
+                "Universe",
+                hasCover ? $"/collections/{row.EntityId:D}/artwork/poster" : null,
+                hasCover ? "CoverArt" : null,
+                types,
+                types.Count,
+                row.OwnedWorkCount,
+                false)
+            {
+                IsStructural = true,
+                GroupKind = "Universe",
+                ResolutionMode = hasCover ? ArtworkResolutionMode.Explicit : ArtworkResolutionMode.None,
+                BackgroundImageUrl = hasBackground ? $"/collections/{row.EntityId:D}/artwork/background" : null,
+                LogoImageUrl = hasLogo ? $"/collections/{row.EntityId:D}/artwork/logo" : null,
+                CanonicalId = row.CanonicalId,
+            };
+        }
+    }
+
+    public IReadOnlyList<ArtworkLibraryItemDto> LoadUniverseHierarchy(
+        Guid collectionId,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var connection = database.CreateConnection();
+        var universeQid = connection.ExecuteScalar<string?>(
+            "SELECT wikidata_qid FROM collections WHERE id=@collectionId AND collection_type='Universe' LIMIT 1;",
+            new { collectionId });
+        if (string.IsNullOrWhiteSpace(universeQid))
+        {
+            return [];
+        }
+
+        var rows = connection.Query<UniverseEntityArtworkRow>(new CommandDefinition("""
+            SELECT entity.id AS EntityId,
+                   entity.label AS DisplayTitle,
+                   entity.description AS Description,
+                   entity.entity_sub_type AS EntitySubType,
+                   entity.wikidata_qid AS CanonicalId,
+                   entity.image_url AS LegacyImageUrl,
+                   (SELECT link.artwork_asset_id
+                      FROM entity_artwork_links link
+                     WHERE link.entity_id=entity.id AND link.entity_type='FictionalEntity'
+                       AND link.role IN ('Portrait','Primary')
+                     ORDER BY link.is_preferred DESC, link.sort_order, link.created_at LIMIT 1) AS PreferredAssetId,
+                   (SELECT COUNT(*) FROM entity_artwork_links link
+                     WHERE link.entity_id=entity.id AND link.entity_type='FictionalEntity') AS VariantCount,
+                   (SELECT group_concat(DISTINCT link.role) FROM entity_artwork_links link
+                     WHERE link.entity_id=entity.id AND link.entity_type='FictionalEntity') AS RolesCsv
+              FROM fictional_entities entity
+             WHERE entity.fictional_universe_qid=@universeQid
+             ORDER BY CASE entity.entity_sub_type
+                        WHEN 'Character' THEN 0 WHEN 'Location' THEN 1 WHEN 'Organization' THEN 2
+                        WHEN 'Event' THEN 3 ELSE 4 END,
+                      entity.label COLLATE NOCASE;
+            """, new { universeQid }, cancellationToken: ct)).ToList();
+
+        return rows.Select(row =>
+        {
+            var primaryRole = string.Equals(row.EntitySubType, "Character", StringComparison.OrdinalIgnoreCase)
+                ? "Portrait"
+                : "Primary";
+            var roles = string.IsNullOrWhiteSpace(row.RolesCsv)
+                ? Array.Empty<string>()
+                : row.RolesCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return new ArtworkLibraryItemDto(
+                row.EntityId,
+                "FictionalEntity",
+                row.DisplayTitle,
+                null,
+                null,
+                row.EntitySubType,
+                row.PreferredAssetId is Guid assetId
+                    ? $"/api/v1/display/artwork/assets/{assetId:D}/content?size=m"
+                    : row.LegacyImageUrl,
+                primaryRole,
+                roles,
+                row.VariantCount,
+                0,
+                false)
+            {
+                GroupKind = row.EntitySubType,
+                ResolutionMode = row.PreferredAssetId.HasValue || !string.IsNullOrWhiteSpace(row.LegacyImageUrl)
+                    ? ArtworkResolutionMode.Explicit
+                    : ArtworkResolutionMode.None,
+                CanonicalId = row.CanonicalId,
+            };
+        }).ToList();
     }
 
     private IEnumerable<ArtworkLibraryItemDto> BuildStructuralItems(
@@ -451,6 +597,23 @@ public sealed class ArtworkLibraryReadService(
     private static bool MatchesSearch(string? value, string? search) =>
         search is null || (value?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false);
 
+    private static bool MatchesArtworkState(ArtworkLibraryItemDto item, string state)
+    {
+        var hasArtwork = item.VariantCount > 0 || item.UsesLegacyPersonImage
+            || item.ResolutionMode is ArtworkResolutionMode.Explicit or ArtworkResolutionMode.AutomaticGroup
+            || !string.IsNullOrWhiteSpace(item.ImageUrl);
+        return state switch { "has" => hasArtwork, "missing" => !hasArtwork, _ => true };
+    }
+
+    private static IOrderedEnumerable<ArtworkLibraryItemDto> OrderItems(
+        IEnumerable<ArtworkLibraryItemDto> items, string sort) => sort switch
+    {
+        "title-desc" => items.OrderByDescending(item => item.DisplayTitle, StringComparer.OrdinalIgnoreCase).ThenBy(item => item.EntityId),
+        "year-newest" => items.OrderByDescending(item => item.Year, StringComparer.OrdinalIgnoreCase).ThenBy(item => item.DisplayTitle, StringComparer.OrdinalIgnoreCase),
+        "images-most" => items.OrderByDescending(item => item.VariantCount).ThenBy(item => item.DisplayTitle, StringComparer.OrdinalIgnoreCase),
+        _ => items.OrderBy(item => item.DisplayTitle, StringComparer.OrdinalIgnoreCase).ThenBy(item => item.EntityId),
+    };
+
     private static bool IsMediaType(string? value, string expected) =>
         string.Equals(NormalizeMediaType(value), NormalizeMediaType(expected), StringComparison.OrdinalIgnoreCase);
 
@@ -635,6 +798,31 @@ public sealed class ArtworkLibraryReadService(
         public bool HasCover { get; init; }
         public bool HasBackground { get; init; }
         public bool HasLogo { get; init; }
+    }
+
+    private sealed class UniverseArtworkRow
+    {
+        public Guid EntityId { get; init; }
+        public string DisplayTitle { get; init; } = string.Empty;
+        public string? Description { get; init; }
+        public string? CoverPath { get; init; }
+        public string? BackgroundPath { get; init; }
+        public string? LogoPath { get; init; }
+        public string? CanonicalId { get; init; }
+        public int OwnedWorkCount { get; init; }
+    }
+
+    private sealed class UniverseEntityArtworkRow
+    {
+        public Guid EntityId { get; init; }
+        public string DisplayTitle { get; init; } = string.Empty;
+        public string? Description { get; init; }
+        public string EntitySubType { get; init; } = string.Empty;
+        public string? CanonicalId { get; init; }
+        public string? LegacyImageUrl { get; init; }
+        public Guid? PreferredAssetId { get; init; }
+        public int VariantCount { get; init; }
+        public string? RolesCsv { get; init; }
     }
 
     private sealed record ManagedAssetSummary(Guid? PreferredCoverId, int VariantCount, IReadOnlyList<string> AssetTypes);

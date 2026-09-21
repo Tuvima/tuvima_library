@@ -64,14 +64,20 @@
 
     private IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups =>
     [
-        new("View",
+        new("Personal",
         [
             new("Photos", "/view", Icons.Material.Outlined.PhotoLibrary, Exact: true),
-            new("Folders", "/view/folders", Icons.Material.Outlined.FolderOpen, Exact: true),
             new("Galleries", "/view/galleries", Icons.Material.Outlined.Collections, Exact: true),
-            new("Artwork", "/view/artwork", Icons.Material.Outlined.PermMedia, Exact: true),
+            new("Folders", "/view/folders", Icons.Material.Outlined.FolderOpen, Exact: true),
             new("People", "/view/people", Icons.Material.Outlined.People, Exact: true),
             new("Places", "/view/places", Icons.Material.Outlined.Place, Exact: true),
+        ]),
+        new("Library Artwork",
+        [
+            new("Media", "/view/artwork", Icons.Material.Outlined.PermMedia, Exact: true),
+            new("People", "/view/artwork/people", Icons.Material.Outlined.PeopleAlt, Exact: true),
+            new("Universes", "/view/artwork/universes", Icons.Material.Outlined.Public, Exact: true),
+            new("All Images", "/view/artwork/assets", Icons.Material.Outlined.PhotoLibrary, Exact: true),
         ]),
         new("Galleries", GalleryShortcuts,
             new MediaSectionNavigationCreateOptions(

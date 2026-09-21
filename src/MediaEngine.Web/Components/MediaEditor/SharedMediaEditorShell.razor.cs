@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using MediaEngine.Contracts.Artwork;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Metadata;
 using MediaEngine.Contracts.Operations;
@@ -486,6 +487,70 @@ public partial class SharedMediaEditorShell
     };
 
     protected string? CurrentCoverUrl => GetHeaderArtworkPreviewUrl();
+
+    protected ArtworkLibraryItemDto? UnifiedArtworkItem
+    {
+        get
+        {
+            if (!IsSingleItem || ActiveScope is null)
+            {
+                return null;
+            }
+
+            var entityId = ActiveScope.ArtworkOwnerEntityId ?? ActiveScope.FieldEntityId;
+            if (entityId == Guid.Empty)
+            {
+                return null;
+            }
+
+            var entityType = string.IsNullOrWhiteSpace(ActiveScope.FieldEntityKind)
+                ? "Work"
+                : ActiveScope.FieldEntityKind;
+            var slots = GetCurrentArtworkEditor()?.Slots ?? [];
+            var variants = slots.SelectMany(slot => slot.Variants).ToList();
+            var automaticPreviews = AutomaticGroupArtwork.Select(item => new ArtworkLibraryPreviewItemDto(
+                item.WorkId ?? Guid.Empty,
+                item.AssetId,
+                item.Title,
+                item.ImageUrl,
+                item.Shape switch { ArtworkShape.Square => "square", ArtworkShape.Wide => "wide", _ => "portrait" },
+                item.Position,
+                item.MediaType)).ToList();
+            var primary = GetPreferredArtworkVariant("CoverArt");
+
+            return new ArtworkLibraryItemDto(
+                entityId,
+                entityType,
+                CurrentTargetTitle,
+                EditorMediaType,
+                _detail?.Year,
+                ActiveScope.DisplaySubtitle,
+                primary?.ImageUrl ?? CurrentCoverUrl,
+                primary?.AssetType ?? "CoverArt",
+                slots.Select(slot => slot.AssetType).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                variants.Count,
+                automaticPreviews.Count,
+                false)
+            {
+                IsStructural = HasAutomaticGroupArtwork,
+                GroupKind = ActiveScope.ScopeId,
+                ResolutionMode = primary is not null
+                    ? ArtworkResolutionMode.Explicit
+                    : automaticPreviews.Count > 0
+                        ? ArtworkResolutionMode.AutomaticGroup
+                        : ArtworkResolutionMode.None,
+                PreviewItems = automaticPreviews,
+                BackgroundImageUrl = GetPreferredArtworkVariant("Background")?.ImageUrl ?? _detail?.BackgroundUrl,
+                LogoImageUrl = GetPreferredArtworkVariant("Logo")?.ImageUrl,
+            };
+        }
+    }
+
+    private async Task UnifiedArtworkChangedAsync()
+    {
+        await RefreshArtworkStateAsync(ActiveScope?.ScopeId, notifyParent: true);
+        StateHasChanged();
+    }
 
     private sealed class ScopeEditorState
     {

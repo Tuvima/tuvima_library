@@ -11,6 +11,76 @@ namespace MediaEngine.Storage.Tests;
 public sealed class DatabaseStartupSafetyTests
 {
     [Fact]
+    public void FreshDatabase_CanonicalArtworkSupportsOneImageManyEntityRoles()
+    {
+        using var fixture = TempDatabase.Create();
+        fixture.Database.InitializeSchema();
+        fixture.Database.RunStartupChecks();
+
+        using var conn = fixture.Database.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO artwork_assets(id, content_hash, original_path)
+            VALUES (X'11111111111111111111111111111111', 'same-bytes', 'managed/image.jpg');
+
+            INSERT INTO entity_artwork_links(id, entity_id, entity_type, artwork_asset_id, role, is_preferred)
+            VALUES (X'21111111111111111111111111111111', X'31111111111111111111111111111111', 'Work', X'11111111111111111111111111111111', 'Primary', 1);
+            INSERT INTO entity_artwork_links(id, entity_id, entity_type, artwork_asset_id, role, is_preferred)
+            VALUES (X'41111111111111111111111111111111', X'51111111111111111111111111111111', 'Collection', X'11111111111111111111111111111111', 'Logo', 1);
+
+            SELECT (SELECT COUNT(*) FROM artwork_assets),
+                   (SELECT COUNT(*) FROM entity_artwork_links),
+                   (SELECT COUNT(DISTINCT role) FROM entity_artwork_links);
+            """;
+        using var reader = cmd.ExecuteReader();
+        Assert.True(reader.Read());
+        Assert.Equal(1L, reader.GetInt64(0));
+        Assert.Equal(2L, reader.GetInt64(1));
+        Assert.Equal(2L, reader.GetInt64(2));
+    }
+
+    [Fact]
+    public void CanonicalArtwork_RemovingOneLinkKeepsSharedAssetAndOtherUsage()
+    {
+        using var fixture = TempDatabase.Create();
+        fixture.Database.InitializeSchema();
+        fixture.Database.RunStartupChecks();
+
+        using var conn = fixture.Database.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO artwork_assets(id, content_hash, original_path)
+            VALUES (X'12111111111111111111111111111111', 'shared-content', 'managed/shared.jpg');
+            INSERT INTO entity_artwork_links(id, entity_id, entity_type, artwork_asset_id, role)
+            VALUES (X'22111111111111111111111111111111', X'32111111111111111111111111111111', 'Work', X'12111111111111111111111111111111', 'Primary');
+            INSERT INTO entity_artwork_links(id, entity_id, entity_type, artwork_asset_id, role)
+            VALUES (X'42111111111111111111111111111111', X'52111111111111111111111111111111', 'Person', X'12111111111111111111111111111111', 'Portrait');
+            DELETE FROM entity_artwork_links WHERE id=X'22111111111111111111111111111111';
+            SELECT (SELECT COUNT(*) FROM artwork_assets), (SELECT COUNT(*) FROM entity_artwork_links);
+            """;
+        using var reader = cmd.ExecuteReader();
+        Assert.True(reader.Read());
+        Assert.Equal(1L, reader.GetInt64(0));
+        Assert.Equal(1L, reader.GetInt64(1));
+    }
+
+    [Fact]
+    public void CanonicalArtwork_ContentHashPreventsDuplicateAssets()
+    {
+        using var fixture = TempDatabase.Create();
+        fixture.Database.InitializeSchema();
+        fixture.Database.RunStartupChecks();
+
+        using var conn = fixture.Database.CreateConnection();
+        using var first = conn.CreateCommand();
+        first.CommandText = "INSERT INTO artwork_assets(id, content_hash) VALUES (randomblob(16), 'duplicate-hash');";
+        first.ExecuteNonQuery();
+        using var duplicate = conn.CreateCommand();
+        duplicate.CommandText = "INSERT INTO artwork_assets(id, content_hash) VALUES (randomblob(16), 'duplicate-hash');";
+        Assert.Throws<SqliteException>(() => duplicate.ExecuteNonQuery());
+    }
+
+    [Fact]
     public void StartupWriteCheck_ReadOnlyDatabase_ReturnsActionableFailure()
     {
         using var fixture = TempDatabase.Create();
@@ -178,6 +248,8 @@ public sealed class DatabaseStartupSafetyTests
             ("metadata_providers", "id"),
             ("provider_config", "provider_id"),
             ("collections", "id"),
+            ("collection_profile_audience", "collection_id"),
+            ("collection_profile_audience", "profile_id"),
             ("works", "id"),
             ("editions", "id"),
             ("media_assets", "id"),
@@ -195,6 +267,12 @@ public sealed class DatabaseStartupSafetyTests
             ("profiles", "id"),
             ("entity_assets", "id"),
             ("entity_assets", "entity_id"),
+            ("artwork_assets", "id"),
+            ("entity_artwork_links", "id"),
+            ("entity_artwork_links", "entity_id"),
+            ("entity_artwork_links", "artwork_asset_id"),
+            ("artwork_asset_context", "artwork_asset_id"),
+            ("artwork_asset_context", "entity_id"),
             ("pending_person_signals", "id"),
             ("pending_person_signals", "entity_id"),
             ("system_activity", "entity_id"),
@@ -333,6 +411,7 @@ public sealed class DatabaseStartupSafetyTests
             ("view_galleries", "owner_profile_id"),
             ("view_galleries", "personal_space_id"),
             ("view_galleries", "cover_item_id"),
+            ("view_galleries", "soundtrack_playlist_id"),
             ("view_gallery_items", "gallery_id"),
             ("view_gallery_items", "item_id"),
             ("view_gallery_shares", "gallery_id"),
@@ -583,6 +662,7 @@ public sealed class DatabaseStartupSafetyTests
             ("view_galleries", "owner_profile_id", "profiles", "id"),
             ("view_galleries", "personal_space_id", "view_personal_spaces", "id"),
             ("view_galleries", "cover_item_id", "local_items", "id"),
+            ("view_galleries", "soundtrack_playlist_id", "collections", "id"),
             ("view_gallery_items", "gallery_id", "view_galleries", "id"),
             ("view_gallery_items", "item_id", "local_items", "id"),
             ("view_gallery_shares", "gallery_id", "view_galleries", "id"),

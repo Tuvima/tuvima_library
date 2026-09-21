@@ -76,6 +76,18 @@ public static class EngineImageProxyPath
             return true;
         }
 
+        if (segments.Length == 7
+            && segments[0].Equals("api", StringComparison.OrdinalIgnoreCase)
+            && segments[1].Equals("v1", StringComparison.OrdinalIgnoreCase)
+            && segments[2].Equals("display", StringComparison.OrdinalIgnoreCase)
+            && segments[3].Equals("artwork", StringComparison.OrdinalIgnoreCase)
+            && segments[4].Equals("assets", StringComparison.OrdinalIgnoreCase)
+            && Guid.TryParse(segments[5], out _)
+            && segments[6].Equals("content", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         return segments.Length == 3
             && segments[0].Equals("persons", StringComparison.OrdinalIgnoreCase)
             && Guid.TryParse(segments[1], out _)

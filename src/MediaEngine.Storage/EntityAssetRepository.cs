@@ -1,4 +1,6 @@
 using Dapper;
+using System.Security.Cryptography;
+using System.Text;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
@@ -218,7 +220,110 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
                 CreatedAt = asset.CreatedAt.ToString("O"),
             });
 
+        SyncCanonicalArtwork(conn, asset);
+
         return Task.CompletedTask;
+    }
+
+    private static void SyncCanonicalArtwork(System.Data.IDbConnection conn, EntityAsset asset)
+    {
+        if (!string.Equals(asset.AssetClassValue, "Artwork", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var contentHash = ComputeArtworkIdentity(asset);
+        conn.Execute("""
+            INSERT OR IGNORE INTO artwork_assets (
+                id, content_hash, original_path, small_path, medium_path, large_path,
+                width_px, height_px, aspect_class, primary_hex, secondary_hex, accent_hex,
+                source_provider, source_url, created_at, updated_at)
+            VALUES (
+                @Id, @ContentHash, @LocalImagePath, @LocalImagePathSmall, @LocalImagePathMedium, @LocalImagePathLarge,
+                @WidthPx, @HeightPx, @AspectClass, @PrimaryHex, @SecondaryHex, @AccentHex,
+                @SourceProvider, @ImageUrl, @CreatedAt, @UpdatedAt);
+
+            UPDATE artwork_assets SET
+                original_path=COALESCE(original_path, @LocalImagePath),
+                small_path=COALESCE(small_path, @LocalImagePathSmall),
+                medium_path=COALESCE(medium_path, @LocalImagePathMedium),
+                large_path=COALESCE(large_path, @LocalImagePathLarge),
+                width_px=COALESCE(width_px, @WidthPx),
+                height_px=COALESCE(height_px, @HeightPx),
+                source_provider=COALESCE(source_provider, @SourceProvider),
+                source_url=COALESCE(source_url, @ImageUrl),
+                updated_at=COALESCE(@UpdatedAt, @CreatedAt)
+            WHERE content_hash=@ContentHash;
+            """, new
+        {
+            asset.Id,
+            ContentHash = contentHash,
+            asset.LocalImagePath,
+            asset.LocalImagePathSmall,
+            asset.LocalImagePathMedium,
+            asset.LocalImagePathLarge,
+            asset.WidthPx,
+            asset.HeightPx,
+            asset.AspectClass,
+            asset.PrimaryHex,
+            asset.SecondaryHex,
+            asset.AccentHex,
+            asset.SourceProvider,
+            asset.ImageUrl,
+            CreatedAt = asset.CreatedAt.ToString("O"),
+            UpdatedAt = asset.UpdatedAt?.ToString("O"),
+        });
+
+        var canonicalId = conn.ExecuteScalar<Guid>(
+            "SELECT id FROM artwork_assets WHERE content_hash=@contentHash LIMIT 1;",
+            new { contentHash });
+        var role = asset.AssetTypeValue switch
+        {
+            "Headshot" or "CharacterPortrait" => "Portrait",
+            "Background" or "Banner" or "SeasonThumb" => "Background",
+            "Logo" or "NetworkLogo" or "StudioLogo" => "Logo",
+            _ => "Primary",
+        };
+        var context = asset.AssetTypeValue switch
+        {
+            "SeasonPoster" => "Season",
+            "EpisodeStill" => "Episode",
+            _ => string.Empty,
+        };
+        conn.Execute("""
+            DELETE FROM entity_artwork_links WHERE id=@Id;
+            INSERT INTO entity_artwork_links (
+                id, entity_id, entity_type, artwork_asset_id, role, context,
+                source_asset_type, is_preferred, is_user_override, created_at, updated_at)
+            VALUES (
+                @Id, @EntityId, @EntityType, @CanonicalId, @Role, @Context,
+                @AssetType, @IsPreferred, @IsUserOverride, @CreatedAt, @UpdatedAt);
+            """, new
+        {
+            asset.Id,
+            EntityId = ToEntityIdParameter(asset.EntityId),
+            asset.EntityType,
+            CanonicalId = canonicalId,
+            Role = role,
+            Context = context,
+            AssetType = asset.AssetTypeValue,
+            IsPreferred = asset.IsPreferred ? 1 : 0,
+            IsUserOverride = asset.IsUserOverride ? 1 : 0,
+            CreatedAt = asset.CreatedAt.ToString("O"),
+            UpdatedAt = asset.UpdatedAt?.ToString("O"),
+        });
+    }
+
+    private static string ComputeArtworkIdentity(EntityAsset asset)
+    {
+        if (!string.IsNullOrWhiteSpace(asset.LocalImagePath) && File.Exists(asset.LocalImagePath))
+        {
+            using var stream = File.OpenRead(asset.LocalImagePath);
+            return Convert.ToHexStringLower(SHA256.HashData(stream));
+        }
+
+        var fallback = asset.ImageUrl ?? $"legacy:{asset.Id:D}";
+        return "source:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(fallback)));
     }
 
     /// <inheritdoc/>
@@ -258,6 +363,22 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
                 WHERE  id = @assetId;
                 """, new { assetId }, tx);
 
+            var role = target.AssetType switch
+            {
+                "Headshot" or "CharacterPortrait" => "Portrait",
+                "Background" or "Banner" or "SeasonThumb" => "Background",
+                "Logo" or "NetworkLogo" or "StudioLogo" => "Logo",
+                _ => "Primary",
+            };
+            conn.Execute("""
+                UPDATE entity_artwork_links
+                SET is_preferred=0, updated_at=datetime('now')
+                WHERE entity_id=@entityId AND role=@role;
+                UPDATE entity_artwork_links
+                SET is_preferred=1, updated_at=datetime('now')
+                WHERE id=@assetId;
+                """, new { entityId = ToEntityIdParameter(target.EntityId), role, assetId }, tx);
+
         }, ct);
     }
 
@@ -269,6 +390,8 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
 
         using var conn = _db.CreateConnection();
         conn.Execute("""
+            DELETE FROM entity_artwork_links
+            WHERE entity_id = @entityId;
             DELETE FROM entity_assets
             WHERE  entity_id = @entityId;
             """, new { entityId = ToEntityIdParameter(entityId) });
@@ -283,6 +406,8 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
 
         using var conn = _db.CreateConnection();
         conn.Execute("""
+            DELETE FROM entity_artwork_links
+            WHERE id = @assetId;
             DELETE FROM entity_assets
             WHERE  id = @assetId;
             """, new { assetId });

@@ -1,14 +1,20 @@
 @page "/view/artwork"
+@page "/view/artwork/media"
+@page "/view/artwork/people"
+@page "/view/artwork/universes"
+@page "/view/artwork/assets"
 @using MediaEngine.Contracts.Artwork
 @using MediaEngine.Web.Services.Editing
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.Browse
 @using MediaEngine.Web.Components.Artwork
+@using Microsoft.AspNetCore.Components.Routing
 @inject IEngineApiClient ApiClient
 @inject MediaEditorLauncherService MediaEditorLauncher
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject NavigationManager Navigation
 @implements IDisposable
 @namespace MediaEngine.Web.Components.Pages
 
@@ -19,9 +25,10 @@
                      Subtitle="Browse covers, backgrounds, logos, people images, and automatic series artwork. Open any entity to manage its artwork."
                      Class="view-artwork-page">
         <HeaderActions>
-            @if (_page is not null)
+            @if (_page is not null || _assetPage is not null)
             {
-                <span class="view-artwork-header__count">@_page.Total.ToString("N0") @(_page.Total == 1 ? "entity" : "entities")</span>
+                var total = _assetPage?.Total ?? _page?.Total ?? 0;
+                <span class="view-artwork-header__count">@total.ToString("N0") @(IsAssetView ? (total == 1 ? "image" : "images") : (total == 1 ? "entity" : "entities"))</span>
             }
         </HeaderActions>
         <ChildContent>
@@ -31,14 +38,14 @@
                 @foreach (var option in EntityKinds)
                 {
                     var active = string.Equals(_entityKind, option.Value, StringComparison.OrdinalIgnoreCase);
-                    <button type="button" role="tab" aria-selected="@active" class="view-artwork-tab@(active ? " is-active" : string.Empty)" @onclick="(() => SelectEntityKindAsync(option.Value))">
+                    <AppNativeButton Type="button" role="tab" aria-selected="@active" Class="@($"view-artwork-tab{(active ? " is-active" : string.Empty)}")" OnClick="(() => SelectEntityKindAsync(option.Value))">
                         <MudIcon Icon="@option.Icon" />
                         <span>@option.Label</span>
-                    </button>
+                    </AppNativeButton>
                 }
             </div>
 
-            @if (!IsPeopleView)
+            @if (!IsPeopleView && !IsUniverseView && !IsAssetView)
             {
                 <div class="view-artwork-browse-row">
                     <div class="view-artwork-control-group">
@@ -57,11 +64,21 @@
                     </div>
                 </div>
             }
+            else if (IsPeopleView)
+            {
+                <div class="view-artwork-control-group">
+                    <span>People</span>
+                    <AppBrowseModeSelector Options="@PeopleArtworkStates"
+                                           Value="@_artworkState"
+                                           ValueChanged="SelectArtworkStateAsync"
+                                           AriaLabel="Filter people by artwork availability" />
+                </div>
+            }
 
             <div class="view-artwork-filters">
                 <label class="view-artwork-search">
                     <MudIcon Icon="@Icons.Material.Outlined.Search" />
-                    <input type="search" value="@_search" @oninput="SearchChanged" placeholder="Search titles or people" aria-label="Search library artwork" />
+                    <AppNativeInput Type="search" Value="@_search" OnInput="SearchChanged" Placeholder="Search titles or people" AriaLabel="Search library artwork" />
                 </label>
                 <label class="view-artwork-type">
                     <span>Gallery</span>
@@ -72,12 +89,48 @@
                         }
                     </AppNativeSelect>
                 </label>
+                @if (!IsAssetView)
+                {
+                    <label class="view-artwork-type">
+                        <span>Sort</span>
+                        <AppNativeSelect Value="@_sort" OnChange="SortChangedAsync" aria-label="Sort artwork gallery">
+                            @foreach (var option in SortOptions) { <option value="@option.Value">@option.Label</option> }
+                        </AppNativeSelect>
+                    </label>
+                    <label class="view-artwork-type">
+                        <span>Tile size</span>
+                        <AppNativeSelect Value="@_tileSize" OnChange="TileSizeChanged" aria-label="Artwork tile size">
+                            @foreach (var option in TileSizes) { <option value="@option.Value">@option.Label</option> }
+                        </AppNativeSelect>
+                    </label>
+                }
             </div>
         </section>
 
-        @if (_loading && (_page is null || _page.Items.Count == 0))
+        @if (_loading && ((_page is null || _page.Items.Count == 0) && (_assetPage is null || _assetPage.Items.Count == 0)))
         {
             <AppPageState Kind="AppPageStateKind.Loading" Title="Loading artwork" Message="Building galleries from your library artwork." />
+        }
+        else if (IsAssetView && _assetPage is not null)
+        {
+            @if (_assetPage.Items.Count == 0)
+            {
+                <AppPageState Kind="AppPageStateKind.Empty" Title="No images match" Message="Try another artwork role or search." />
+            }
+            else
+            {
+                <section class="view-artwork-grid view-artwork-grid--assets view-artwork-grid--@_tileSize" aria-label="All library images">
+                    @foreach (var asset in _assetPage.Items)
+                    {
+                        var context = asset.Contexts.FirstOrDefault();
+                        <AppNativeButton Type="button" Class="@($"view-artwork-card view-artwork-card--{AssetShape(asset)}")" OnClick="(() => OpenAssetAsync(asset))" AriaLabel="@($"Open {AssetTitle(asset)}")">
+                            <span class="view-artwork-card__image"><img src="@asset.ThumbnailUrl" alt="" loading="lazy" /><span class="view-artwork-card__open"><MudIcon Icon="@Icons.Material.Outlined.OpenInFull" /> Open</span></span>
+                            <span class="view-artwork-card__body"><strong>@AssetTitle(asset)</strong><span class="view-artwork-card__meta">@string.Join(" · ", new[] { context?.Role, context?.MediaType, context?.Year, asset.SourceProvider }.Where(value => !string.IsNullOrWhiteSpace(value)))</span></span>
+                        </AppNativeButton>
+                    }
+                </section>
+                @if (_assetPage.HasMore) { <div class="view-artwork-load-more"><AppButton ButtonStyle="AppButtonStyle.Outlined" Disabled="@_loadingMore" OnClick="LoadMoreAssetsAsync">@(_loadingMore ? "Loading…" : "Load more")</AppButton></div> }
+            }
         }
         else if (_page is null)
         {
@@ -89,10 +142,10 @@
         }
         else
         {
-            <section class="view-artwork-grid" aria-label="Library artwork">
+            <section class="view-artwork-grid view-artwork-grid--@_tileSize" aria-label="Library artwork">
                 @foreach (var item in _page.Items)
                 {
-                    <button type="button" class="view-artwork-card view-artwork-card--@CardShape(item)" @onclick="(() => OpenArtworkAsync(item))" aria-label="Manage artwork for @item.DisplayTitle">
+                    <AppNativeButton Type="button" Class="@($"view-artwork-card view-artwork-card--{CardShape(item)}")" OnClick="(() => OpenArtworkAsync(item))" AriaLabel="@($"Manage artwork for {item.DisplayTitle}")">
                         <span class="view-artwork-card__image">
                             @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
                             {
@@ -111,23 +164,17 @@
                             {
                                 <span class="view-artwork-card__placeholder"><MudIcon Icon="@PlaceholderIcon(item)" /></span>
                             }
+                            @if (item.VariantCount > 0)
+                            {
+                                <span class="view-artwork-card__count"><MudIcon Icon="@Icons.Material.Outlined.Collections" /> @item.VariantCount images</span>
+                            }
                             <span class="view-artwork-card__open"><MudIcon Icon="@Icons.Material.Outlined.Edit" /> @OpenLabel(item)</span>
                         </span>
                         <span class="view-artwork-card__body">
                             <strong>@item.DisplayTitle</strong>
                             <span class="view-artwork-card__meta">@Metadata(item)</span>
-                            <span class="view-artwork-card__types">
-                                @foreach (var assetType in item.AssetTypes.Take(3))
-                                {
-                                    <small>@FormatAssetType(assetType)</small>
-                                }
-                                @if (item.AssetTypes.Count > 3)
-                                {
-                                    <small>+@(item.AssetTypes.Count - 3)</small>
-                                }
-                            </span>
                         </span>
-                    </button>
+                    </AppNativeButton>
                 }
             </section>
 
@@ -150,6 +197,8 @@
     [
         ("Media", "media", Icons.Material.Outlined.MovieFilter),
         ("People", "people", Icons.Material.Outlined.People),
+        ("Universes", "universes", Icons.Material.Outlined.Public),
+        ("All Images", "assets", Icons.Material.Outlined.PhotoLibrary),
     ];
     private static readonly IReadOnlyList<BrowseGroupingOption> BrowseModes =
     [
@@ -169,6 +218,21 @@
         new("music", "Music", Icons.Material.Outlined.Album),
         new("comics", "Comics", Icons.Material.Outlined.AutoStories),
     ];
+    private static readonly IReadOnlyList<BrowseGroupingOption> PeopleArtworkStates =
+    [
+        new("all", "All People", Icons.Material.Outlined.People),
+        new("has", "Has Artwork", Icons.Material.Outlined.Image),
+        new("missing", "Missing Artwork", Icons.Material.Outlined.HideImage),
+    ];
+    private static readonly (string Label, string Value)[] SortOptions =
+    [
+        ("Title A–Z", "title-asc"), ("Title Z–A", "title-desc"),
+        ("Newest year", "year-newest"), ("Most images", "images-most"),
+    ];
+    private static readonly (string Label, string Value)[] TileSizes =
+    [
+        ("Small", "small"), ("Medium", "medium"), ("Large", "large"),
+    ];
     private static readonly (string Label, string Value)[] ArtworkTypes =
     [
         ("All artwork", ""),
@@ -181,18 +245,48 @@
         ("Banners", "Banner"),
     ];
 
-    private ArtworkLibraryPageDto? _page;
+    private ArtworkBrowsePageDto? _page;
+    private ArtworkAssetPageDto? _assetPage;
     private string? _entityKind = "media";
     private string? _artworkType;
     private string _browseAs = "all";
     private string _mediaType = "all";
+    private string _artworkState = "all";
+    private string _sort = "title-asc";
+    private string _tileSize = "medium";
     private string _search = string.Empty;
     private bool _loading = true;
     private bool _loadingMore;
     private int _loadGeneration;
     private CancellationTokenSource? _searchCts;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override Task OnInitializedAsync()
+    {
+        _entityKind = KindFromLocation(Navigation.Uri);
+        Navigation.LocationChanged += HandleLocationChanged;
+        return LoadAsync();
+    }
+
+    private static string KindFromLocation(string location)
+    {
+        var path = new Uri(location, UriKind.Absolute).AbsolutePath.TrimEnd('/');
+        return path.EndsWith("/assets", StringComparison.OrdinalIgnoreCase)
+            ? "assets"
+            : path.EndsWith("/people", StringComparison.OrdinalIgnoreCase)
+            ? "people"
+            : path.EndsWith("/universes", StringComparison.OrdinalIgnoreCase)
+                ? "universes"
+                : "media";
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        var next = KindFromLocation(args.Location);
+        if (string.Equals(next, _entityKind, StringComparison.OrdinalIgnoreCase)) return;
+        _entityKind = next;
+        _mediaType = "all";
+        _ = InvokeAsync(LoadAsync);
+    }
 
     private async Task LoadAsync()
     {
@@ -200,18 +294,30 @@
         var entityKind = _entityKind;
         var artworkType = _artworkType;
         var search = _search;
-        var browseAs = string.Equals(entityKind, "people", StringComparison.OrdinalIgnoreCase) ? null : _browseAs;
-        var mediaType = string.Equals(entityKind, "people", StringComparison.OrdinalIgnoreCase) || _mediaType == "all"
+        var entityOnly = string.Equals(entityKind, "people", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(entityKind, "universes", StringComparison.OrdinalIgnoreCase);
+        var browseAs = entityOnly ? null : _browseAs;
+        var mediaType = entityOnly || _mediaType == "all"
             ? null
             : _mediaType;
         _loading = true;
         _loadingMore = false;
+        if (string.Equals(entityKind, "assets", StringComparison.OrdinalIgnoreCase))
+        {
+            _page = null;
+            _assetPage = await ApiClient.GetArtworkAssetsAsync(search, artworkType, offset: 0, limit: PageSize);
+            if (generation == _loadGeneration) _loading = false;
+            return;
+        }
+        _assetPage = null;
         var page = await ApiClient.GetArtworkLibraryAsync(
             entityKind,
             artworkType,
             search,
             browseAs,
             mediaType,
+            IsPeopleView ? _artworkState : null,
+            _sort,
             0,
             PageSize);
         if (generation != _loadGeneration)
@@ -223,15 +329,18 @@
         _loading = false;
     }
 
-    private async Task SelectEntityKindAsync(string? value)
+    private Task SelectEntityKindAsync(string? value)
     {
-        if (string.Equals(_entityKind, value, StringComparison.OrdinalIgnoreCase)) return;
-        _entityKind = value;
-        if (IsPeopleView)
+        if (string.Equals(_entityKind, value, StringComparison.OrdinalIgnoreCase)) return Task.CompletedTask;
+        var route = value switch
         {
-            _mediaType = "all";
-        }
-        await LoadAsync();
+            "people" => "/view/artwork/people",
+            "universes" => "/view/artwork/universes",
+            "assets" => "/view/artwork/assets",
+            _ => "/view/artwork",
+        };
+        Navigation.NavigateTo(route);
+        return Task.CompletedTask;
     }
 
     private async Task SelectBrowseModeAsync(string value)
@@ -251,6 +360,21 @@
         _mediaType = value;
         await LoadAsync();
     }
+
+    private async Task SelectArtworkStateAsync(string value)
+    {
+        if (string.Equals(_artworkState, value, StringComparison.OrdinalIgnoreCase)) return;
+        _artworkState = value;
+        await LoadAsync();
+    }
+
+    private async Task SortChangedAsync(object? value)
+    {
+        _sort = value?.ToString() ?? "title-asc";
+        await LoadAsync();
+    }
+
+    private void TileSizeChanged(object? value) => _tileSize = value?.ToString() ?? "medium";
 
     private async Task ArtworkTypeChangedAsync(object? value)
     {
@@ -289,8 +413,10 @@
             _entityKind,
             _artworkType,
             _search,
-            IsPeopleView ? null : _browseAs,
-            IsPeopleView || _mediaType == "all" ? null : _mediaType,
+            IsPeopleView || IsUniverseView ? null : _browseAs,
+            IsPeopleView || IsUniverseView || _mediaType == "all" ? null : _mediaType,
+            IsPeopleView ? _artworkState : null,
+            _sort,
             currentPage.Items.Count,
             PageSize);
         if (generation == _loadGeneration && next is not null)
@@ -303,68 +429,58 @@
         }
     }
 
+    private async Task LoadMoreAssetsAsync()
+    {
+        if (_assetPage is null || !_assetPage.HasMore || _loadingMore) return;
+        var generation = _loadGeneration;
+        var current = _assetPage;
+        _loadingMore = true;
+        var next = await ApiClient.GetArtworkAssetsAsync(_search, _artworkType, offset: current.Items.Count, limit: PageSize);
+        if (generation == _loadGeneration && next is not null)
+            _assetPage = next with { Items = [.. current.Items, .. next.Items], Offset = 0 };
+        if (generation == _loadGeneration) _loadingMore = false;
+    }
+
+    private async Task OpenAssetAsync(ArtworkAssetDto asset)
+    {
+        var context = asset.Contexts.FirstOrDefault();
+        if (context is null) return;
+        var item = new ArtworkLibraryItemDto(context.EntityId, context.EntityType, context.EntityLabel,
+            context.MediaType, context.Year, context.Role, asset.ContentUrl, context.Role, [context.Role ?? "Primary"], 1, 0, false)
+        {
+            ResolutionMode = ArtworkResolutionMode.Explicit,
+        };
+        await OpenArtworkAsync(item);
+    }
+
     private async Task OpenArtworkAsync(ArtworkLibraryItemDto item)
     {
         try
         {
             var profile = await Orchestrator.GetActiveProfileAsync();
-            if (item.IsStructural && string.Equals(item.EntityType, "Collection", StringComparison.OrdinalIgnoreCase))
-            {
-                var dialog = await DialogService.ShowAsync<ArtworkWorkspaceDialog>(
-                    "Manage structural artwork",
-                    new DialogParameters
-                    {
-                        { nameof(ArtworkWorkspaceDialog.Item), item },
-                        { nameof(ArtworkWorkspaceDialog.ActiveProfileId), profile?.Id },
-                    },
-                    new DialogOptions
-                    {
-                        CloseButton = false,
-                        NoHeader = true,
-                        MaxWidth = MaxWidth.ExtraLarge,
-                        FullWidth = true,
-                        BackdropClick = false,
-                        CloseOnEscapeKey = true,
-                    });
-                if (dialog is not null)
+            var dialog = await DialogService.ShowAsync<ArtworkWorkspaceDialog>(
+                "Library artwork",
+                new DialogParameters
                 {
-                    var result = await dialog.Result;
-                    if (result is not null && !result.Canceled)
-                    {
-                        await LoadAsync();
-                    }
+                    { nameof(ArtworkWorkspaceDialog.Item), item },
+                    { nameof(ArtworkWorkspaceDialog.ActiveProfileId), profile?.Id },
+                },
+                new DialogOptions
+                {
+                    CloseButton = false,
+                    NoHeader = true,
+                    MaxWidth = MaxWidth.ExtraLarge,
+                    FullWidth = true,
+                    BackdropClick = false,
+                    CloseOnEscapeKey = true,
+                });
+            if (dialog is not null)
+            {
+                var result = await dialog.Result;
+                if (result is not null && !result.Canceled)
+                {
+                    await LoadAsync();
                 }
-                return;
-            }
-
-            var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
-            {
-                EntityIds = [item.EntityId],
-                LaunchEntityId = item.EntityId,
-                LaunchEntityKind = item.EntityType,
-                ActiveProfileId = profile?.Id,
-                Mode = SharedMediaEditorMode.Normal,
-                InitialTab = "artwork",
-                IdentityIntent = MediaEditorIdentityIntent.ConfirmArtwork,
-                MediaType = item.MediaType,
-                HeaderTitle = item.DisplayTitle,
-                HeaderSubtitle = item.EntityType == "Person" ? item.Subtitle : item.MediaType,
-                CoverUrl = item.ImageUrl,
-                OnArtworkChanged = LoadAsync,
-                PreviewItems =
-                [
-                    new MediaEditorPreviewItem
-                    {
-                        EntityId = item.EntityId,
-                        Title = item.DisplayTitle,
-                        CoverUrl = item.ImageUrl,
-                        MediaType = item.MediaType,
-                    },
-                ],
-            });
-            if (applied)
-            {
-                await LoadAsync();
             }
         }
         catch (Exception ex)
@@ -406,7 +522,12 @@
             var imageText = item.VariantCount > 0
                 ? $"{item.VariantCount} managed {(item.VariantCount == 1 ? "image" : "images")}"
                 : item.UsesLegacyPersonImage ? "Provider image" : "No artwork yet";
-            return item.OwnedWorkCount > 0 ? $"{imageText} · {item.OwnedWorkCount} owned works" : imageText;
+            return string.Join(" · ", new[]
+            {
+                item.Subtitle,
+                imageText,
+                item.OwnedWorkCount > 0 ? $"{item.OwnedWorkCount} owned works" : null,
+            }.Where(value => !string.IsNullOrWhiteSpace(value)));
         }
 
         var identity = string.Join(" · ", new[] { item.MediaType, item.Year }.Where(value => !string.IsNullOrWhiteSpace(value)));
@@ -428,6 +549,10 @@
     };
 
     private bool IsPeopleView => string.Equals(_entityKind, "people", StringComparison.OrdinalIgnoreCase);
+    private bool IsUniverseView => string.Equals(_entityKind, "universes", StringComparison.OrdinalIgnoreCase);
+    private bool IsAssetView => string.Equals(_entityKind, "assets", StringComparison.OrdinalIgnoreCase);
+    private static string AssetTitle(ArtworkAssetDto asset) => asset.Contexts.FirstOrDefault()?.EntityLabel ?? "Library artwork";
+    private static string AssetShape(ArtworkAssetDto asset) => asset.Aspect switch { "LandscapeWide" or "BannerStrip" => "wide", "Square" => "person", _ => "portrait" };
 
     private IReadOnlyList<BrowseGroupingOption> AvailableMediaTypes => _browseAs switch
     {
@@ -460,6 +585,7 @@
 
     public void Dispose()
     {
+        Navigation.LocationChanged -= HandleLocationChanged;
         _searchCts?.Cancel();
         _searchCts?.Dispose();
     }

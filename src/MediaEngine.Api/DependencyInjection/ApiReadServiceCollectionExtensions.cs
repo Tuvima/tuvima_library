@@ -1,3 +1,4 @@
+using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.Collections;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Application.Services;
@@ -35,6 +36,7 @@ public static class ApiReadServiceCollectionExtensions
         services.AddSingleton<EditorSuggestionReadService>();
         services.AddSingleton<PersonEditorReadService>();
         services.AddSingleton<ArtworkLibraryReadService>();
+        services.AddSingleton<ArtworkAssetService>();
         services.AddSingleton<MediaEditorNavigationReadService>();
         services.AddSingleton<IMediaEditorNavigationReadService>(sp => sp.GetRequiredService<MediaEditorNavigationReadService>());
         services.AddSingleton<IMediaEditorMembershipReadService>(sp => sp.GetRequiredService<MediaEditorNavigationReadService>());

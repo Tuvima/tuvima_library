@@ -1,12 +1,14 @@
 @namespace MediaEngine.Web.Components.MediaEditor
 @using Microsoft.AspNetCore.Components.Forms
 @using MediaEngine.Contracts.Items
+@using MediaEngine.Contracts.Artwork
 @using MediaEngine.Contracts.Metadata
 @using MediaEngine.Contracts.Operations
 @using MediaEngine.Contracts.Persons
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Editing
 @using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Components.Artwork
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
@@ -53,23 +55,6 @@
                     <MudIcon Icon="@captured.Icon" Size="Size.Small" />
                     <span>@captured.Label</span>
                 </AppButton>
-                @if (captured.Id == "artwork" && _activeTab == "artwork")
-                {
-                    <div class="person-editor__nav-nested" role="tablist" aria-label="Artwork types">
-                        @foreach (var slot in PersonArtworkSlots)
-                        {
-                            var isActive = string.Equals(slot.AssetType, SelectedPersonArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
-                            <AppButton ButtonStyle="AppButtonStyle.Text"
-                                       Tone="AppUiTone.Neutral"
-                                       Class="@(isActive ? "app-selection-nav__item person-editor__nav-nested-item is-active" : "app-selection-nav__item person-editor__nav-nested-item")"
-                                       aria-current="@(isActive ? "page" : null)"
-                                       OnClick="@(() => SelectPersonArtworkSlot(slot.AssetType))">
-                                <MudIcon Icon="@GetArtworkIcon(slot.AssetType)" Size="Size.Small" />
-                                <span>@FormatArtworkType(slot.AssetType)</span>
-                            </AppButton>
-                        }
-                    </div>
-                }
             }
 
             <div class="person-editor__nav-footer">
@@ -159,135 +144,11 @@
             }
             else if (_activeTab == "artwork")
             {
-                var selectedSlot = SelectedPersonArtworkSlot;
-                var selectedVariant = SelectedPersonArtworkVariant;
-                <section class="person-editor__artwork-workspace">
-                    <div class="person-editor__artwork-main">
-                        @if (selectedSlot is null)
-                        {
-                            <div class="person-editor__artwork-empty">No editable artwork types are available for this person.</div>
-                        }
-                        else
-                        {
-                            <div class="person-editor__artwork-heading">
-                                <div>
-                                    <h3>@FormatArtworkType(selectedSlot.AssetType) artwork</h3>
-                                    <p>@GetArtworkHelp(selectedSlot.AssetType)</p>
-                                </div>
-                                <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="person-editor__artwork-upload-button">
-                                    Upload
-                                    <span class="person-editor__artwork-file-shell">
-                                        <InputFile class="person-editor__artwork-file-input"
-                                                   accept="@GetArtworkAcceptedTypes(selectedSlot.AssetType)"
-                                                   OnChange="@((args) => UploadArtworkAsync(selectedSlot.AssetType, args))" />
-                                    </span>
-                                </AppButton>
-                            </div>
-
-                            <div class="person-editor__artwork-editor-grid">
-                                <div class="person-editor__artwork-showcase">
-                                    <div class="person-editor__artwork-primary-card person-editor__artwork-primary-card--@GetArtworkPreviewClass(selectedSlot.AssetType)">
-                                        @if (selectedVariant is not null)
-                                        {
-                                            <div class="person-editor__artwork-stage person-editor__artwork-stage--@GetArtworkPreviewClass(selectedSlot.AssetType)">
-                                                <img src="@selectedVariant.ImageUrl" alt="@FormatArtworkType(selectedSlot.AssetType)" />
-                                                @if (selectedVariant.IsPreferred)
-                                                {
-                                                    <span class="person-editor__artwork-check" aria-label="Primary artwork"><MudIcon Icon="@Icons.Material.Filled.Check" /></span>
-                                                    <span class="person-editor__artwork-primary-badge">Primary</span>
-                                                }
-                                                <div class="person-editor__artwork-image-actions">
-                                                    <AppIconButton Icon="@Icons.Material.Outlined.ZoomIn"
-                                                                   Size="AppControlSize.Compact"
-                                                                   Class="person-editor__artwork-image-action"
-                                                                   Tooltip="Preview artwork"
-                                                                   AriaLabel="Preview artwork"
-                                                                   OnClick="@(() => _previewArtwork = selectedVariant)" />
-                                                    @if (selectedVariant.CanDelete)
-                                                    {
-                                                        <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline"
-                                                                       Size="AppControlSize.Compact"
-                                                                       Tone="AppUiTone.Error"
-                                                                       Class="person-editor__artwork-image-action person-editor__artwork-image-action--delete"
-                                                                       Tooltip="Remove artwork"
-                                                                       AriaLabel="Remove artwork"
-                                                                       OnClick="@(() => DeleteArtworkAsync(selectedVariant.Id))" />
-                                                    }
-                                                </div>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <div class="person-editor__artwork-primary-empty"><MudIcon Icon="@GetArtworkIcon(selectedSlot.AssetType)" /><span>No artwork yet</span></div>
-                                        }
-                                    </div>
-
-                                    <aside class="person-editor__artwork-details">
-                                        <h3>Artwork details</h3>
-                                        <dl>
-                                            <div><dt>Artwork type</dt><dd>@FormatArtworkType(selectedSlot.AssetType)</dd></div>
-                                            <div><dt>Source</dt><dd>@GetArtworkSource(selectedVariant)</dd></div>
-                                            <div><dt>Image size</dt><dd>@GetArtworkImageSize(selectedVariant)</dd></div>
-                                            <div><dt>Added</dt><dd>@(selectedVariant?.CreatedAt?.LocalDateTime.ToString("MMM d, yyyy") ?? "Provider managed")</dd></div>
-                                        </dl>
-                                    </aside>
-
-                                    <div class="person-editor__artwork-add-panel">
-                                        <div class="person-editor__artwork-drop-zone">
-                                            <MudIcon Icon="@Icons.Material.Outlined.CloudUpload" />
-                                            <strong>Drop image here</strong>
-                                            <span>or click to browse for a new @FormatArtworkType(selectedSlot.AssetType).ToLowerInvariant()</span>
-                                            <small>JPG or PNG, up to 20 MB</small>
-                                            <InputFile class="person-editor__artwork-drop-input"
-                                                       accept="@GetArtworkAcceptedTypes(selectedSlot.AssetType)"
-                                                       OnChange="@((args) => UploadArtworkAsync(selectedSlot.AssetType, args))" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="person-editor__artwork-tips person-editor__artwork-tips--banner">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Size="Size.Small" />
-                                    <div>
-                                        <strong>@FormatArtworkType(selectedSlot.AssetType) artwork tips</strong>
-                                        <span>@GetArtworkGuidance(selectedSlot.AssetType)</span>
-                                    </div>
-                                </div>
-
-                                @if (selectedSlot.Variants.Count > 1)
-                                {
-                                    <section class="person-editor__artwork-variants-section">
-                                        <div class="person-editor__artwork-variants-heading">
-                                            <h4>Other @FormatArtworkType(selectedSlot.AssetType).ToLowerInvariant() options</h4>
-                                            <span>@selectedSlot.Variants.Count options</span>
-                                        </div>
-                                        <div class="person-editor__artwork-variant-strip">
-                                            @foreach (var variant in selectedSlot.Variants)
-                                            {
-                                                var isSelected = variant.Id == selectedVariant?.Id;
-                                                <AppNativeButton Type="button"
-                                                                 Class="@(isSelected ? "person-editor__artwork-variant is-selected" : "person-editor__artwork-variant")"
-                                                                 aria-label="@GetArtworkVariantLabel(selectedSlot, variant)"
-                                                                 OnClick="@(() => SelectPersonArtworkVariantAsync(variant))">
-                                                    <span class="person-editor__artwork-stage person-editor__artwork-stage--@GetArtworkPreviewClass(selectedSlot.AssetType)">
-                                                        <img src="@variant.ImageUrl" alt="" />
-                                                    </span>
-                                                </AppNativeButton>
-                                            }
-                                        </div>
-                                    </section>
-                                }
-                            </div>
-                        }
-                    </div>
-                </section>
-
-                <MediaEditorArtworkLightbox IsOpen="@(_previewArtwork is not null)"
-                                            ImageUrl="@_previewArtwork?.ImageUrl"
-                                            Label="@(selectedSlot is null ? null : FormatArtworkType(selectedSlot.AssetType))"
-                                            Summary="@(selectedSlot is null || _previewArtwork is null ? null : GetArtworkVariantLabel(selectedSlot, _previewArtwork))"
-                                            PreviewClass="@(selectedSlot is null ? null : GetArtworkPreviewClass(selectedSlot.AssetType))"
-                                            ImageClass="contain"
-                                            OnClose="@(() => _previewArtwork = null)" />
+                <ArtworkWorkspace @key="PersonId"
+                                  Item="@PersonArtworkItem"
+                                  ShowClose="false"
+                                  StartInEditMode="true"
+                                  OnChanged="PersonArtworkChangedAsync" />
             }
             else if (_activeTab == "history")
             {
@@ -335,6 +196,38 @@
     private string _activeTab = "details";
     private string? _selectedArtworkAssetType;
     private Guid? _selectedArtworkVariantId;
+
+    private ArtworkLibraryItemDto PersonArtworkItem => new(
+        PersonId,
+        "Person",
+        _person?.Name ?? Request.HeaderTitle ?? "Person",
+        null,
+        null,
+        _person is null ? null : string.Join(" · ", _person.RoleLabels),
+        _person?.EffectiveHeadshotUrl,
+        "Headshot",
+        _artwork?.Slots.Select(slot => slot.AssetType).Distinct(StringComparer.OrdinalIgnoreCase).ToList() ?? [],
+        _artwork?.Slots.Sum(slot => slot.Variants.Count) ?? 0,
+        0,
+        !string.IsNullOrWhiteSpace(_person?.EffectiveHeadshotUrl))
+    {
+        ResolutionMode = string.IsNullOrWhiteSpace(_person?.EffectiveHeadshotUrl)
+            ? ArtworkResolutionMode.None
+            : ArtworkResolutionMode.Explicit,
+        BackgroundImageUrl = PreferredArtworkUrl("Background"),
+        LogoImageUrl = PreferredArtworkUrl("Logo"),
+    };
+
+    private string? PreferredArtworkUrl(string assetType) => _artwork?.Slots
+        .FirstOrDefault(slot => string.Equals(slot.AssetType, assetType, StringComparison.OrdinalIgnoreCase))?
+        .Variants.OrderByDescending(variant => variant.IsPreferred).FirstOrDefault()?.ImageUrl;
+
+    private async Task PersonArtworkChangedAsync()
+    {
+        _artwork = await ApiClient.GetPersonArtworkAsync(PersonId);
+        _person = await ApiClient.GetPersonDetailAsync(PersonId);
+        StateHasChanged();
+    }
     private string _name = string.Empty;
     private string _biography = string.Empty;
     private string _sortName = string.Empty;

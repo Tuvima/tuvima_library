@@ -185,21 +185,15 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("Personal notes", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("PersonalNotes", contracts, StringComparison.Ordinal);
 
-        Assert.Contains("person-editor__artwork-workspace", source, StringComparison.Ordinal);
-        Assert.Contains("person-editor__nav-nested", source, StringComparison.Ordinal);
-        Assert.Contains("person-editor__nav-nested-item", source, StringComparison.Ordinal);
+        Assert.Contains("<ArtworkWorkspace", source, StringComparison.Ordinal);
+        Assert.Contains("StartInEditMode=\"true\"", source, StringComparison.Ordinal);
+        Assert.Contains("ShowClose=\"false\"", source, StringComparison.Ordinal);
         Assert.Contains("GetPersonTabClass(captured.Id)", source, StringComparison.Ordinal);
-        Assert.Contains("PersonArtworkSlots", source, StringComparison.Ordinal);
         Assert.DoesNotContain("\"Banner\" =>", source, StringComparison.Ordinal);
         Assert.DoesNotContain("person-editor__artwork-type-rail", source, StringComparison.Ordinal);
         Assert.DoesNotContain("person-editor__artwork-sidebar", source, StringComparison.Ordinal);
-        Assert.Contains("person-editor__artwork-primary-card", source, StringComparison.Ordinal);
-        Assert.Contains("person-editor__artwork-image-actions", source, StringComparison.Ordinal);
-        Assert.Contains("AriaLabel=\"Preview artwork\"", source, StringComparison.Ordinal);
-        Assert.Contains("AriaLabel=\"Remove artwork\"", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("person-editor__artwork-primary-actions", source, StringComparison.Ordinal);
-        Assert.Contains("person-editor__artwork-variants-section", source, StringComparison.Ordinal);
-        Assert.Contains("person-editor__artwork-details", source, StringComparison.Ordinal);
+        Assert.Contains("PersonArtworkItem", source, StringComparison.Ordinal);
+        Assert.Contains("PersonArtworkChangedAsync", source, StringComparison.Ordinal);
         Assert.Contains("background: var(--tl-bg-surface-raised)", styles, StringComparison.Ordinal);
         Assert.DoesNotContain("#", styles, StringComparison.Ordinal);
     }

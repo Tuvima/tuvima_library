@@ -6,6 +6,7 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Editing
 @using MediaEngine.Web.Components.Shared
+@using MediaEngine.Web.Components.Artwork
 
 <NavigationLock ConfirmExternalNavigation="@IsDirty"
                 OnBeforeInternalNavigation="ConfirmNavigationWithUnsavedChanges" />
@@ -1144,7 +1145,17 @@
                 else if (_activeTab == "artwork")
                 {
                     <div class="sme-artwork">
-                        @if (IsSingleItem)
+                        @if (UnifiedArtworkItem is { } unifiedArtworkItem)
+                        {
+                            <ArtworkWorkspace @key="@($"{unifiedArtworkItem.EntityType}:{unifiedArtworkItem.EntityId}:{ActiveScope?.ScopeId}")"
+                                              Item="@unifiedArtworkItem"
+                                              ShowClose="false"
+                                              StartInEditMode="true"
+                                              ProviderRefreshEntityId="@EditorContextEntityId"
+                                              ProviderRefreshScopeId="@ActiveScope?.ScopeId"
+                                              OnChanged="UnifiedArtworkChangedAsync" />
+                        }
+                        else if (IsSingleItem)
                         {
                             <section class="sme-artwork-workspace">
                                 <div class="sme-artwork-main">

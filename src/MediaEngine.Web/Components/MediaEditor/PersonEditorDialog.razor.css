@@ -759,7 +759,7 @@
 }
 
 .person-editor__artwork-drop-zone > .mud-icon-root {
-    color: #cdbbff;
+    color: rgb(205 187 255);
     font-size: 2rem;
 }
 

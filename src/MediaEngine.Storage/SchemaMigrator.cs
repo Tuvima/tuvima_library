@@ -11,11 +11,176 @@ internal sealed class SchemaMigrator
         EnsureOnboardingSchema(conn);
         EnsureAdaptiveDeliverySchema(conn);
         EnsureExpandedArtworkAssetTypes(conn);
+        EnsureCanonicalArtworkSchema(conn);
         EnsureCurrentColumns(conn);
         EnsureCurrentIndexes(conn);
         SeedMetadataProviders(conn);
         SeedDefaultProfile(conn);
         MigrateLegacyProfileLists(conn);
+    }
+
+    private static void EnsureCanonicalArtworkSchema(SqliteConnection conn)
+    {
+        DatabaseConnection.ExecuteStartupTransaction(conn, transaction =>
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = transaction;
+            cmd.CommandText = """
+                CREATE TABLE IF NOT EXISTS artwork_assets (
+                    id BLOB NOT NULL PRIMARY KEY,
+                    content_hash TEXT NOT NULL UNIQUE,
+                    original_path TEXT,
+                    small_path TEXT,
+                    medium_path TEXT,
+                    large_path TEXT,
+                    width_px INTEGER,
+                    height_px INTEGER,
+                    aspect_class TEXT NOT NULL DEFAULT 'UnsupportedRect',
+                    primary_hex TEXT,
+                    secondary_hex TEXT,
+                    accent_hex TEXT,
+                    source_provider TEXT,
+                    source_url TEXT,
+                    provider_reference TEXT,
+                    perceptual_hash INTEGER,
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                    updated_at TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS entity_artwork_links (
+                    id BLOB NOT NULL PRIMARY KEY,
+                    entity_id BLOB NOT NULL,
+                    entity_type TEXT NOT NULL,
+                    artwork_asset_id BLOB NOT NULL REFERENCES artwork_assets(id) ON DELETE RESTRICT,
+                    role TEXT NOT NULL CHECK(role IN ('Primary','Background','Portrait','Logo')),
+                    context TEXT,
+                    source_asset_type TEXT,
+                    is_preferred INTEGER NOT NULL DEFAULT 0,
+                    is_user_override INTEGER NOT NULL DEFAULT 0,
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                    updated_at TEXT,
+                    UNIQUE(entity_id, entity_type, artwork_asset_id, role, context)
+                );
+
+                CREATE TABLE IF NOT EXISTS artwork_asset_context (
+                    artwork_asset_id BLOB NOT NULL REFERENCES artwork_assets(id) ON DELETE CASCADE,
+                    entity_id BLOB NOT NULL,
+                    entity_type TEXT NOT NULL,
+                    entity_label TEXT NOT NULL,
+                    media_type TEXT,
+                    year TEXT,
+                    role TEXT,
+                    provider TEXT,
+                    canonical_id TEXT,
+                    search_text TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                    updated_at TEXT,
+                    PRIMARY KEY(artwork_asset_id, entity_id, entity_type, role)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_entity_artwork_links_entity_role
+                    ON entity_artwork_links(entity_id, entity_type, role, is_preferred DESC, sort_order);
+                CREATE INDEX IF NOT EXISTS idx_entity_artwork_links_asset
+                    ON entity_artwork_links(artwork_asset_id);
+                CREATE INDEX IF NOT EXISTS idx_artwork_asset_context_search
+                    ON artwork_asset_context(search_text COLLATE NOCASE);
+
+                INSERT OR IGNORE INTO artwork_assets (
+                    id, content_hash, original_path, small_path, medium_path, large_path,
+                    width_px, height_px, aspect_class, primary_hex, secondary_hex, accent_hex,
+                    source_provider, source_url, perceptual_hash, created_at, updated_at)
+                SELECT ea.id,
+                       COALESCE(ic.content_hash, 'legacy:' || lower(hex(ea.id))),
+                       ea.local_image_path, ea.local_image_path_s, ea.local_image_path_m, ea.local_image_path_l,
+                       ea.width_px, ea.height_px, ea.aspect_class,
+                       ea.primary_hex, ea.secondary_hex, ea.accent_hex,
+                       ea.source_provider, ea.image_url, ic.phash, ea.created_at, ea.updated_at
+                FROM entity_assets ea
+                LEFT JOIN image_cache ic ON ic.file_path = ea.local_image_path
+                WHERE COALESCE(ea.asset_class, 'Artwork') = 'Artwork';
+
+                INSERT OR IGNORE INTO entity_artwork_links (
+                    id, entity_id, entity_type, artwork_asset_id, role, context, source_asset_type,
+                    is_preferred, is_user_override, created_at, updated_at)
+                SELECT ea.id, ea.entity_id, ea.entity_type, aa.id,
+                       CASE
+                           WHEN ea.asset_type IN ('Headshot','CharacterPortrait') THEN 'Portrait'
+                           WHEN ea.asset_type IN ('Background','Banner','SeasonThumb') THEN 'Background'
+                           WHEN ea.asset_type IN ('Logo','NetworkLogo','StudioLogo') THEN 'Logo'
+                           ELSE 'Primary'
+                       END,
+                       CASE
+                           WHEN ea.asset_type = 'SeasonPoster' THEN 'Season'
+                           WHEN ea.asset_type = 'EpisodeStill' THEN 'Episode'
+                           ELSE NULL
+                       END,
+                       ea.asset_type, ea.is_preferred, ea.is_user_override, ea.created_at, ea.updated_at
+                FROM entity_assets ea
+                LEFT JOIN image_cache ic ON ic.file_path = ea.local_image_path
+                JOIN artwork_assets aa ON aa.content_hash = COALESCE(ic.content_hash, 'legacy:' || lower(hex(ea.id)))
+                WHERE COALESCE(ea.asset_class, 'Artwork') = 'Artwork';
+
+                INSERT OR IGNORE INTO artwork_asset_context (
+                    artwork_asset_id, entity_id, entity_type, entity_label, media_type,
+                    year, role, provider, search_text, created_at)
+                SELECT link.artwork_asset_id, work.id, 'Work',
+                       COALESCE((SELECT value FROM canonical_values WHERE entity_id=work.id AND key='title'), 'Untitled media'),
+                       work.media_type,
+                       (SELECT value FROM canonical_values WHERE entity_id=work.id AND key IN ('release_year','year') ORDER BY CASE key WHEN 'release_year' THEN 0 ELSE 1 END LIMIT 1),
+                       link.role, asset.source_provider,
+                       trim(COALESCE((SELECT value FROM canonical_values WHERE entity_id=work.id AND key='title'), 'Untitled media') || ' ' ||
+                            work.media_type || ' ' || link.role || ' ' || COALESCE(asset.source_provider, '')),
+                       link.created_at
+                FROM entity_artwork_links link
+                JOIN works work ON work.id = link.entity_id
+                JOIN artwork_assets asset ON asset.id = link.artwork_asset_id
+                WHERE link.entity_type = 'Work';
+
+                INSERT OR IGNORE INTO artwork_asset_context (
+                    artwork_asset_id, entity_id, entity_type, entity_label, role, provider, search_text, created_at)
+                SELECT link.artwork_asset_id, person.id, 'Person', person.name,
+                       link.role, asset.source_provider,
+                       trim(person.name || ' Person ' || link.role || ' ' || COALESCE(person.occupation, '') || ' ' || COALESCE(asset.source_provider, '')),
+                       link.created_at
+                FROM entity_artwork_links link
+                JOIN persons person ON person.id = link.entity_id
+                JOIN artwork_assets asset ON asset.id = link.artwork_asset_id
+                WHERE link.entity_type = 'Person';
+
+                INSERT OR IGNORE INTO artwork_asset_context (
+                    artwork_asset_id, entity_id, entity_type, entity_label, media_type,
+                    role, provider, canonical_id, search_text, created_at)
+                SELECT link.artwork_asset_id, collection.id, 'Collection', collection.display_name,
+                       collection.primary_area, link.role, asset.source_provider, collection.wikidata_qid,
+                       trim(collection.display_name || ' ' || collection.collection_type || ' ' ||
+                            COALESCE(collection.primary_area, '') || ' ' || link.role || ' ' ||
+                            COALESCE(collection.wikidata_qid, '') || ' ' || COALESCE(asset.source_provider, '')),
+                       link.created_at
+                FROM entity_artwork_links link
+                JOIN collections collection ON collection.id = link.entity_id
+                JOIN artwork_assets asset ON asset.id = link.artwork_asset_id
+                WHERE link.entity_type = 'Collection';
+
+                INSERT OR IGNORE INTO artwork_asset_context (
+                    artwork_asset_id, entity_id, entity_type, entity_label,
+                    role, provider, canonical_id, search_text, created_at)
+                SELECT link.artwork_asset_id, entity.id, 'FictionalEntity', entity.label,
+                       link.role, asset.source_provider, entity.wikidata_qid,
+                       trim(entity.label || ' ' || entity.entity_sub_type || ' ' ||
+                            COALESCE(entity.fictional_universe_label, '') || ' ' || link.role || ' ' ||
+                            entity.wikidata_qid || ' ' || COALESCE(asset.source_provider, '')),
+                       link.created_at
+                FROM entity_artwork_links link
+                JOIN fictional_entities entity ON entity.id = link.entity_id
+                JOIN artwork_assets asset ON asset.id = link.artwork_asset_id
+                WHERE link.entity_type = 'FictionalEntity';
+
+                INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
+                VALUES ('007_canonical_artwork_assets', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+                """;
+            cmd.ExecuteNonQuery();
+        });
     }
 
     private static void MigrateLegacyProfileLists(SqliteConnection conn)

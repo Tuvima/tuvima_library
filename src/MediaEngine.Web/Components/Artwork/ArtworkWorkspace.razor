@@ -1,0 +1,209 @@
+@namespace MediaEngine.Web.Components.Artwork
+@using MediaEngine.Contracts.Artwork
+@using MediaEngine.Web.Models.ViewDTOs
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+
+<div class="artwork-workspace-core">
+    <header class="artwork-workspace-core__header">
+        <div><span>View · Library Artwork</span><h2>@ActiveItem.DisplayTitle</h2><p>@StatusLine</p></div>
+        <div class="artwork-workspace-core__header-actions">
+            @if (AllowEdit)
+            {
+                <AppButton ButtonStyle="@(_editMode ? AppButtonStyle.Filled : AppButtonStyle.Outlined)" StartIcon="@Icons.Material.Outlined.Edit" OnClick="ToggleEditAsync">@(_editMode ? "Editing artwork" : "Edit artwork")</AppButton>
+            }
+            @if (ShowClose)
+            {
+                <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Close artwork workspace" AriaLabel="Close artwork workspace" OnClick="CloseAsync" />
+            }
+        </div>
+    </header>
+
+    @if (_hierarchyItems.Count > 0)
+    {
+        <nav class="artwork-workspace-core__hierarchy" aria-label="Universe artwork hierarchy">
+            @foreach (var section in UniverseSections)
+            {
+                var count = section.Value == "Overview" ? 1 : _hierarchyItems.Count(item => string.Equals(item.GroupKind, section.Value, StringComparison.OrdinalIgnoreCase));
+                <AppNativeButton Type="button" Class="@HierarchyClass(section.Value)" Disabled="@(count == 0)" OnClick="@(() => SelectHierarchySectionAsync(section.Value))">@section.Label@if (section.Value != "Overview") { <span>@count</span> }</AppNativeButton>
+            }
+        </nav>
+        @if (!string.Equals(_hierarchySection, "Overview", StringComparison.OrdinalIgnoreCase))
+        {
+            <div class="artwork-workspace-core__entities" aria-label="@_hierarchySection">
+                @foreach (var entity in FilteredHierarchyItems)
+                {
+                    <AppNativeButton Type="button" Class="@(entity.EntityId == ActiveItem.EntityId ? "is-active" : string.Empty)" OnClick="@(() => SelectHierarchyEntityAsync(entity))">
+                        <span>@if (!string.IsNullOrWhiteSpace(entity.ImageUrl)) { <img src="@entity.ImageUrl" alt="" loading="lazy" /> } else { <MudIcon Icon="@Icons.Material.Outlined.ImageNotSupported" /> }</span>
+                        <strong>@entity.DisplayTitle</strong>
+                    </AppNativeButton>
+                }
+            </div>
+        }
+    }
+
+    <nav class="artwork-workspace-core__roles" role="tablist" aria-label="Artwork roles">
+        @foreach (var role in AvailableRoles)
+        {
+            <AppNativeButton Type="button" Class="@RoleClass(role.Value)" role="tab" aria-selected="@(role.Value == _role ? "true" : "false")" OnClick="@(() => SelectRole(role.Value))">
+                <MudIcon Icon="@role.Icon" /><span>@role.Label</span>
+            </AppNativeButton>
+        }
+    </nav>
+
+    <div class="artwork-workspace-core__layout">
+        <div class="artwork-workspace-core__gallery">
+            <section class="artwork-workspace-core__preview artwork-workspace-core__preview--@_role.ToLowerInvariant()">
+                @if (SelectedVariant is not null)
+                {
+                    <img src="@SelectedVariant.ContentUrl" alt="@($"{ActiveRole.Label} for {ActiveItem.DisplayTitle}")" />
+                    <AppIconButton Class="artwork-workspace-core__zoom" Icon="@Icons.Material.Outlined.ZoomIn" Tooltip="Open full-size artwork" AriaLabel="Open full-size artwork" OnClick="OpenLightbox" />
+                }
+                else if ((_role == "Primary" || _role == "Portrait") && ActiveItem.ResolutionMode == ArtworkResolutionMode.Explicit && !string.IsNullOrWhiteSpace(ActiveItem.ImageUrl))
+                {
+                    <img src="@ActiveItem.ImageUrl" alt="@($"Primary artwork for {ActiveItem.DisplayTitle}")" />
+                }
+                else if (_role == "Primary" && ActiveItem.PreviewItems.Count > 0)
+                {
+                    <MediaArtworkGroupPreview Items="@PreviewItems" TotalCount="@ActiveItem.OwnedWorkCount" AriaLabel="@($"Automatic artwork for {ActiveItem.DisplayTitle}")" Layout="MediaArtworkGroupPreviewLayout.Adaptive" ShowOverflowCount="false" />
+                }
+                else if (!string.IsNullOrWhiteSpace(LegacyRoleUrl))
+                {
+                    <img src="@LegacyRoleUrl" alt="@($"{ActiveRole.Label} for {ActiveItem.DisplayTitle}")" />
+                }
+                else
+                {
+                    <div class="artwork-workspace-core__empty"><MudIcon Icon="@ActiveRole.Icon" /><span>No @ActiveRole.Label.ToLowerInvariant() selected</span></div>
+                }
+            </section>
+
+            @if (RoleVariants.Count > 0)
+            {
+                <div class="artwork-workspace-core__variants" aria-label="Artwork variants">
+                    @foreach (var variant in RoleVariants)
+                    {
+                        <AppNativeButton Type="button" Class="@($"artwork-workspace-core__variant{(variant.ArtworkAssetId == SelectedVariant?.ArtworkAssetId ? " is-active" : string.Empty)}")" OnClick="(() => _selectedAssetId = variant.ArtworkAssetId)" AriaLabel="Select artwork variant">
+                            <img src="@variant.ThumbnailUrl" alt="" loading="lazy" />
+                            @if (variant.IsPreferred) { <span>Preferred</span> }
+                        </AppNativeButton>
+                    }
+                </div>
+            }
+        </div>
+
+        <aside class="artwork-workspace-core__details">
+            <span class="artwork-workspace-core__eyebrow">@ActiveRole.Label</span>
+            <h3>@(_editMode ? $"Add or edit {ActiveRole.Label.ToLowerInvariant()}" : ActiveItem.DisplayTitle)</h3>
+            @if (!_editMode)
+            {
+                <dl class="artwork-workspace-core__metadata">
+                    <div><dt>Artwork role</dt><dd>@ActiveRole.Label</dd></div><div><dt>Source</dt><dd>@(SelectedVariant?.SourceProvider ?? "Library")</dd></div>
+                    <div><dt>Dimensions</dt><dd>@Dimensions</dd></div><div><dt>Aspect</dt><dd>@(SelectedVariant?.Aspect ?? "—")</dd></div>
+                    <div><dt>Preferred</dt><dd>@(SelectedVariant?.IsPreferred == true ? "Yes" : "No")</dd></div>
+                </dl>
+            }
+            else
+            {
+                <div class="artwork-workspace-core__source-tabs">
+                    <AppNativeButton Type="button" Class="@SourceClass("upload")" OnClick="@(() => _source = "upload")">Upload</AppNativeButton>
+                    <AppNativeButton Type="button" Class="@SourceClass("url")" OnClick="@(() => _source = "url")">From URL</AppNativeButton>
+                    <AppNativeButton Type="button" Class="@SourceClass("library")" OnClick="OpenPickerAsync">Choose from Library</AppNativeButton>
+                </div>
+                @if (_source == "upload")
+                {
+                    <label class="artwork-workspace-core__drop-target"><MudIcon Icon="@Icons.Material.Outlined.CloudUpload" /><strong>Drop or choose an image</strong><span>JPEG or PNG, up to 10 MB</span><InputFile OnChange="UploadAsync" accept="image/jpeg,image/png" disabled="@_busy" /></label>
+                }
+                else if (_source == "url")
+                {
+                    <div class="artwork-workspace-core__url"><AppTextField Label="Image URL" Value="@_url" ValueChanged="@((string? value) => _url = value ?? string.Empty)" /><AppButton Disabled="@(_busy || string.IsNullOrWhiteSpace(_url))" OnClick="AddUrlAsync">Add image</AppButton></div>
+                }
+                else
+                {
+                    <div class="artwork-workspace-core__picker-search"><MudIcon Icon="@Icons.Material.Outlined.Search" /><AppNativeInput Value="@_pickerSearch" OnInput="PickerSearchChanged" Placeholder="Search titles, people, roles, years, or providers…" AriaLabel="Search existing artwork" /></div>
+                    @if (_pickerLoading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Searching artwork" /> }
+                    else if (_assetPage is not null)
+                    {
+                        <div class="artwork-workspace-core__picker-grid">
+                            @foreach (var asset in _assetPage.Items)
+                            {
+                                <AppNativeButton Type="button" Disabled="@_busy" Class="@(asset.AlreadyLinked ? "is-linked" : string.Empty)" OnClick="(() => ChooseAssetAsync(asset))"><img src="@asset.ThumbnailUrl" alt="" loading="lazy" /><span><strong>@AssetLabel(asset)</strong><small>@AssetFacts(asset)</small></span></AppNativeButton>
+                            }
+                        </div>
+                    }
+                }
+                <div class="artwork-workspace-core__actions">
+                    @if (SelectedVariant is not null)
+                    {
+                        <AppButton ButtonStyle="AppButtonStyle.Outlined" StartIcon="@Icons.Material.Outlined.StarOutline" Disabled="@(_busy || SelectedVariant.IsPreferred)" OnClick="SetPreferredAsync">@(SelectedVariant.IsPreferred ? "Preferred" : "Set preferred")</AppButton>
+                        <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Error" StartIcon="@Icons.Material.Outlined.DeleteOutline" Disabled="@_busy" OnClick="RemoveAsync">@(_role == "Primary" && ActiveItem.PreviewItems.Count > 0 ? "Restore automatic artwork" : "Remove link")</AppButton>
+                    }
+                    @if (CanRefreshProvider)
+                    {
+                        <AppButton ButtonStyle="AppButtonStyle.Outlined" StartIcon="@Icons.Material.Outlined.Sync" Disabled="@_busy" OnClick="RefreshProviderAsync">Refresh</AppButton>
+                    }
+                </div>
+            }
+            @if (_role == "Primary") { <div class="artwork-workspace-core__status"><MudIcon Icon="@Icons.Material.Outlined.Info" /><span>@PrimaryStatus</span></div> }
+        </aside>
+    </div>
+    @if (_lightbox && SelectedVariant is not null) { <AppNativeButton Type="button" Class="artwork-workspace-core__lightbox" OnClick="CloseLightbox" AriaLabel="Close full-size artwork"><img src="@SelectedVariant.ContentUrl" alt="@($"Full-size artwork for {ActiveItem.DisplayTitle}")" /></AppNativeButton> }
+</div>
+
+@code {
+    private const long MaximumUploadBytes = 10L * 1024L * 1024L;
+    private static readonly (string Value, string Label, string Icon)[] StandardRoles = [("Primary", "Primary", Icons.Material.Outlined.Image), ("Background", "Background", Icons.Material.Outlined.Panorama), ("Logo", "Logo", Icons.Material.Outlined.BrandingWatermark)];
+    private static readonly (string Value, string Label, string Icon)[] PersonRoles = [("Portrait", "Portrait", Icons.Material.Outlined.Portrait), ("Background", "Background", Icons.Material.Outlined.Panorama), ("Logo", "Logo", Icons.Material.Outlined.BrandingWatermark)];
+    private static readonly (string Value, string Label)[] UniverseSections = [("Overview", "Overview"), ("Character", "Characters"), ("Location", "Places"), ("Organization", "Organizations"), ("Event", "Events"), ("Object", "Objects")];
+    [Parameter, EditorRequired] public ArtworkLibraryItemDto Item { get; set; } = default!;
+    [Parameter] public Guid? ActiveProfileId { get; set; }
+    [Parameter] public EventCallback<bool> OnClose { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public bool AllowEdit { get; set; } = true;
+    [Parameter] public bool StartInEditMode { get; set; }
+    [Parameter] public bool ShowClose { get; set; } = true;
+    [Parameter] public Guid? ProviderRefreshEntityId { get; set; }
+    [Parameter] public string? ProviderRefreshScopeId { get; set; }
+    private ArtworkEntityWorkspaceDto? _workspace; private ArtworkAssetPageDto? _assetPage; private ArtworkLibraryItemDto? _activeHierarchyItem; private IReadOnlyList<ArtworkLibraryItemDto> _hierarchyItems = []; private Guid? _selectedAssetId; private string _role = "Primary"; private string _source = "upload"; private string _url = string.Empty; private string _pickerSearch = string.Empty; private string _hierarchySection = "Overview"; private bool _editMode; private bool _busy; private bool _pickerLoading; private bool _lightbox; private bool _changed; private CancellationTokenSource? _pickerCts;
+    private ArtworkLibraryItemDto ActiveItem => _activeHierarchyItem ?? Item;
+    private IReadOnlyList<ArtworkLibraryItemDto> FilteredHierarchyItems => _hierarchyItems.Where(item => string.Equals(item.GroupKind, _hierarchySection, StringComparison.OrdinalIgnoreCase)).ToList();
+    private IReadOnlyList<(string Value, string Label, string Icon)> AvailableRoles => ActiveItem.EntityType is "Person" || string.Equals(ActiveItem.GroupKind, "Character", StringComparison.OrdinalIgnoreCase) ? PersonRoles : StandardRoles;
+    private (string Value, string Label, string Icon) ActiveRole => AvailableRoles.First(role => role.Value == _role);
+    private IReadOnlyList<ArtworkEntityVariantDto> RoleVariants => _workspace?.Variants.Where(variant => variant.Role == _role).ToList() ?? [];
+    private ArtworkEntityVariantDto? SelectedVariant => RoleVariants.FirstOrDefault(variant => variant.ArtworkAssetId == _selectedAssetId) ?? RoleVariants.FirstOrDefault(variant => variant.IsPreferred) ?? RoleVariants.FirstOrDefault();
+    private string? LegacyRoleUrl => _role switch { "Background" => ActiveItem.BackgroundImageUrl, "Logo" => ActiveItem.LogoImageUrl, _ => ActiveItem.ImageUrl };
+    private string Dimensions => SelectedVariant is { Width: not null, Height: not null } variant ? $"{variant.Width} × {variant.Height}" : "—";
+    private string StatusLine => _editMode ? "Edit the selected artwork slot without leaving this workspace." : "Browse variants, source details, and image dimensions.";
+    private string PrimaryStatus => SelectedVariant is not null && ActiveItem.PreviewItems.Count > 0 ? "Explicit artwork is selected. The automatic owned-title composition remains available as a fallback." : ActiveItem.PreviewItems.Count > 0 ? "Automatic artwork · built from owned titles in series order." : "No automatic group artwork is available.";
+    private bool CanRefreshProvider => string.Equals(ActiveItem.EntityType, "Work", StringComparison.OrdinalIgnoreCase)
+        && !string.IsNullOrWhiteSpace(ResolvedProviderRefreshScope);
+    private string? ResolvedProviderRefreshScope => ProviderRefreshScopeId ?? ActiveItem.MediaType?.Trim().ToLowerInvariant() switch
+    {
+        "tv" or "tv show" => "series",
+        "music" or "album" => "album",
+        "movie" or "movies" or "book" or "books" or "audiobook" or "audiobooks" or "comic" or "comics" => "item",
+        _ => null,
+    };
+    protected override async Task OnInitializedAsync() { if (Item.EntityType == "Person") _role = "Portrait"; _editMode = AllowEdit && StartInEditMode; if (string.Equals(Item.GroupKind, "Universe", StringComparison.OrdinalIgnoreCase)) _hierarchyItems = await ApiClient.GetUniverseArtworkHierarchyAsync(Item.EntityId); await ReloadAsync(); }
+    private async Task ReloadAsync() { _workspace = await ApiClient.GetEntityArtworkAsync(ActiveItem.EntityType, ActiveItem.EntityId); _selectedAssetId = RoleVariants.FirstOrDefault(variant => variant.IsPreferred)?.ArtworkAssetId ?? RoleVariants.FirstOrDefault()?.ArtworkAssetId; }
+    private string HierarchyClass(string section) => $"artwork-workspace-core__hierarchy-item{(string.Equals(_hierarchySection, section, StringComparison.OrdinalIgnoreCase) ? " is-active" : string.Empty)}";
+    private async Task SelectHierarchySectionAsync(string section) { _hierarchySection = section; _activeHierarchyItem = null; _role = "Primary"; if (!string.Equals(section, "Overview", StringComparison.OrdinalIgnoreCase) && FilteredHierarchyItems.FirstOrDefault() is { } first) await SelectHierarchyEntityAsync(first); else await ReloadAsync(); }
+    private async Task SelectHierarchyEntityAsync(ArtworkLibraryItemDto entity) { _activeHierarchyItem = entity; _role = string.Equals(entity.GroupKind, "Character", StringComparison.OrdinalIgnoreCase) ? "Portrait" : "Primary"; await ReloadAsync(); }
+    private void SelectRole(string role) { _role = role; _selectedAssetId = RoleVariants.FirstOrDefault(variant => variant.IsPreferred)?.ArtworkAssetId ?? RoleVariants.FirstOrDefault()?.ArtworkAssetId; }
+    private Task ToggleEditAsync() { _editMode = !_editMode; return Task.CompletedTask; }
+    private string RoleClass(string role) => $"artwork-workspace-core__role {(role == _role ? "is-active" : string.Empty)}";
+    private string SourceClass(string source) => $"artwork-workspace-core__source {(source == _source ? "is-active" : string.Empty)}";
+    private async Task UploadAsync(InputFileChangeEventArgs args) { var file = args.File; if (file.Size > MaximumUploadBytes) { Snackbar.Add("Artwork must be 10 MB or smaller.", Severity.Warning); return; } _busy = true; try { await using var stream = file.OpenReadStream(MaximumUploadBytes); var result = await ApiClient.UploadCanonicalArtworkAsync(ActiveItem.EntityType, ActiveItem.EntityId, _role, stream, file.Name, ActiveItem.DisplayTitle, ActiveItem.MediaType, ActiveItem.Year); if (result is null) { Snackbar.Add(ApiClient.LastError ?? "Artwork could not be uploaded.", Severity.Error); return; } _changed = true; await ReloadAsync(); await OnChanged.InvokeAsync(); Snackbar.Add($"{ActiveRole.Label} artwork updated.", Severity.Success); } finally { _busy = false; } }
+    private async Task AddUrlAsync() { _busy = true; try { var result = await ApiClient.AddArtworkFromUrlAsync(ActiveItem.EntityType, ActiveItem.EntityId, new ArtworkFromUrlRequest(_url, _role, Preferred: true, EntityLabel: ActiveItem.DisplayTitle, MediaType: ActiveItem.MediaType, Year: ActiveItem.Year)); if (result is null) { Snackbar.Add(ApiClient.LastError ?? "Artwork could not be added from that URL.", Severity.Error); return; } _changed = true; _url = string.Empty; await ReloadAsync(); await OnChanged.InvokeAsync(); Snackbar.Add($"{ActiveRole.Label} artwork added.", Severity.Success); } finally { _busy = false; } }
+    private async Task OpenPickerAsync() { _source = "library"; await LoadPickerAsync(); }
+    private void PickerSearchChanged(ChangeEventArgs args) { _pickerSearch = args.Value?.ToString() ?? string.Empty; _pickerCts?.Cancel(); _pickerCts?.Dispose(); _pickerCts = new CancellationTokenSource(); _ = DebouncedPickerAsync(_pickerCts.Token); }
+    private async Task DebouncedPickerAsync(CancellationToken ct) { try { await Task.Delay(250, ct); await InvokeAsync(LoadPickerAsync); } catch (OperationCanceledException) { } }
+    private async Task LoadPickerAsync() { _pickerLoading = true; _assetPage = await ApiClient.GetArtworkAssetsAsync(_pickerSearch, targetEntityId: ActiveItem.EntityId, limit: 36); _pickerLoading = false; }
+    private async Task ChooseAssetAsync(ArtworkAssetDto asset) { _busy = true; try { var linked = await ApiClient.LinkArtworkAssetAsync(ActiveItem.EntityType, ActiveItem.EntityId, new ArtworkLinkRequest(asset.Id, _role, Preferred: true, EntityLabel: ActiveItem.DisplayTitle, MediaType: ActiveItem.MediaType, Year: ActiveItem.Year)); if (linked is null) { Snackbar.Add(ApiClient.LastError ?? "Artwork could not be linked.", Severity.Error); return; } _changed = true; _workspace = linked; _selectedAssetId = asset.Id; await OnChanged.InvokeAsync(); Snackbar.Add("Existing artwork linked without copying the image.", Severity.Success); } finally { _busy = false; } }
+    private async Task SetPreferredAsync() { if (SelectedVariant is null || SelectedVariant.IsPreferred) return; _busy = true; try { var linked = await ApiClient.LinkArtworkAssetAsync(ActiveItem.EntityType, ActiveItem.EntityId, new ArtworkLinkRequest(SelectedVariant.ArtworkAssetId, _role, SelectedVariant.Context, Preferred: true, EntityLabel: ActiveItem.DisplayTitle, MediaType: ActiveItem.MediaType, Year: ActiveItem.Year)); if (linked is null) { Snackbar.Add(ApiClient.LastError ?? "Preferred artwork could not be changed.", Severity.Error); return; } _workspace = linked; _selectedAssetId = SelectedVariant.ArtworkAssetId; _changed = true; await OnChanged.InvokeAsync(); Snackbar.Add("Preferred artwork updated for this entity and role.", Severity.Success); } finally { _busy = false; } }
+    private async Task RefreshProviderAsync() { var scope = ResolvedProviderRefreshScope; if (string.IsNullOrWhiteSpace(scope)) return; _busy = true; try { var result = await ApiClient.RefreshScopeProviderArtworkAsync(ProviderRefreshEntityId ?? ActiveItem.EntityId, scope); if (result is null) { Snackbar.Add(ApiClient.LastError ?? "Provider artwork refresh failed.", Severity.Error); return; } await ReloadAsync(); _changed = _changed || result.DownloadedCount > 0; if (result.DownloadedCount > 0) await OnChanged.InvokeAsync(); Snackbar.Add(result.DownloadedCount > 0 ? $"Added {result.DownloadedCount} provider artwork image{(result.DownloadedCount == 1 ? string.Empty : "s")}." : "Provider artwork is already current.", result.DownloadedCount > 0 ? Severity.Success : Severity.Info); } finally { _busy = false; } }
+    private async Task RemoveAsync() { if (SelectedVariant is null) return; _busy = true; try { if (!await ApiClient.RemoveArtworkLinkAsync(SelectedVariant.LinkId)) { Snackbar.Add("Artwork link could not be removed.", Severity.Error); return; } _changed = true; await ReloadAsync(); await OnChanged.InvokeAsync(); Snackbar.Add(_role == "Primary" && ActiveItem.PreviewItems.Count > 0 ? "Automatic artwork restored." : "Artwork link removed.", Severity.Success); } finally { _busy = false; } }
+    private Task CloseAsync() => OnClose.InvokeAsync(_changed); private void OpenLightbox() => _lightbox = true; private void CloseLightbox() => _lightbox = false;
+    private static string AssetLabel(ArtworkAssetDto asset) => asset.Contexts.FirstOrDefault()?.EntityLabel ?? "Library artwork";
+    private static string AssetFacts(ArtworkAssetDto asset) { var context = asset.Contexts.FirstOrDefault(); return string.Join(" · ", new[] { context?.MediaType, context?.Year, context?.Role, asset.SourceProvider, asset.AlreadyLinked ? "Already linked" : null }.Where(value => !string.IsNullOrWhiteSpace(value))); }
+    private IReadOnlyList<ArtworkStackItem> PreviewItems => ActiveItem.PreviewItems.Select(preview => new ArtworkStackItem { Id = preview.AssetId?.ToString("D") ?? preview.WorkId.ToString("D"), WorkId = preview.WorkId, AssetId = preview.AssetId, Title = preview.Title, ImageUrl = preview.ImageUrl, MediaType = preview.MediaType ?? ActiveItem.MediaType ?? string.Empty, Shape = preview.Shape.ToLowerInvariant() switch { "square" => ArtworkShape.Square, "wide" => ArtworkShape.Wide, _ => ArtworkShape.Portrait }, Position = preview.Position }).ToList();
+}

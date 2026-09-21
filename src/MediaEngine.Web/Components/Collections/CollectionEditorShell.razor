@@ -4,6 +4,8 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Editing
 @using MediaEngine.Web.Components.MediaEditor
+@using MediaEngine.Web.Components.Artwork
+@using MediaEngine.Contracts.Artwork
 
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
@@ -187,6 +189,40 @@
     ];
 
     private CollectionListItemViewModel? EditingCollection => Request.EditingCollection;
+    private ArtworkLibraryItemDto? CollectionArtworkItem => EditingCollection is null
+        ? null
+        : new ArtworkLibraryItemDto(
+            EditingCollection.Id,
+            "Collection",
+            EditingCollection.Name,
+            EditingCollection.PrimaryArea,
+            null,
+            EditingCollection.CollectionType,
+            EditingCollection.CoverUrl,
+            "CoverArt",
+            new[] { "CoverArt", "Background", "Logo" },
+            new[] { EditingCollection.CoverUrl, EditingCollection.BackgroundUrl, EditingCollection.LogoUrl }.Count(url => !string.IsNullOrWhiteSpace(url)),
+            EditingCollection.ItemCount,
+            false)
+        {
+            IsStructural = true,
+            GroupKind = EditingCollection.CollectionType,
+            ResolutionMode = !string.IsNullOrWhiteSpace(EditingCollection.CoverUrl)
+                ? ArtworkResolutionMode.Explicit
+                : AutomaticArtworkItems.Count > 0
+                    ? ArtworkResolutionMode.AutomaticGroup
+                    : ArtworkResolutionMode.None,
+            BackgroundImageUrl = EditingCollection.BackgroundUrl,
+            LogoImageUrl = EditingCollection.LogoUrl,
+            PreviewItems = AutomaticArtworkItems.Select(item => new ArtworkLibraryPreviewItemDto(
+                item.WorkId ?? Guid.Empty,
+                item.AssetId,
+                item.Title,
+                item.ImageUrl,
+                item.Shape switch { ArtworkShape.Square => "square", ArtworkShape.Wide => "wide", _ => "portrait" },
+                item.Position,
+                item.MediaType)).ToList(),
+        };
     private bool IsPlaylistDialog => Request.Kind == ContainerEditorKind.Playlist;
     private (string Id, string Label, string Icon)[] VisibleTabs =>
         (IsPlaylistDialog ? PlaylistTabs : Tabs)
@@ -1309,6 +1345,16 @@
     </div>;
 
     private RenderFragment RenderArtworkTab() => @<div class="collection-editor-pane collection-editor-artwork-page">
+        @if (CollectionArtworkItem is { } collectionArtworkItem)
+        {
+            <ArtworkWorkspace @key="collectionArtworkItem.EntityId"
+                              Item="@collectionArtworkItem"
+                              ActiveProfileId="@Request.ActiveProfileId"
+                              ShowClose="false"
+                              StartInEditMode="true" />
+        }
+        else
+        {
         <div class="collection-editor-artwork-grid">
             <MediaEditorPanel Title="@ArtworkSlotTitle" Description="@ArtworkSlotDescription">
                 <div class="collection-editor-artwork-preview @($"is-{_activeArtworkSlot}")">
@@ -1365,6 +1411,7 @@
                 </div>
             </MediaEditorPanel>
         </div>
+        }
     </div>;
 
     private RenderFragment RenderHistoryTab() => @<div class="collection-editor-pane">
