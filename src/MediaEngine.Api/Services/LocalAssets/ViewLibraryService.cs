@@ -365,6 +365,13 @@ public sealed class ViewLibraryService(
             Latitude: metadata.Latitude,
             Longitude: metadata.Longitude,
             LocationName: metadata.LocationName,
+            LensModel: metadata.LensModel,
+            ExposureTime: metadata.ExposureTime,
+            Aperture: metadata.Aperture,
+            Iso: metadata.Iso,
+            FocalLengthMm: metadata.FocalLengthMm,
+            VideoCodec: metadata.VideoCodec,
+            FrameRate: metadata.FrameRate,
             DocumentText: metadata.DocumentText), ct);
     }
 
@@ -556,6 +563,8 @@ public sealed class ViewLibraryService(
         string? deviceModel = null;
         double? latitude = null;
         double? longitude = null;
+        string? videoCodec = null;
+        double? frameRate = null;
 
         if (candidate.Type.MediaKind == LocalAssetMediaKinds.Image)
         {
@@ -618,6 +627,8 @@ public sealed class ViewLibraryService(
                 deviceModel ??= NullIfWhiteSpace(probe.DeviceModel);
                 latitude ??= ValidCoordinate(probe.Latitude, -90, 90);
                 longitude ??= ValidCoordinate(probe.Longitude, -180, 180);
+                videoCodec ??= NullIfWhiteSpace(probe.VideoCodec);
+                frameRate ??= probe.FrameRate is > 0 ? probe.FrameRate : null;
             }
         }
 
@@ -633,7 +644,14 @@ public sealed class ViewLibraryService(
             latitude,
             longitude,
             null,
-            ReadBoundedDocumentText(candidate));
+            ReadBoundedDocumentText(candidate),
+            null,
+            null,
+            null,
+            null,
+            null,
+            videoCodec,
+            frameRate);
     }
 
     private static string? ReadBoundedDocumentText(FileCandidate candidate)
@@ -717,5 +735,12 @@ public sealed class ViewLibraryService(
         double? Latitude,
         double? Longitude,
         string? LocationName,
-        string? DocumentText);
+        string? DocumentText,
+        string? LensModel,
+        string? ExposureTime,
+        double? Aperture,
+        int? Iso,
+        double? FocalLengthMm,
+        string? VideoCodec,
+        double? FrameRate);
 }

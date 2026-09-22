@@ -162,6 +162,67 @@ public sealed class LocalAssetRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task TimelineIndexAndAnchor_ReturnRealFilteredCalendarBuckets()
+    {
+        var libraryId = Guid.NewGuid();
+        var owner = await CreateOwnership(libraryId);
+        foreach (var (suffix, date) in new[]
+                 {
+                     ('1', new DateTimeOffset(2026, 2, 15, 10, 0, 0, TimeSpan.Zero)),
+                     ('2', new DateTimeOffset(2026, 2, 1, 10, 0, 0, TimeSpan.Zero)),
+                     ('3', new DateTimeOffset(2026, 1, 20, 10, 0, 0, TimeSpan.Zero)),
+                 })
+        {
+            await _repository.UpsertAsync(new LocalAssetRegistration(libraryId, owner.SpaceId,
+                owner.ProfileId, LocalAssetMediaKinds.Image, $"Photo {suffix}", date,
+                [File($@"C:\photos\{suffix}.jpg", Hash(suffix), $"{suffix}.jpg", "image/jpeg")]));
+        }
+
+        var buckets = _repository.QueryTimelineIndex(new LocalAssetTimelineQuery([libraryId]));
+        Assert.Collection(buckets,
+            february => { Assert.Equal((2026, 2, 2), (february.Year, february.Month, february.AssetCount)); },
+            january => { Assert.Equal((2026, 1, 1), (january.Year, january.Month, january.AssetCount)); });
+
+        var anchored = _repository.QueryTimeline(new LocalAssetTimelineQuery([libraryId],
+            AnchorBefore: new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero)));
+        Assert.Equal("Photo 3", Assert.Single(anchored.Items).Title);
+    }
+
+    [Fact]
+    public async Task ManualMetadataEdits_AreSearchableAndSurviveEmbeddedLocationRefresh()
+    {
+        var libraryId = Guid.NewGuid();
+        var owner = await CreateOwnership(libraryId);
+        var registration = new LocalAssetRegistration(libraryId, owner.SpaceId, owner.ProfileId,
+            LocalAssetMediaKinds.Image, "Trail", DateTimeOffset.UtcNow,
+            [File(@"C:\photos\trail.jpg", Hash('8'), "trail.jpg", "image/jpeg")],
+            Latitude: 40.1, Longitude: -105.1, LocationName: "Camera location");
+        var result = await _repository.UpsertAsync(registration);
+
+        Assert.True(await _repository.UpdateDescriptionAsync(result.ItemId, "Sunrise above the ridge"));
+        await _repository.ReplaceTagsAsync(result.ItemId, ["hiking", "Colorado"]);
+        Assert.True(await _repository.UpdateLocationAsync(result.ItemId,
+            new(39.7392, -104.9903, "Civic Center", "Denver", "Colorado", "United States", "us")));
+        await _repository.UpsertAsync(registration with { Latitude = 41.5, Longitude = -106.5, LocationName = "Refreshed camera location" });
+
+        var edited = Assert.IsType<MediaEngine.Contracts.LocalAssets.LocalAssetDto>(_repository.Find(result.ItemId));
+        Assert.Equal("Sunrise above the ridge", edited.Description);
+        Assert.Equal("Denver", edited.LocationCity);
+        Assert.Equal("US", edited.LocationCountryCode);
+        Assert.True(edited.LocationUserOverride);
+        Assert.Equal(39.7392, edited.Latitude);
+        Assert.Equal(41.5, edited.EmbeddedLatitude);
+        Assert.Single(_repository.Query(new LocalAssetQuery(libraryId, Search: "sunrise ridge")).Items);
+        Assert.Single(_repository.Query(new LocalAssetQuery(libraryId, Search: "Denver Colorado")).Items);
+
+        Assert.True(await _repository.UpdateLocationAsync(result.ItemId, new(null, null, ResetToEmbedded: true)));
+        var reset = _repository.Find(result.ItemId)!;
+        Assert.False(reset.LocationUserOverride);
+        Assert.Equal(41.5, reset.Latitude);
+        Assert.Equal(-106.5, reset.Longitude);
+    }
+
+    [Fact]
     public async Task FlagsCollectionsAndAnnotations_PreserveLibraryIsolationAndProvenance()
     {
         var libraryId = Guid.NewGuid();

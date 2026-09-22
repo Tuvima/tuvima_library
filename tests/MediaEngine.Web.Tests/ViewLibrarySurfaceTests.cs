@@ -108,6 +108,9 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("AvailableRoles", workspace, StringComparison.Ordinal);
         Assert.Contains("ArtworkRolePresentationResolver", workspace, StringComparison.Ordinal);
         Assert.Contains("ArtworkAssetPickerDialog", workspace, StringComparison.Ordinal);
+        Assert.Contains("<MediaViewerShell", workspace, StringComparison.Ordinal);
+        Assert.Contains("<MediaViewerShell", browser, StringComparison.Ordinal);
+        Assert.Contains("<MediaViewerShell", Read("src/MediaEngine.Web/Components/MediaEditor/MediaEditorArtworkLightbox.razor"), StringComparison.Ordinal);
         Assert.DoesNotContain("MediaEditorLauncher.OpenAsync", artwork, StringComparison.Ordinal);
         Assert.Contains("<ArtworkWorkspace", Read("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor"), StringComparison.Ordinal);
         Assert.Contains("<ArtworkWorkspace", Read("src/MediaEngine.Web/Components/MediaEditor/PersonEditorDialog.razor"), StringComparison.Ordinal);
@@ -159,6 +162,10 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("GetViewPeopleAsync", people, StringComparison.Ordinal);
         Assert.Contains("AppPageStateKind.Empty", places, StringComparison.Ordinal);
         Assert.Contains("GetViewPlacesAsync", places, StringComparison.Ordinal);
+        Assert.Contains("Coordinate plot of authorized media locations", places, StringComparison.Ordinal);
+        Assert.Contains("Accessible place list", places, StringComparison.Ordinal);
+        Assert.Contains("<ViewImmersiveViewer", places, StringComparison.Ordinal);
+        Assert.Contains("map tiles are disabled until an administrator configures a provider", places, StringComparison.Ordinal);
         Assert.DoesNotContain("fake", galleries, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -173,6 +180,9 @@ public sealed class ViewLibrarySurfaceTests
 
         Assert.Contains("ViewSelectionToolbar", photos, StringComparison.Ordinal);
         Assert.Contains("OnSelectDateGroup", timeline, StringComparison.Ordinal);
+        Assert.DoesNotContain("Select @group.Items.Count", timeline, StringComparison.Ordinal);
+        Assert.Contains("aria-checked", timeline, StringComparison.Ordinal);
+        Assert.Contains("view-date-group__select", timeline, StringComparison.Ordinal);
         Assert.Contains("DurationSeconds", timeline, StringComparison.Ordinal);
         Assert.Contains("Density=\"@Workspace.Density\"", photos, StringComparison.Ordinal);
         Assert.Contains("view-density--@Density", timeline, StringComparison.Ordinal);
@@ -239,13 +249,13 @@ public sealed class ViewLibrarySurfaceTests
     [Fact]
     public void ViewStyles_UseResponsiveStableMixedMediaGeometry()
     {
-        var styles = Read("src/MediaEngine.Web/Components/Pages/ViewPage.razor.css");
+        var styles = Read("src/MediaEngine.Web/Components/Pages/ViewPhotoTimeline.razor.css");
 
-        Assert.Contains("aspect-ratio: 4 / 3;", styles, StringComparison.Ordinal);
-        Assert.Contains("object-fit: cover;", styles, StringComparison.Ordinal);
+        Assert.Contains("--view-aspect", styles, StringComparison.Ordinal);
+        Assert.Contains("object-fit: cover", styles, StringComparison.Ordinal);
         Assert.Contains(":focus-visible", styles, StringComparison.Ordinal);
-        Assert.Contains("@media (max-width: 900px)", styles, StringComparison.Ordinal);
-        Assert.Contains("@media (max-width: 640px)", styles, StringComparison.Ordinal);
+        Assert.Contains("@media (max-width:640px)", styles, StringComparison.Ordinal);
+        Assert.Contains("@media (hover:none)", styles, StringComparison.Ordinal);
     }
 
     private static string Read(string relativePath)

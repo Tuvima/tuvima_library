@@ -405,9 +405,12 @@
 
 .view-load-more {
     display: flex;
+    align-items: center;
+    gap: 10px;
     justify-content: center;
     padding: 28px 0 4px;
 }
+.view-load-more__status { color: rgba(203,213,225,.54); font-size:var(--tl-font-size-xs); }
 
 .view-viewer {
     position: fixed;

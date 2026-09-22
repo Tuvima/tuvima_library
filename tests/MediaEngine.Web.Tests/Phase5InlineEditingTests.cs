@@ -488,18 +488,22 @@ public sealed class Phase5InlineEditingTests
     [Fact]
     public void ArtworkLightbox_SupportsFitActualZoomPanAndKeyboardNavigation()
     {
-        var lightbox = ReadSource("src/MediaEngine.Web/Components/MediaEditor/MediaEditorArtworkLightbox.razor");
-        var styles = ReadSource("src/MediaEngine.Web/Components/MediaEditor/MediaEditorArtworkLightbox.razor.css");
+        var adapter = ReadSource("src/MediaEngine.Web/Components/MediaEditor/MediaEditorArtworkLightbox.razor");
+        var viewer = ReadSource("src/MediaEngine.Web/Components/Shared/MediaViewerShell.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/Shared/MediaViewerShell.razor.css");
+        var script = ReadSource("src/MediaEngine.Web/wwwroot/js/media-viewer.js");
 
-        Assert.Contains("Actual size", lightbox, StringComparison.Ordinal);
-        Assert.Contains("aria-label=\"Zoom out\"", lightbox, StringComparison.Ordinal);
-        Assert.Contains("aria-label=\"Zoom in\"", lightbox, StringComparison.Ordinal);
-        Assert.Contains("ArrowLeft", lightbox, StringComparison.Ordinal);
-        Assert.Contains("ArrowRight", lightbox, StringComparison.Ordinal);
-        Assert.Contains("\"+\" or \"=\"", lightbox, StringComparison.Ordinal);
-        Assert.Contains("\"0\" => FitImageAsync()", lightbox, StringComparison.Ordinal);
-        Assert.Contains("overflow: auto", styles, StringComparison.Ordinal);
-        Assert.Contains("sme-art-lightbox-image--zoom-300", styles, StringComparison.Ordinal);
+        Assert.Contains("<MediaViewerShell", adapter, StringComparison.Ordinal);
+        Assert.Contains("AriaLabel=\"Zoom out\"", viewer, StringComparison.Ordinal);
+        Assert.Contains("AriaLabel=\"Zoom in\"", viewer, StringComparison.Ordinal);
+        Assert.Contains("AriaLabel=\"Fit image to window\"", viewer, StringComparison.Ordinal);
+        Assert.Contains("ArrowLeft", viewer, StringComparison.Ordinal);
+        Assert.Contains("ArrowRight", viewer, StringComparison.Ordinal);
+        Assert.Contains("args.Key is \"+\" or \"=\"", viewer, StringComparison.Ordinal);
+        Assert.Contains("args.Key == \"0\"", viewer, StringComparison.Ordinal);
+        Assert.Contains("touch-action:none", styles, StringComparison.Ordinal);
+        Assert.Contains("pointermove", script, StringComparison.Ordinal);
+        Assert.Contains("pinchDistance", script, StringComparison.Ordinal);
     }
 
     [Fact]

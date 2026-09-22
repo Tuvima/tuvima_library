@@ -85,6 +85,28 @@ public sealed class EngineApiClientViewTests
     }
 
     [Fact]
+    public async Task ItemDetailUpdates_UseOwnedItemRoutesAndReturnRefreshedContract()
+    {
+        var itemId = Guid.NewGuid();
+        var requests = new List<(HttpMethod Method, string Path, string? Body)>();
+        using var http = Http(request =>
+        {
+            requests.Add((request.Method, request.RequestUri!.PathAndQuery,
+                request.Content?.ReadAsStringAsync().GetAwaiter().GetResult()));
+            return Json(HttpStatusCode.OK, $$"""{"id":"{{itemId}}","library_id":"{{Guid.NewGuid()}}","media_kind":"image","file_name":"photo.jpg","mime_type":"image/jpeg","created_at":"2026-09-22T00:00:00Z","favorite":false,"hidden":false,"source_count":1,"files":[],"tags":[],"thumbnail_url":"/thumbnail","content_url":"/content"}""");
+        });
+        var client = Client(http);
+
+        await client.UpdateViewItemDescriptionAsync(itemId, "A lake at sunrise");
+        await client.UpdateViewItemTagsAsync(itemId, ["lake", "sunrise"]);
+        await client.UpdateViewItemLocationAsync(itemId, new(41.1, -87.2, "Lakefront", "Chicago"));
+
+        Assert.Contains(requests, request => request.Method == HttpMethod.Put && request.Path == $"/view/items/{itemId:D}/description" && request.Body!.Contains("lake at sunrise", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(requests, request => request.Method == HttpMethod.Put && request.Path == $"/view/items/{itemId:D}/tags" && request.Body!.Contains("sunrise", StringComparison.Ordinal));
+        Assert.Contains(requests, request => request.Method == HttpMethod.Put && request.Path == $"/view/items/{itemId:D}/location" && request.Body!.Contains("Chicago", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task GallerySharingClient_UsesCountFreeDiscoveryAndExactReplacementRoutes()
     {
         var galleryId = Guid.NewGuid();

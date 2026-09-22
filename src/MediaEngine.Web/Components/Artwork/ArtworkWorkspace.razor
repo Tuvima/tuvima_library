@@ -146,7 +146,25 @@
             @if (_role == "Primary") { <div class="artwork-workspace-core__status"><MudIcon Icon="@Icons.Material.Outlined.Info" /><span>@PrimaryStatus</span></div> }
         </aside>
     </div>
-    @if (_lightbox && SelectedVariant is not null) { <AppNativeButton Type="button" Class="artwork-workspace-core__lightbox" OnClick="CloseLightbox" AriaLabel="Close full-size artwork"><img src="@SelectedVariant.ContentUrl" alt="@($"Full-size artwork for {ActiveItem.DisplayTitle}")" data-image-display="artwork-full-size" /></AppNativeButton> }
+    @if (_lightbox && SelectedVariant is not null)
+    {
+        <MediaViewerShell Item="@ArtworkViewerItem" Capabilities="@ArtworkViewerCapabilities" HasPrevious="@CanViewPrevious" HasNext="@CanViewNext" OnClose="CloseLightbox" OnPrevious="ViewPrevious" OnNext="ViewNext">
+            <ContextActions>
+                @if (AllowEdit && !SelectedVariant.IsPreferred) { <AppButton ButtonStyle="AppButtonStyle.Text" StartIcon="@Icons.Material.Outlined.StarOutline" OnClick="SetPreferredAsync">Set preferred</AppButton> }
+            </ContextActions>
+            <InfoContent>
+                <dl class="artwork-workspace-core__metadata">
+                    <div><dt>Entity</dt><dd>@ActiveItem.DisplayTitle</dd></div>
+                    <div><dt>Role</dt><dd>@ActiveRole.Label</dd></div>
+                    <div><dt>Dimensions</dt><dd>@Dimensions</dd></div>
+                    <div><dt>Aspect</dt><dd>@SelectedVariant.Aspect</dd></div>
+                    <div><dt>Source</dt><dd>@(SelectedVariant.SourceProvider ?? "Library")</dd></div>
+                    <div><dt>Preferred</dt><dd>@(SelectedVariant.IsPreferred ? "Yes" : "No")</dd></div>
+                    <div><dt>User override</dt><dd>@(SelectedVariant.IsUserOverride ? "Yes" : "No")</dd></div>
+                </dl>
+            </InfoContent>
+        </MediaViewerShell>
+    }
 </div>
 
 @code {
@@ -169,6 +187,11 @@
     private ArtworkRolePresentation ActiveRole => AvailableRoles.FirstOrDefault(role => MatchesRole(role, _role, _sourceAssetType)) ?? AvailableRoles.First();
     private IReadOnlyList<ArtworkEntityVariantDto> RoleVariants => VariantsFor(ActiveRole);
     private ArtworkEntityVariantDto? SelectedVariant => RoleVariants.FirstOrDefault(variant => variant.ArtworkAssetId == _selectedAssetId) ?? RoleVariants.FirstOrDefault(variant => variant.IsPreferred) ?? RoleVariants.FirstOrDefault();
+    private int ViewerVariantIndex => SelectedVariant is null ? -1 : RoleVariants.ToList().FindIndex(variant => variant.ArtworkAssetId == SelectedVariant.ArtworkAssetId);
+    private bool CanViewPrevious => ViewerVariantIndex > 0;
+    private bool CanViewNext => ViewerVariantIndex >= 0 && ViewerVariantIndex < RoleVariants.Count - 1;
+    private MediaViewerItem ArtworkViewerItem => new(SelectedVariant!.ArtworkAssetId.ToString("D"), MediaViewerKind.Image, ActiveItem.DisplayTitle, $"{ActiveRole.Label} · {SelectedVariant.SourceProvider ?? "Library"}", SelectedVariant.ContentUrl, SelectedVariant.ContentUrl, PositionLabel: ViewerVariantIndex >= 0 ? $"{ViewerVariantIndex + 1} of {RoleVariants.Count}" : null, AltText: $"{ActiveRole.Label} for {ActiveItem.DisplayTitle}");
+    private static readonly MediaViewerCapabilities ArtworkViewerCapabilities = new(CanDownload: true, CanShowInfo: true, CanZoom: true);
     private string? LegacyRoleUrl => LegacyRoleUrlFor(ActiveRole);
     private static string ThumbnailUrl(string? url) => MediaTileArtworkUrl.Sized(url, "s") ?? url ?? string.Empty;
     private static string PreviewUrl(string? url) => MediaTileArtworkUrl.Sized(url, "l") ?? url ?? string.Empty;
@@ -240,6 +263,8 @@
     private async Task RefreshProviderAsync() { var scope = ResolvedProviderRefreshScope; if (string.IsNullOrWhiteSpace(scope)) return; _busy = true; try { var result = await ApiClient.RefreshScopeProviderArtworkAsync(ProviderRefreshEntityId ?? ActiveItem.EntityId, scope); if (result is null) { Snackbar.Add(ApiClient.LastError ?? "Provider artwork refresh failed.", Severity.Error); return; } await ReloadAsync(); _changed = _changed || result.DownloadedCount > 0; if (result.DownloadedCount > 0) await OnChanged.InvokeAsync(); Snackbar.Add(result.DownloadedCount > 0 ? $"Added {result.DownloadedCount} provider artwork image{(result.DownloadedCount == 1 ? string.Empty : "s")}." : "Provider artwork is already current.", result.DownloadedCount > 0 ? Severity.Success : Severity.Info); } finally { _busy = false; } }
     private async Task RemoveAsync() { if (SelectedVariant is null) return; _busy = true; try { if (!await ApiClient.RemoveArtworkLinkAsync(SelectedVariant.LinkId)) { Snackbar.Add("Artwork link could not be removed.", Severity.Error); return; } _changed = true; await ReloadAsync(); await OnChanged.InvokeAsync(); Snackbar.Add(_role == "Primary" && ActiveItem.PreviewItems.Count > 0 ? "Automatic artwork restored." : "Artwork link removed.", Severity.Success); } finally { _busy = false; } }
     private Task CloseAsync() => OnClose.InvokeAsync(_changed); private void OpenLightbox() => _lightbox = true; private void CloseLightbox() => _lightbox = false;
+    private void ViewPrevious() { if (CanViewPrevious) _selectedAssetId = RoleVariants[ViewerVariantIndex - 1].ArtworkAssetId; }
+    private void ViewNext() { if (CanViewNext) _selectedAssetId = RoleVariants[ViewerVariantIndex + 1].ArtworkAssetId; }
     private IReadOnlyList<ArtworkEntityVariantDto> VariantsFor(ArtworkRolePresentation role) => _workspace?.Variants.Where(variant =>
         string.Equals(variant.Role, role.Role, StringComparison.OrdinalIgnoreCase)
         && (string.IsNullOrWhiteSpace(role.SourceAssetType)

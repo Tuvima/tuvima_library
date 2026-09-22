@@ -88,7 +88,10 @@
     <ViewImmersiveViewer Item="@_active"
                          HasPrevious="@(ActiveIndex > 0)"
                          HasNext="@(ActiveIndex >= 0 && ActiveIndex < (_page?.Items.Count ?? 0) - 1)"
-                         ContentUrl="@Resource(_active, ViewMediaResourceKind.Content)"
+                         ContentUrl="@Resource(_active, ViewMediaResourceKind.Preview)"
+                         OriginalUrl="@Resource(_active, ViewMediaResourceKind.Content)"
+                         MotionUrl="@MotionUrl(_active)"
+                         PositionLabel="@($"{ActiveIndex + 1} of {_page?.Items.Count ?? 0}")"
                          ThumbnailUrl="@Thumbnail(_active)"
                          OnClose="@(() => _active = null)"
                          OnPrevious="Previous"
@@ -97,6 +100,7 @@
                          OnArchive="ArchiveAsync"
                          OnTrash="TrashAsync"
                          ManualGalleries="@Workspace.OwnedGalleries.Where(gallery => gallery.Kind == ViewGalleryKind.Manual).ToList()"
+                         CanManage="@(ItemScope(_active).Kind == ViewScopeKind.Mine)"
                          OnAddToGallery="AddToGalleryAsync" />
 }
 
@@ -339,12 +343,14 @@
     }
 
     private string Thumbnail(LocalAssetDto item) => Resource(item, ViewMediaResourceKind.Thumbnail);
-    private string Resource(LocalAssetDto item, ViewMediaResourceKind kind)
+    private string Resource(LocalAssetDto item, ViewMediaResourceKind kind, ViewMediaResourceRole role = ViewMediaResourceRole.Primary)
     {
         if (!_profileId.HasValue) return string.Empty;
         var (scopeKind, scopeProfileId) = ItemScope(item);
-        return $"/view-media/{MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, kind, scopeKind: scopeKind, scopeProfileId: scopeProfileId).Value}";
+        return $"/view-media/{MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, kind, role, scopeKind, scopeProfileId).Value}";
     }
+    private string? MotionUrl(LocalAssetDto item) => item.Files.Any(file => file.Role == "live_photo_video")
+        ? Resource(item, ViewMediaResourceKind.Content, ViewMediaResourceRole.LivePhotoVideo) : null;
     private (ViewScopeKind Kind, Guid? ProfileId) ItemScope(LocalAssetDto item) =>
         string.Equals(item.ScopeKind, "shared", StringComparison.OrdinalIgnoreCase)
             ? (ViewScopeKind.Shared, null)

@@ -86,11 +86,14 @@ public sealed class Wave5AccessibilityGuardrailTests
     [Fact]
     public void ArtworkPreview_RemainsAnAccessibleFocusedComponent()
     {
-        var source = Read("src/MediaEngine.Web/Components/MediaEditor/MediaEditorArtworkLightbox.razor");
+        var adapter = Read("src/MediaEngine.Web/Components/MediaEditor/MediaEditorArtworkLightbox.razor");
+        var source = Read("src/MediaEngine.Web/Components/Shared/MediaViewerShell.razor");
 
+        Assert.Contains("<MediaViewerShell", adapter);
         Assert.Contains("role=\"dialog\"", source);
         Assert.Contains("aria-modal=\"true\"", source);
-        Assert.Contains("aria-label=\"Close artwork preview\"", source);
+        Assert.Contains("AriaLabel=\"Close viewer\"", source);
+        Assert.Contains("<MudFocusTrap", source);
     }
 
     [Fact]

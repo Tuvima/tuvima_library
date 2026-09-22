@@ -611,6 +611,36 @@ internal sealed class SchemaMigrator
             "ALTER TABLE collections ADD COLUMN secondary_sort_direction TEXT;");
         AddColumnIfMissing(conn, "view_galleries", "soundtrack_playlist_id",
             "ALTER TABLE view_galleries ADD COLUMN soundtrack_playlist_id BLOB REFERENCES collections(id) ON DELETE SET NULL;");
+        AddColumnIfMissing(conn, "local_item_metadata", "location_city", "ALTER TABLE local_item_metadata ADD COLUMN location_city TEXT;");
+        AddColumnIfMissing(conn, "local_item_metadata", "location_region", "ALTER TABLE local_item_metadata ADD COLUMN location_region TEXT;");
+        AddColumnIfMissing(conn, "local_item_metadata", "location_country", "ALTER TABLE local_item_metadata ADD COLUMN location_country TEXT;");
+        AddColumnIfMissing(conn, "local_item_metadata", "location_country_code", "ALTER TABLE local_item_metadata ADD COLUMN location_country_code TEXT;");
+        AddColumnIfMissing(conn, "local_item_metadata", "location_source", "ALTER TABLE local_item_metadata ADD COLUMN location_source TEXT;");
+        var addedLocationOverride = AddColumnIfMissing(conn, "local_item_metadata", "location_user_override", "ALTER TABLE local_item_metadata ADD COLUMN location_user_override INTEGER NOT NULL DEFAULT 0;");
+        var addedEmbeddedLatitude = AddColumnIfMissing(conn, "local_item_metadata", "embedded_latitude", "ALTER TABLE local_item_metadata ADD COLUMN embedded_latitude REAL;");
+        var addedEmbeddedLongitude = AddColumnIfMissing(conn, "local_item_metadata", "embedded_longitude", "ALTER TABLE local_item_metadata ADD COLUMN embedded_longitude REAL;");
+        AddColumnIfMissing(conn, "local_item_metadata", "description", "ALTER TABLE local_item_metadata ADD COLUMN description TEXT;");
+        AddColumnIfMissing(conn, "local_item_metadata", "lens_model", "ALTER TABLE local_item_metadata ADD COLUMN lens_model TEXT;");
+        AddColumnIfMissing(conn, "local_item_metadata", "exposure_time", "ALTER TABLE local_item_metadata ADD COLUMN exposure_time TEXT;");
+        AddColumnIfMissing(conn, "local_item_metadata", "aperture", "ALTER TABLE local_item_metadata ADD COLUMN aperture REAL;");
+        AddColumnIfMissing(conn, "local_item_metadata", "iso", "ALTER TABLE local_item_metadata ADD COLUMN iso INTEGER;");
+        AddColumnIfMissing(conn, "local_item_metadata", "focal_length_mm", "ALTER TABLE local_item_metadata ADD COLUMN focal_length_mm REAL;");
+        AddColumnIfMissing(conn, "local_item_metadata", "video_codec", "ALTER TABLE local_item_metadata ADD COLUMN video_codec TEXT;");
+        AddColumnIfMissing(conn, "local_item_metadata", "frame_rate", "ALTER TABLE local_item_metadata ADD COLUMN frame_rate REAL;");
+        if (addedLocationOverride || addedEmbeddedLatitude || addedEmbeddedLongitude)
+        {
+            using var localLocationBackfill = conn.CreateCommand();
+            localLocationBackfill.CommandText = """
+                UPDATE local_item_metadata
+                   SET embedded_latitude = COALESCE(embedded_latitude, latitude),
+                       embedded_longitude = COALESCE(embedded_longitude, longitude),
+                       location_source = CASE
+                           WHEN location_source IS NOT NULL THEN location_source
+                           WHEN latitude IS NOT NULL AND longitude IS NOT NULL THEN 'embedded'
+                           ELSE NULL END;
+                """;
+            localLocationBackfill.ExecuteNonQuery();
+        }
         AddColumnIfMissing(
             conn,
             "media_assets",

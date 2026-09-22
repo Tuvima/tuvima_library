@@ -134,6 +134,22 @@ public sealed class ViewMediaProxyTests
     }
 
     [Fact]
+    public async Task EngineProxyClient_MapsSignedLivePhotoRoleWithoutClientControlledRole()
+    {
+        var capture = new CapturingHttpHandler();
+        using var http = new HttpClient(capture) { BaseAddress = new Uri("http://engine.test") };
+        using var engine = new ViewMediaEngineClient(http);
+        var grant = new ViewMediaGrant(ProfileId, LibraryId, AssetId,
+            ViewMediaResourceKind.Content, ViewMediaResourceRole.LivePhotoVideo,
+            ViewScopeKind.Mine, null, DateTimeOffset.UtcNow.AddMinutes(5));
+
+        using var response = await engine.SendAsync(grant, HttpMethod.Get, null, null, CancellationToken.None);
+
+        Assert.Equal($"http://engine.test/view/items/{AssetId:D}/content?scope=mine&role=live_photo_video",
+            capture.Request?.RequestUri?.AbsoluteUri);
+    }
+
+    [Fact]
     public void Grant_RejectsTamperingIncludingCrossProfileSubstitution()
     {
         var clock = new MutableTimeProvider(DateTimeOffset.FromUnixTimeSeconds(1_750_000_000));

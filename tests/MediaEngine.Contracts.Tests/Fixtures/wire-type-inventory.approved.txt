@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=818; api=0; web-client=86
+# scopes: contracts=823; api=0; web-client=86
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchInsightsDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4042,6 +4042,22 @@
   ThumbnailUrl: System.String | json=thumbnail_url | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ContentUrl: System.String | json=content_url | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ScopeKind: System.String | json=scope_kind | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Description: System.String | json=description | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LensModel: System.String | json=lens_model | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ExposureTime: System.String | json=exposure_time | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Aperture: System.Double? | json=aperture | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Iso: System.Int32? | json=iso | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FocalLengthMm: System.Double? | json=focal_length_mm | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  VideoCodec: System.String | json=video_codec | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FrameRate: System.Double? | json=frame_rate | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LocationCity: System.String | json=location_city | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LocationRegion: System.String | json=location_region | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LocationCountry: System.String | json=location_country | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LocationCountryCode: System.String | json=location_country_code | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LocationSource: System.String | json=location_source | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LocationUserOverride: System.Boolean | json=location_user_override | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EmbeddedLatitude: System.Double? | json=embedded_latitude | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EmbeddedLongitude: System.Double? | json=embedded_longitude | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
 [contracts] MediaEngine.Contracts.LocalAssets.LocalAssetFileDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4073,6 +4089,25 @@
 [contracts] MediaEngine.Contracts.LocalAssets.SetLocalAssetFlagRequest
   kind=class | converter=default | number-handling=default | unmapped=default
   Value: System.Boolean | json=value | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.LocalAssets.UpdateLocalAssetDescriptionRequest
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Description: System.String | json=description | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.LocalAssets.UpdateLocalAssetLocationRequest
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Latitude: System.Double? | json=latitude | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Longitude: System.Double? | json=longitude | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Name: System.String | json=name | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  City: System.String | json=city | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Region: System.String | json=region | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Country: System.String | json=country | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CountryCode: System.String | json=country_code | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ResetToEmbedded: System.Boolean | json=reset_to_embedded | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.LocalAssets.UpdateLocalAssetTagsRequest
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Tags: System.Collections.Generic.IReadOnlyCollection<System.String> | json=tags | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
 [contracts] MediaEngine.Contracts.LocalAssets.UpdateViewSourceRequest
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4458,6 +4493,18 @@
   CreatedAt: System.DateTimeOffset | json=created_at | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   UpdatedAt: System.DateTimeOffset | json=updated_at | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IncludeInTimeline: System.Boolean | json=include_in_timeline | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.LocalAssets.ViewTimelineBucketDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Year: System.Int32 | json=year | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Month: System.Int32 | json=month | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AssetCount: System.Int32 | json=asset_count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EarliestAt: System.DateTimeOffset | json=earliest_at | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LatestAt: System.DateTimeOffset | json=latest_at | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.LocalAssets.ViewTimelineIndexDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Buckets: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewTimelineBucketDto> | json=buckets | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
 [contracts] MediaEngine.Contracts.LocalAssets.ViewUploadResponseDto
   kind=class | converter=default | number-handling=default | unmapped=default

@@ -60,9 +60,14 @@ public sealed class ViewEndpointRouteTests
         Assert.Contains("MapGroup(\"/view\")", endpoint, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/scopes\"", endpoint, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/assets\"", endpoint, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/assets/timeline-index\"", endpoint, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/uploads\"", endpoint, StringComparison.Ordinal);
         Assert.Contains("/items/{id:guid}/content", endpoint, StringComparison.Ordinal);
         Assert.Contains("/items/{id:guid}/thumbnail", endpoint, StringComparison.Ordinal);
+        Assert.Contains("/items/{id:guid}/preview", endpoint, StringComparison.Ordinal);
+        Assert.Contains("/items/{id:guid}/description", endpoint, StringComparison.Ordinal);
+        Assert.Contains("/items/{id:guid}/tags", endpoint, StringComparison.Ordinal);
+        Assert.Contains("/items/{id:guid}/location", endpoint, StringComparison.Ordinal);
         Assert.Contains("/galleries", endpoint, StringComparison.Ordinal);
         Assert.Contains("[FromBody] ViewGalleryItemsRequest request", endpoint, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/share-targets\"", endpoint, StringComparison.Ordinal);

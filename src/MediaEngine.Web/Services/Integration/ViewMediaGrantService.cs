@@ -8,11 +8,18 @@ public enum ViewMediaResourceKind : byte
 {
     Thumbnail = 1,
     Content = 2,
+    Preview = 3,
 }
 
 public enum ViewMediaResourceRole : byte
 {
     Primary = 1,
+    Original = 2,
+    LivePhotoVideo = 3,
+    Raw = 4,
+    Jpeg = 5,
+    Sidecar = 6,
+    AudioCompanion = 7,
 }
 
 public sealed record ViewMediaGrant(

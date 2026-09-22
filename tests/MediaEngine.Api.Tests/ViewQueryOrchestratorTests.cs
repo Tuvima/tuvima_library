@@ -232,6 +232,14 @@ public sealed class ViewQueryOrchestratorTests
             Plan = plan;
             return Task.FromResult(new ViewAssetTimelinePageDto([], null, false));
         }
+
+        public Task<ViewTimelineIndexDto> IndexAsync(
+            ViewAssetQueryPlan plan,
+            CancellationToken ct = default)
+        {
+            Plan = plan;
+            return Task.FromResult(new ViewTimelineIndexDto([]));
+        }
     }
 
     private sealed class StubSmartGalleryService(CollectionRuleDefinition? rule = null)

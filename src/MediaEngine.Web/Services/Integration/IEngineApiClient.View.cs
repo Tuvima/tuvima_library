@@ -9,6 +9,8 @@ public partial interface IEngineApiClient
     Task<ViewPreferencesDto?> GetViewPreferencesAsync(CancellationToken ct = default);
     Task<ViewPreferencesDto?> UpdateViewPreferencesAsync(ViewScopeKind scope, Guid? scopeProfileId, ViewTimelineDensity timelineDensity, CancellationToken ct = default);
     Task<ViewAssetTimelinePageDto?> GetViewAssetsAsync(ViewAssetQueryOptions options, CancellationToken ct = default);
+    Task<ViewTimelineIndexDto?> GetViewTimelineIndexAsync(ViewAssetQueryOptions options, CancellationToken ct = default);
+    Task<LocalAssetDto?> GetViewItemAsync(Guid itemId, ViewScopeKind scope, Guid? scopeProfileId = null, CancellationToken ct = default);
     Task<ViewFolderPageDto?> GetViewFoldersAsync(ViewFolderQueryOptions options, CancellationToken ct = default);
     Task<bool> SetViewFolderPinAsync(ViewFolderPinRequest request, CancellationToken ct = default);
     Task<bool> SetViewFolderTimelinePolicyAsync(ViewFolderTimelinePolicyRequest request, CancellationToken ct = default);
@@ -20,6 +22,9 @@ public partial interface IEngineApiClient
     Task<bool> ArchiveViewItemAsync(Guid itemId, CancellationToken ct = default);
     Task<bool> TrashViewItemAsync(Guid itemId, CancellationToken ct = default);
     Task<bool> RestoreViewItemAsync(Guid itemId, CancellationToken ct = default);
+    Task<LocalAssetDto?> UpdateViewItemDescriptionAsync(Guid itemId, string? description, CancellationToken ct = default);
+    Task<LocalAssetDto?> UpdateViewItemTagsAsync(Guid itemId, IReadOnlyCollection<string> tags, CancellationToken ct = default);
+    Task<LocalAssetDto?> UpdateViewItemLocationAsync(Guid itemId, UpdateLocalAssetLocationRequest request, CancellationToken ct = default);
     Task<ViewSharedContributionPreviewDto?> PreviewViewSharedContributionAsync(ViewSharedContributionPreviewRequest request, CancellationToken ct = default);
     Task<ViewSharedContributionDto?> SubmitViewSharedContributionAsync(ViewSharedContributionSubmitRequest request, CancellationToken ct = default);
     Task<ViewSharedContributionPageDto?> GetViewSharedContributionsAsync(string mode = "mine", string? status = null, int offset = 0, int limit = 50, CancellationToken ct = default);
@@ -55,7 +60,8 @@ public sealed record ViewAssetQueryOptions(
     bool HiddenOnly = false,
     string Lifecycle = "active",
     Guid? GalleryId = null,
-    int Limit = 120);
+    int Limit = 120,
+    DateTimeOffset? AnchorBefore = null);
 
 public sealed record ViewUploadResult(bool Success, ViewUploadResponseDto? Upload = null, string? ErrorMessage = null);
 

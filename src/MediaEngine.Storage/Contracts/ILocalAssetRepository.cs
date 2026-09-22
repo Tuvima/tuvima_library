@@ -12,6 +12,7 @@ public interface ILocalAssetRepository
 {
     LocalAssetPageDto Query(LocalAssetQuery query, CancellationToken ct = default);
     LocalAssetTimelinePage QueryTimeline(LocalAssetTimelineQuery query, CancellationToken ct = default);
+    IReadOnlyList<LocalAssetTimelineBucket> QueryTimelineIndex(LocalAssetTimelineQuery query, CancellationToken ct = default);
     LocalAssetDto? Find(Guid itemId, CancellationToken ct = default);
     LocalAssetContentLocation? ResolveContent(
         Guid itemId,
@@ -34,6 +35,8 @@ public interface ILocalAssetRepository
         Guid itemId,
         IReadOnlyCollection<string> tags,
         CancellationToken ct = default);
+    Task<bool> UpdateDescriptionAsync(Guid itemId, string? description, CancellationToken ct = default);
+    Task<bool> UpdateLocationAsync(Guid itemId, LocalAssetLocationUpdate update, CancellationToken ct = default);
     Task<Guid> AddAnnotationAsync(
         Guid itemId,
         LocalAssetAnnotation annotation,
@@ -66,7 +69,8 @@ public sealed record LocalAssetTimelineQuery(
     LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active,
     CollectionRuleDefinition? SmartRule = null,
     bool TimelineEligibleOnly = false,
-    bool IncludeSharedLibraryAssets = false);
+    bool IncludeSharedLibraryAssets = false,
+    DateTimeOffset? AnchorBefore = null);
 
 public sealed record LocalAssetTimelineCursor(DateTimeOffset EffectiveAt, Guid ItemId);
 
@@ -74,6 +78,13 @@ public sealed record LocalAssetTimelinePage(
     IReadOnlyList<LocalAssetDto> Items,
     LocalAssetTimelineCursor? NextCursor,
     bool HasMore);
+
+public sealed record LocalAssetTimelineBucket(
+    int Year,
+    int Month,
+    int AssetCount,
+    DateTimeOffset EarliestAt,
+    DateTimeOffset LatestAt);
 
 public enum LocalAssetLifecycleFilter
 {
@@ -109,9 +120,26 @@ public sealed record LocalAssetRegistration(
     string? LocationName = null,
     string? DocumentText = null,
     string? MetadataJson = null,
+    string? LensModel = null,
+    string? ExposureTime = null,
+    double? Aperture = null,
+    int? Iso = null,
+    double? FocalLengthMm = null,
+    string? VideoCodec = null,
+    double? FrameRate = null,
     IReadOnlyCollection<string>? Tags = null,
     Guid? ExistingItemId = null,
     string ScopeKind = LocalAssetScopeKinds.Personal);
+
+public sealed record LocalAssetLocationUpdate(
+    double? Latitude,
+    double? Longitude,
+    string? Name = null,
+    string? City = null,
+    string? Region = null,
+    string? Country = null,
+    string? CountryCode = null,
+    bool ResetToEmbedded = false);
 
 public static class LocalAssetScopeKinds
 {

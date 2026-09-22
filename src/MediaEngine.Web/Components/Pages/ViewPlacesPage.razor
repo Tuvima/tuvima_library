@@ -1,5 +1,6 @@
 @page "/view/places"
 @using MediaEngine.Contracts.LocalAssets
+@using MediaEngine.Domain.PersonalMedia
 @inject IEngineApiClient ApiClient
 @inject ViewWorkspaceService Workspace
 @inject UIOrchestratorService Orchestrator
@@ -11,14 +12,78 @@
 @if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Places" Message="Looking at indexed location metadata." /> }
 else if (_page is null) { <AppErrorState Title="Places could not be loaded" Message="The discovery service did not return a result." Retry="LoadAsync" /> }
 else if (_page.Items.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="@(_page.Capability.State == ViewDiscoveryCapabilityStates.NoMatches ? "No matching places" : "No places to show yet")" Message="@_page.Capability.Message" /> }
-else { <section class="view-place-clusters" aria-label="Location clusters from stored coordinates"><h2>Location clusters</h2><p>This coordinate overview uses only metadata from your files; no third-party map tiles are loaded.</p><div>@foreach (var place in _page.Items.Take(8)) { <span><strong>@place.Name</strong> @place.Latitude.ToString("0.##"), @place.Longitude.ToString("0.##") · @place.AssetCount</span> }</div></section><h2>Top Places</h2><section class="view-discovery-grid" aria-label="Places">@foreach (var place in _page.Items) { <article class="view-discovery-card"><img src="@Thumbnail(place.RepresentativeLibraryId, place.RepresentativeAssetId)" alt="" loading="lazy" /><strong>@place.Name</strong><span>@place.AssetCount media items</span><small>@place.Latitude.ToString("0.###"), @place.Longitude.ToString("0.###")</small></article> }</section>@if (_page.HasMore) { <AppButton ButtonStyle="AppButtonStyle.Outlined" OnClick="LoadMoreAsync">Load more</AppButton> } }
+else
+{
+    <section class="view-place-browser" aria-label="Places map and media">
+        <div class="view-place-map" role="group" aria-label="Coordinate plot of authorized media locations">
+            <div class="view-place-map__grid" aria-hidden="true"></div>
+            <svg class="view-place-map__plot" viewBox="0 0 100 100" role="img" aria-label="Location markers plotted by relative latitude and longitude">
+                @foreach (var place in _page.Items)
+                {
+                    <g class="view-place-map__marker@(_selectedKey == place.Key ? " is-selected" : string.Empty)"
+                       role="button" tabindex="0" aria-label="@($"Open {place.Name}, {place.AssetCount} media items")"
+                       @onclick="@(() => SelectPlaceAsync(place))" @onkeydown="@(args => MarkerKeyAsync(args, place))">
+                        <circle cx="@MarkerX(place)" cy="@MarkerY(place)" r="4.5"></circle>
+                        <text x="@MarkerX(place)" y="@MarkerTextY(place)" text-anchor="middle">@place.AssetCount</text>
+                    </g>
+                }
+            </svg>
+            <p class="view-place-map__notice">Location plot · map tiles are disabled until an administrator configures a provider.</p>
+        </div>
+        <aside class="view-place-list" aria-label="Accessible place list">
+            <h2>Places</h2>
+            @foreach (var place in _page.Items)
+            {
+                <AppNativeButton Type="button" Class="@($"view-place-list__item{(_selectedKey == place.Key ? " is-selected" : string.Empty)}")" OnClick="@(_ => SelectPlaceAsync(place))">
+                    <img src="@Thumbnail(place.RepresentativeLibraryId, place.RepresentativeAssetId)" alt="" loading="lazy" />
+                    <span><strong>@place.Name</strong><small>@place.AssetCount media item@(place.AssetCount == 1 ? string.Empty : "s") · @place.Latitude.ToString("0.###"), @place.Longitude.ToString("0.###")</small></span>
+                </AppNativeButton>
+            }
+        </aside>
+    </section>
+    @if (_page.HasMore) { <AppButton ButtonStyle="AppButtonStyle.Outlined" OnClick="LoadMoreAsync">Load more</AppButton> }
+}
 </ViewContentPage></ViewSectionShell>
+@if (_active is not null)
+{
+    <ViewImmersiveViewer Item="@_active" ContentUrl="@Resource(_active, ViewMediaResourceKind.Preview)"
+                         OriginalUrl="@Resource(_active, ViewMediaResourceKind.Content)" MotionUrl="@MotionUrl(_active)"
+                         ThumbnailUrl="@Resource(_active, ViewMediaResourceKind.Thumbnail)" OnClose="CloseViewer"
+                         OnFavorite="ToggleFavoriteAsync" OnArchive="ArchiveAsync" OnTrash="TrashAsync"
+                         CanEdit="@(Workspace.ScopeKind == ViewScopeKind.Mine)" CanManage="@(Workspace.ScopeKind == ViewScopeKind.Mine)"
+                         ManualGalleries="@Workspace.OwnedGalleries.Where(gallery => gallery.Kind == ViewGalleryKind.Manual).ToList()"
+                         OnAddToGallery="AddToGalleryAsync" OnItemUpdated="UpdateActive" />
+}
 @code {
-    private ViewPlacesPageDto? _page; private string _search = ""; private bool _loading = true; private Guid? _profileId;
-    protected override async Task OnInitializedAsync() { await Workspace.InitializeAsync(); _profileId = (await Orchestrator.GetActiveProfileAsync())?.Id; await LoadAsync(); }
+    private ViewPlacesPageDto? _page; private LocalAssetDto? _active; private string? _selectedKey; private string _search = ""; private bool _loading = true; private Guid? _profileId;
+    protected override async Task OnInitializedAsync() { await Workspace.InitializeAsync(); await Workspace.LoadGalleriesAsync(); _profileId = (await Orchestrator.GetActiveProfileAsync())?.Id; await LoadAsync(); }
     private ViewDiscoveryQueryOptions Query(string? cursor = null) => new(Workspace.ScopeKind, Workspace.ScopeProfileId, _search, cursor, 50);
     private async Task LoadAsync() { _loading = true; _page = await ApiClient.GetViewPlacesAsync(Query()); _loading = false; }
     private async Task SearchChanged(object? value) { _search = value?.ToString() ?? ""; await LoadAsync(); }
     private async Task LoadMoreAsync() { if (_page?.NextCursor is null) return; var next = await ApiClient.GetViewPlacesAsync(Query(_page.NextCursor)); if (next is not null) _page = next with { Items = [.. _page.Items, .. next.Items] }; }
     private string Thumbnail(Guid libraryId, Guid assetId) => _profileId.HasValue ? $"/view-media/{MediaGrants.Create(_profileId.Value, libraryId, assetId, ViewMediaResourceKind.Thumbnail, scopeKind: Workspace.ScopeKind, scopeProfileId: Workspace.ScopeProfileId).Value}" : "";
+    private async Task SelectPlaceAsync(ViewPlaceDto place) { _selectedKey = place.Key; _active = await ApiClient.GetViewItemAsync(place.RepresentativeAssetId, Workspace.ScopeKind, Workspace.ScopeProfileId); }
+    private (double X, double Y) MarkerPosition(ViewPlaceDto place)
+    {
+        if (_page is null || _page.Items.Count == 0) return (50, 50);
+        var minLat = _page.Items.Min(item => item.Latitude); var maxLat = _page.Items.Max(item => item.Latitude);
+        var minLon = _page.Items.Min(item => item.Longitude); var maxLon = _page.Items.Max(item => item.Longitude);
+        var x = maxLon == minLon ? 50 : 6 + ((place.Longitude - minLon) / (maxLon - minLon) * 88);
+        var y = maxLat == minLat ? 50 : 94 - ((place.Latitude - minLat) / (maxLat - minLat) * 88);
+        return (x, y);
+    }
+    private string MarkerX(ViewPlaceDto place) => MarkerPosition(place).X.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+    private string MarkerY(ViewPlaceDto place) => MarkerPosition(place).Y.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+    private string MarkerTextY(ViewPlaceDto place) => (MarkerPosition(place).Y + 1.25).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+    private Task MarkerKeyAsync(KeyboardEventArgs args, ViewPlaceDto place) => args.Key is "Enter" or " " ? SelectPlaceAsync(place) : Task.CompletedTask;
+    private string Resource(LocalAssetDto item, ViewMediaResourceKind kind, ViewMediaResourceRole role = ViewMediaResourceRole.Primary) => _profileId.HasValue
+        ? $"/view-media/{MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, kind, role, Workspace.ScopeKind, Workspace.ScopeProfileId).Value}" : string.Empty;
+    private string? MotionUrl(LocalAssetDto item) => item.Files.Any(file => file.Role == "live_photo_video")
+        ? Resource(item, ViewMediaResourceKind.Content, ViewMediaResourceRole.LivePhotoVideo) : null;
+    private void CloseViewer() => _active = null;
+    private void UpdateActive(LocalAssetDto item) => _active = item;
+    private async Task ToggleFavoriteAsync() { if (_active is null) return; var value = !_active.Favorite; if (await ApiClient.SetViewItemFavoriteAsync(_active.Id, value)) _active = _active with { Favorite = value }; }
+    private async Task ArchiveAsync() { if (_active is not null && await ApiClient.ArchiveViewItemAsync(_active.Id)) { _active = null; await LoadAsync(); } }
+    private async Task TrashAsync() { if (_active is not null && await ApiClient.TrashViewItemAsync(_active.Id)) { _active = null; await LoadAsync(); } }
+    private async Task AddToGalleryAsync(Guid galleryId) { if (_active is not null) await ApiClient.AddViewGalleryItemsAsync(galleryId, [_active.Id]); }
 }

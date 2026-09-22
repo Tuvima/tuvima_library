@@ -187,11 +187,36 @@ public sealed class ViewAssetQueryService(ILocalAssetRepository assets) : IViewA
             plan.Lifecycle,
             plan.SmartRule,
             plan.TimelineEligibleOnly,
-            plan.IncludeSharedLibraryAssets), ct);
+            plan.IncludeSharedLibraryAssets,
+            plan.AnchorBefore), ct);
         return Task.FromResult(new ViewAssetTimelinePageDto(
             page.Items,
             ViewTimelineCursorCodec.Encode(page.NextCursor),
             page.HasMore));
+    }
+
+    public Task<ViewTimelineIndexDto> IndexAsync(
+        ViewAssetQueryPlan plan,
+        CancellationToken ct = default)
+    {
+        var buckets = assets.QueryTimelineIndex(new LocalAssetTimelineQuery(
+            plan.Scope.LibraryIds,
+            Search: plan.Search,
+            MediaKinds: plan.MediaKinds,
+            FavoritesOnly: plan.FavoritesOnly,
+            IncludeHidden: plan.IncludeHidden,
+            HiddenOnly: plan.HiddenOnly,
+            GalleryId: plan.GalleryId,
+            Lifecycle: plan.Lifecycle,
+            SmartRule: plan.SmartRule,
+            TimelineEligibleOnly: plan.TimelineEligibleOnly,
+            IncludeSharedLibraryAssets: plan.IncludeSharedLibraryAssets), ct);
+        return Task.FromResult(new ViewTimelineIndexDto(buckets.Select(bucket => new ViewTimelineBucketDto(
+            bucket.Year,
+            bucket.Month,
+            bucket.AssetCount,
+            bucket.EarliestAt,
+            bucket.LatestAt)).ToList()));
     }
 }
 

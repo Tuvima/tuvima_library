@@ -36,6 +36,22 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         public double? Latitude { get; init; }
         public double? Longitude { get; init; }
         public string? LocationName { get; init; }
+        public string? LocationCity { get; init; }
+        public string? LocationRegion { get; init; }
+        public string? LocationCountry { get; init; }
+        public string? LocationCountryCode { get; init; }
+        public string? LocationSource { get; init; }
+        public long LocationUserOverride { get; init; }
+        public double? EmbeddedLatitude { get; init; }
+        public double? EmbeddedLongitude { get; init; }
+        public string? Description { get; init; }
+        public string? LensModel { get; init; }
+        public string? ExposureTime { get; init; }
+        public double? Aperture { get; init; }
+        public int? Iso { get; init; }
+        public double? FocalLengthMm { get; init; }
+        public string? VideoCodec { get; init; }
+        public double? FrameRate { get; init; }
         public long Favorite { get; init; }
         public long Hidden { get; init; }
         public DateTimeOffset? ArchivedAt { get; init; }
@@ -135,6 +151,13 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                    lm.latitude AS Latitude,
                    lm.longitude AS Longitude,
                    lm.location_name AS LocationName,
+                   lm.location_city AS LocationCity, lm.location_region AS LocationRegion,
+                   lm.location_country AS LocationCountry, lm.location_country_code AS LocationCountryCode,
+                   lm.location_source AS LocationSource, lm.location_user_override AS LocationUserOverride,
+                   lm.embedded_latitude AS EmbeddedLatitude, lm.embedded_longitude AS EmbeddedLongitude,
+                   lm.description AS Description, lm.lens_model AS LensModel,
+                   lm.exposure_time AS ExposureTime, lm.aperture AS Aperture, lm.iso AS Iso,
+                   lm.focal_length_mm AS FocalLengthMm, lm.video_codec AS VideoCodec, lm.frame_rate AS FrameRate,
                    li.favorite AS Favorite,
                    li.hidden AS Hidden,
                    li.archived_at AS ArchivedAt,
@@ -211,6 +234,11 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             throw new ArgumentException("Both timeline cursor values are required together.", nameof(query));
         }
 
+        if (query.AnchorBefore.HasValue && query.BeforeEffectiveAt.HasValue)
+        {
+            throw new ArgumentException("A timeline date anchor cannot be combined with a cursor.", nameof(query));
+        }
+
         if (query.Limit is < 1 or > 500)
         {
             throw new ArgumentOutOfRangeException(nameof(query), "Limit must be between 1 and 500.");
@@ -248,6 +276,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             SearchExpression = searchExpression,
             query.BeforeEffectiveAt,
             query.BeforeItemId,
+            query.AnchorBefore,
             query.TimelineEligibleOnly,
             Take = query.Limit + 1,
         });
@@ -268,7 +297,15 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                    lm.duration_seconds AS DurationSeconds, lm.page_count AS PageCount,
                    lm.device_make AS DeviceMake, lm.device_model AS DeviceModel,
                    lm.latitude AS Latitude, lm.longitude AS Longitude,
-                   lm.location_name AS LocationName, li.favorite AS Favorite, li.hidden AS Hidden,
+                   lm.location_name AS LocationName,
+                   lm.location_city AS LocationCity, lm.location_region AS LocationRegion,
+                   lm.location_country AS LocationCountry, lm.location_country_code AS LocationCountryCode,
+                   lm.location_source AS LocationSource, lm.location_user_override AS LocationUserOverride,
+                   lm.embedded_latitude AS EmbeddedLatitude, lm.embedded_longitude AS EmbeddedLongitude,
+                   lm.description AS Description, lm.lens_model AS LensModel,
+                   lm.exposure_time AS ExposureTime, lm.aperture AS Aperture, lm.iso AS Iso,
+                   lm.focal_length_mm AS FocalLengthMm, lm.video_codec AS VideoCodec, lm.frame_rate AS FrameRate,
+                   li.favorite AS Favorite, li.hidden AS Hidden,
                    li.archived_at AS ArchivedAt, li.trashed_at AS TrashedAt,
                    COALESCE(li.captured_at, li.created_at) AS EffectiveAt,
                    (SELECT COUNT(DISTINCT lfs.id)
@@ -319,6 +356,8 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                     OR COALESCE(li.captured_at, li.created_at) < @BeforeEffectiveAt
                     OR (COALESCE(li.captured_at, li.created_at) = @BeforeEffectiveAt
                         AND li.id < @BeforeItemId))
+               AND (@AnchorBefore IS NULL
+                    OR COALESCE(li.captured_at, li.created_at) < @AnchorBefore)
              ORDER BY COALESCE(li.captured_at, li.created_at) DESC, li.id DESC
              LIMIT @Take;
             """, parameters, cancellationToken: ct)).ToList();
@@ -334,6 +373,123 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             items,
             hasMore && last is not null ? new LocalAssetTimelineCursor(last.EffectiveAt, last.Id) : null,
             hasMore);
+    }
+
+    private sealed class TimelineBucketRow
+    {
+        public int Year { get; init; }
+        public int Month { get; init; }
+        public long AssetCount { get; init; }
+        public DateTimeOffset EarliestAt { get; init; }
+        public DateTimeOffset LatestAt { get; init; }
+    }
+
+    public IReadOnlyList<LocalAssetTimelineBucket> QueryTimelineIndex(
+        LocalAssetTimelineQuery query,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        if ((query.AuthorizedLibraryIds is null || query.AuthorizedLibraryIds.Count == 0)
+            && !query.IncludeSharedLibraryAssets)
+        {
+            throw new ArgumentException("At least one resolver-authorized library is required.", nameof(query));
+        }
+        if (query.AuthorizedLibraryIds?.Any(id => id == Guid.Empty) == true)
+        {
+            throw new ArgumentException("Authorized library IDs cannot be empty.", nameof(query));
+        }
+
+        ct.ThrowIfCancellationRequested();
+        var libraryIds = query.AuthorizedLibraryIds?.Distinct().ToArray() ?? [];
+        var mediaKinds = query.MediaKinds?
+            .Where(kind => !string.IsNullOrWhiteSpace(kind))
+            .Select(NormalizeMediaKind)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray() ?? [];
+        var searchExpression = BuildSearchExpression(query.Search);
+        var libraryPredicate = libraryIds.Length == 0
+            ? "0 = 1"
+            : string.Join(" OR ", libraryIds.Select((_, index) => $"li.library_id = @LibraryId{index}"));
+        if (query.IncludeSharedLibraryAssets)
+        {
+            libraryPredicate = $"({libraryPredicate}) OR EXISTS (SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = li.id)";
+        }
+
+        var smartRule = query.SmartRule is null
+            ? new LocalAssetSmartRuleSql("1 = 1", new DynamicParameters())
+            : LocalAssetSmartRuleSqlCompiler.Compile(query.SmartRule);
+        var parameters = new DynamicParameters(new
+        {
+            query.IncludeHidden,
+            query.HiddenOnly,
+            query.FavoritesOnly,
+            Lifecycle = (int)query.Lifecycle,
+            HasMediaKinds = mediaKinds.Length == 0 ? 0 : 1,
+            MediaKinds = mediaKinds.Length == 0 ? [LocalAssetMediaKinds.Other] : mediaKinds,
+            query.GalleryId,
+            SearchExpression = searchExpression,
+            query.TimelineEligibleOnly,
+        });
+        parameters.AddDynamicParams(smartRule.Parameters);
+        for (var index = 0; index < libraryIds.Length; index++)
+        {
+            parameters.Add($"LibraryId{index}", GuidSql.ToBlob(libraryIds[index]), System.Data.DbType.Binary);
+        }
+
+        using var connection = database.CreateConnection();
+        var rows = connection.Query<TimelineBucketRow>(new CommandDefinition($$"""
+            SELECT CAST(strftime('%Y', COALESCE(li.captured_at, li.created_at)) AS INTEGER) AS Year,
+                   CAST(strftime('%m', COALESCE(li.captured_at, li.created_at)) AS INTEGER) AS Month,
+                   COUNT(DISTINCT li.id) AS AssetCount,
+                   MIN(COALESCE(li.captured_at, li.created_at)) AS EarliestAt,
+                   MAX(COALESCE(li.captured_at, li.created_at)) AS LatestAt
+              FROM local_items li
+              LEFT JOIN local_item_metadata lm ON lm.item_id = li.id
+              LEFT JOIN view_shared_assets vsa ON vsa.item_id = li.id
+             WHERE ({{libraryPredicate}})
+               AND ((@HiddenOnly = 1 AND li.hidden = 1)
+                    OR (@HiddenOnly = 0 AND (@IncludeHidden = 1 OR li.hidden = 0)))
+               AND (@FavoritesOnly = 0 OR li.favorite = 1)
+               AND (@Lifecycle = 3
+                    OR (@Lifecycle = 0 AND li.archived_at IS NULL AND li.trashed_at IS NULL)
+                    OR (@Lifecycle = 1 AND li.archived_at IS NOT NULL AND li.trashed_at IS NULL)
+                    OR (@Lifecycle = 2 AND li.trashed_at IS NOT NULL))
+               AND (@HasMediaKinds = 0 OR li.media_kind IN @MediaKinds)
+               AND (@GalleryId IS NULL OR EXISTS (
+                    SELECT 1 FROM view_gallery_items vgi
+                     WHERE vgi.gallery_id = @GalleryId AND vgi.item_id = li.id))
+               AND (@TimelineEligibleOnly = 0 OR EXISTS (
+                    SELECT 1
+                      FROM local_item_files tlif
+                      JOIN local_file_sources tlfs ON tlfs.file_id = tlif.file_id AND tlfs.library_id = li.library_id
+                      LEFT JOIN view_sources tvs ON tvs.id = tlfs.source_id
+                      LEFT JOIN view_source_policies tvsp ON tvsp.source_id = tvs.id
+                     WHERE tlif.item_id = li.id
+                       AND (vsa.item_id IS NOT NULL OR COALESCE((
+                           SELECT vftp.include_in_timeline
+                             FROM view_folder_timeline_policies vftp
+                            WHERE vftp.source_id = tvs.id
+                              AND (tlfs.file_path = vftp.absolute_path COLLATE NOCASE
+                                   OR (substr(tlfs.file_path, 1, length(vftp.absolute_path)) = vftp.absolute_path COLLATE NOCASE
+                                       AND substr(tlfs.file_path, length(vftp.absolute_path) + 1, 1) IN ('/', '\')))
+                            ORDER BY length(vftp.absolute_path) DESC
+                            LIMIT 1), tvsp.include_in_timeline,
+                           CASE WHEN tvs.source_type = 'browser_upload' THEN 1 ELSE 0 END) = 1))
+               )
+               AND ({{smartRule.Predicate}})
+               AND (@SearchExpression IS NULL OR EXISTS (
+                    SELECT 1 FROM local_item_search lis
+                      JOIN local_item_search_keys lsk ON lsk.rowid = lis.rowid
+                     WHERE lsk.item_id = li.id AND local_item_search MATCH @SearchExpression))
+             GROUP BY Year, Month
+             ORDER BY Year DESC, Month DESC;
+            """, parameters, cancellationToken: ct)).ToList();
+        return rows.Select(row => new LocalAssetTimelineBucket(
+            row.Year,
+            row.Month,
+            checked((int)row.AssetCount),
+            row.EarliestAt,
+            row.LatestAt)).ToList();
     }
 
     public LocalAssetDto? Find(Guid itemId, CancellationToken ct = default)
@@ -354,7 +510,15 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                    lm.duration_seconds AS DurationSeconds, lm.page_count AS PageCount,
                    lm.device_make AS DeviceMake, lm.device_model AS DeviceModel,
                    lm.latitude AS Latitude, lm.longitude AS Longitude,
-                   lm.location_name AS LocationName, li.favorite AS Favorite,
+                   lm.location_name AS LocationName,
+                   lm.location_city AS LocationCity, lm.location_region AS LocationRegion,
+                   lm.location_country AS LocationCountry, lm.location_country_code AS LocationCountryCode,
+                   lm.location_source AS LocationSource, lm.location_user_override AS LocationUserOverride,
+                   lm.embedded_latitude AS EmbeddedLatitude, lm.embedded_longitude AS EmbeddedLongitude,
+                   lm.description AS Description, lm.lens_model AS LensModel,
+                   lm.exposure_time AS ExposureTime, lm.aperture AS Aperture, lm.iso AS Iso,
+                   lm.focal_length_mm AS FocalLengthMm, lm.video_codec AS VideoCodec, lm.frame_rate AS FrameRate,
+                   li.favorite AS Favorite,
                    li.hidden AS Hidden,
                    li.archived_at AS ArchivedAt, li.trashed_at AS TrashedAt,
                    COALESCE(li.captured_at, li.created_at) AS EffectiveAt,
@@ -533,12 +697,15 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             connection.Execute("""
                 INSERT INTO local_item_metadata
                     (item_id, width, height, duration_seconds, page_count, device_make,
-                     device_model, latitude, longitude, location_name, document_text,
-                     metadata_json, updated_at)
+                     device_model, latitude, longitude, location_name, embedded_latitude,
+                     embedded_longitude, location_source, lens_model, exposure_time, aperture,
+                     iso, focal_length_mm, video_codec, frame_rate, document_text, metadata_json, updated_at)
                 VALUES
                     (@itemId, @Width, @Height, @DurationSeconds, @PageCount, @DeviceMake,
-                     @DeviceModel, @Latitude, @Longitude, @LocationName, @DocumentText,
-                     @MetadataJson, @now)
+                     @DeviceModel, @Latitude, @Longitude, @LocationName, @Latitude,
+                     @Longitude, CASE WHEN @Latitude IS NOT NULL AND @Longitude IS NOT NULL THEN 'embedded' END,
+                     @LensModel, @ExposureTime, @Aperture, @Iso, @FocalLengthMm, @VideoCodec,
+                     @FrameRate, @DocumentText, @MetadataJson, @now)
                 ON CONFLICT(item_id) DO UPDATE SET
                     width = COALESCE(excluded.width, local_item_metadata.width),
                     height = COALESCE(excluded.height, local_item_metadata.height),
@@ -546,9 +713,23 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                     page_count = COALESCE(excluded.page_count, local_item_metadata.page_count),
                     device_make = COALESCE(excluded.device_make, local_item_metadata.device_make),
                     device_model = COALESCE(excluded.device_model, local_item_metadata.device_model),
-                    latitude = COALESCE(excluded.latitude, local_item_metadata.latitude),
-                    longitude = COALESCE(excluded.longitude, local_item_metadata.longitude),
-                    location_name = COALESCE(excluded.location_name, local_item_metadata.location_name),
+                    embedded_latitude = COALESCE(excluded.embedded_latitude, local_item_metadata.embedded_latitude),
+                    embedded_longitude = COALESCE(excluded.embedded_longitude, local_item_metadata.embedded_longitude),
+                    latitude = CASE WHEN local_item_metadata.location_user_override = 1
+                        THEN local_item_metadata.latitude ELSE COALESCE(excluded.latitude, local_item_metadata.latitude) END,
+                    longitude = CASE WHEN local_item_metadata.location_user_override = 1
+                        THEN local_item_metadata.longitude ELSE COALESCE(excluded.longitude, local_item_metadata.longitude) END,
+                    location_name = CASE WHEN local_item_metadata.location_user_override = 1
+                        THEN local_item_metadata.location_name ELSE COALESCE(excluded.location_name, local_item_metadata.location_name) END,
+                    location_source = CASE WHEN local_item_metadata.location_user_override = 1
+                        THEN local_item_metadata.location_source ELSE COALESCE(excluded.location_source, local_item_metadata.location_source) END,
+                    lens_model = COALESCE(excluded.lens_model, local_item_metadata.lens_model),
+                    exposure_time = COALESCE(excluded.exposure_time, local_item_metadata.exposure_time),
+                    aperture = COALESCE(excluded.aperture, local_item_metadata.aperture),
+                    iso = COALESCE(excluded.iso, local_item_metadata.iso),
+                    focal_length_mm = COALESCE(excluded.focal_length_mm, local_item_metadata.focal_length_mm),
+                    video_codec = COALESCE(excluded.video_codec, local_item_metadata.video_codec),
+                    frame_rate = COALESCE(excluded.frame_rate, local_item_metadata.frame_rate),
                     document_text = COALESCE(excluded.document_text, local_item_metadata.document_text),
                     metadata_json = COALESCE(excluded.metadata_json, local_item_metadata.metadata_json),
                     updated_at = excluded.updated_at;
@@ -564,6 +745,13 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                 registration.Latitude,
                 registration.Longitude,
                 registration.LocationName,
+                registration.LensModel,
+                registration.ExposureTime,
+                registration.Aperture,
+                registration.Iso,
+                registration.FocalLengthMm,
+                registration.VideoCodec,
+                registration.FrameRate,
                 registration.DocumentText,
                 registration.MetadataJson,
                 now,
@@ -745,6 +933,68 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         }, ct);
     }
 
+    public Task<bool> UpdateDescriptionAsync(Guid itemId, string? description, CancellationToken ct = default)
+    {
+        if (itemId == Guid.Empty) throw new ArgumentException("Item ID is required.", nameof(itemId));
+        var normalized = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        if (normalized?.Length > 4000) throw new ArgumentException("Description cannot exceed 4000 characters.", nameof(description));
+        return database.ExecuteWriteAsync((connection, transaction, token) =>
+        {
+            token.ThrowIfCancellationRequested();
+            var changed = connection.Execute("""
+                UPDATE local_item_metadata
+                   SET description = @normalized, updated_at = @now
+                 WHERE item_id = @itemId;
+                """, new { itemId, normalized, now = DateTimeOffset.UtcNow }, transaction) > 0;
+            if (changed) RebuildSearchDocument(connection, transaction, itemId);
+            return changed;
+        }, ct);
+    }
+
+    public Task<bool> UpdateLocationAsync(Guid itemId, LocalAssetLocationUpdate update, CancellationToken ct = default)
+    {
+        if (itemId == Guid.Empty) throw new ArgumentException("Item ID is required.", nameof(itemId));
+        ArgumentNullException.ThrowIfNull(update);
+        if (!update.ResetToEmbedded && (update.Latitude.HasValue != update.Longitude.HasValue))
+            throw new ArgumentException("Latitude and longitude must be supplied together.", nameof(update));
+        if (update.Latitude is < -90 or > 90) throw new ArgumentOutOfRangeException(nameof(update.Latitude));
+        if (update.Longitude is < -180 or > 180) throw new ArgumentOutOfRangeException(nameof(update.Longitude));
+        return database.ExecuteWriteAsync((connection, transaction, token) =>
+        {
+            token.ThrowIfCancellationRequested();
+            var changed = connection.Execute("""
+                UPDATE local_item_metadata SET
+                    latitude = CASE WHEN @ResetToEmbedded = 1 THEN embedded_latitude ELSE @Latitude END,
+                    longitude = CASE WHEN @ResetToEmbedded = 1 THEN embedded_longitude ELSE @Longitude END,
+                    location_name = CASE WHEN @ResetToEmbedded = 1 THEN NULL ELSE @Name END,
+                    location_city = CASE WHEN @ResetToEmbedded = 1 THEN NULL ELSE @City END,
+                    location_region = CASE WHEN @ResetToEmbedded = 1 THEN NULL ELSE @Region END,
+                    location_country = CASE WHEN @ResetToEmbedded = 1 THEN NULL ELSE @Country END,
+                    location_country_code = CASE WHEN @ResetToEmbedded = 1 THEN NULL ELSE @CountryCode END,
+                    location_source = CASE WHEN @ResetToEmbedded = 1
+                        THEN CASE WHEN embedded_latitude IS NOT NULL AND embedded_longitude IS NOT NULL THEN 'embedded' END
+                        ELSE 'user' END,
+                    location_user_override = CASE WHEN @ResetToEmbedded = 1 THEN 0 ELSE 1 END,
+                    updated_at = @now
+                 WHERE item_id = @ItemId;
+                """, new
+            {
+                ItemId = itemId,
+                update.Latitude,
+                update.Longitude,
+                Name = Clean(update.Name),
+                City = Clean(update.City),
+                Region = Clean(update.Region),
+                Country = Clean(update.Country),
+                CountryCode = Clean(update.CountryCode)?.ToUpperInvariant(),
+                ResetToEmbedded = update.ResetToEmbedded ? 1 : 0,
+                now = DateTimeOffset.UtcNow,
+            }, transaction) > 0;
+            if (changed) RebuildSearchDocument(connection, transaction, itemId);
+            return changed;
+        }, ct);
+    }
+
     public Task<Guid> AddAnnotationAsync(
         Guid itemId,
         LocalAssetAnnotation annotation,
@@ -895,7 +1145,23 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             tags,
             $"/view/items/{row.Id:D}/thumbnail",
             $"/view/items/{row.Id:D}/content",
-            row.ScopeKind);
+            row.ScopeKind,
+            row.Description,
+            row.LensModel,
+            row.ExposureTime,
+            row.Aperture,
+            row.Iso,
+            row.FocalLengthMm,
+            row.VideoCodec,
+            row.FrameRate,
+            row.LocationCity,
+            row.LocationRegion,
+            row.LocationCountry,
+            row.LocationCountryCode,
+            row.LocationSource,
+            row.LocationUserOverride != 0,
+            row.EmbeddedLatitude,
+            row.EmbeddedLongitude);
 
     private static void ReplaceTags(
         SqliteConnection connection,
@@ -929,7 +1195,10 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                    li.primary_mime_type AS MimeType, li.media_kind AS MediaKind,
                    li.captured_at AS CapturedAt,
                    trim(COALESCE(lm.device_make, '') || ' ' || COALESCE(lm.device_model, '')) AS Device,
-                   lm.location_name AS Location, lm.document_text AS DocumentText,
+                   trim(COALESCE(lm.location_name, '') || ' ' || COALESCE(lm.location_city, '') || ' '
+                        || COALESCE(lm.location_region, '') || ' ' || COALESCE(lm.location_country, '') || ' '
+                        || COALESCE(lm.location_country_code, '')) AS Location,
+                   trim(COALESCE(lm.description, '') || ' ' || COALESCE(lm.document_text, '')) AS DocumentText,
                    (SELECT group_concat(tag, ' ') FROM local_item_tags WHERE item_id = li.id) AS Tags
               FROM local_items li
               LEFT JOIN local_item_metadata lm ON lm.item_id = li.id
@@ -994,6 +1263,8 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             throw new ArgumentOutOfRangeException(nameof(query), "Unsupported lifecycle filter.");
         }
     }
+
+    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static void ValidateRegistration(LocalAssetRegistration registration)
     {

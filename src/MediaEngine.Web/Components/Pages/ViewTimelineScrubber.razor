@@ -1,0 +1,36 @@
+@using System.Globalization
+@using MediaEngine.Contracts.LocalAssets
+@namespace MediaEngine.Web.Components.Pages
+
+@if (Buckets.Count > 0)
+{
+    <nav class="view-timeline-scrubber" aria-label="Jump to date">
+        @foreach (var year in Years)
+        {
+            var yearBuckets = Buckets.Where(bucket => bucket.Year == year).OrderByDescending(bucket => bucket.Month).ToList();
+            <div class="view-timeline-scrubber__year@(year == ActiveYear ? " is-active" : string.Empty)">
+                <AppNativeButton Type="button" aria-current="@(year == ActiveYear ? "date" : null)" OnClick="@(_ => JumpAsync(yearBuckets[0]))">@year</AppNativeButton>
+                <div class="view-timeline-scrubber__months" aria-label="@($"Months in {year}")">
+                    @foreach (var bucket in yearBuckets)
+                    {
+                        <AppNativeButton Type="button"
+                                class="@(bucket.Year == ActiveYear && bucket.Month == ActiveMonth ? "is-active" : string.Empty)"
+                                AriaLabel="@($"Jump to {Month(bucket.Month)} {bucket.Year}, {bucket.AssetCount} items")"
+                                Title="@($"{Month(bucket.Month)} · {bucket.AssetCount:N0}")"
+                                OnClick="@(_ => JumpAsync(bucket))"><span></span><em>@Month(bucket.Month)</em></AppNativeButton>
+                    }
+                </div>
+            </div>
+        }
+    </nav>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<ViewTimelineBucketDto> Buckets { get; set; } = [];
+    [Parameter] public int? ActiveYear { get; set; }
+    [Parameter] public int? ActiveMonth { get; set; }
+    [Parameter] public EventCallback<ViewTimelineBucketDto> OnJump { get; set; }
+    private IEnumerable<int> Years => Buckets.Select(bucket => bucket.Year).Distinct().OrderByDescending(year => year);
+    private Task JumpAsync(ViewTimelineBucketDto bucket) => OnJump.InvokeAsync(bucket);
+    private static string Month(int month) => CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(month);
+}

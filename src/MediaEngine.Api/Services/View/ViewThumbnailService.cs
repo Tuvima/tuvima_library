@@ -16,12 +16,25 @@ public sealed class ViewThumbnailService(
     IFFmpegService? ffmpeg = null)
 {
     private const int MaximumEdge = 640;
+    private const int PreviewMaximumEdge = 2048;
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _itemLocks = new();
 
     public async Task<string?> GetOrCreateAsync(
         Guid itemId,
         LocalAssetContentLocation source,
-        CancellationToken ct = default)
+        CancellationToken ct = default) => await GetOrCreateAsync(itemId, source, MaximumEdge, "thumbnail", ct).ConfigureAwait(false);
+
+    public async Task<string?> GetOrCreatePreviewAsync(
+        Guid itemId,
+        LocalAssetContentLocation source,
+        CancellationToken ct = default) => await GetOrCreateAsync(itemId, source, PreviewMaximumEdge, "preview", ct).ConfigureAwait(false);
+
+    private async Task<string?> GetOrCreateAsync(
+        Guid itemId,
+        LocalAssetContentLocation source,
+        int maximumEdge,
+        string purpose,
+        CancellationToken ct)
     {
         if (itemId == Guid.Empty
             || (!source.MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
@@ -34,8 +47,8 @@ public sealed class ViewThumbnailService(
         var target = assetPaths.GetCentralDerivedPath(
             "local-item",
             itemId,
-            "thumbnail",
-            $"timeline-{MaximumEdge}.jpg");
+            purpose,
+            $"{purpose}-{maximumEdge}.jpg");
         if (IsCurrent(target, source.FilePath))
         {
             return target;
@@ -52,17 +65,17 @@ public sealed class ViewThumbnailService(
 
             if (source.MimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
             {
-                return await GenerateVideoAsync(source.FilePath, target, ct).ConfigureAwait(false)
+                return await GenerateVideoAsync(source.FilePath, target, maximumEdge, ct).ConfigureAwait(false)
                     ? target
                     : null;
             }
 
-            if (await Task.Run(() => GenerateImage(source.FilePath, target), ct).ConfigureAwait(false))
+            if (await Task.Run(() => GenerateImage(source.FilePath, target, maximumEdge), ct).ConfigureAwait(false))
             {
                 return target;
             }
 
-            return await GenerateImageWithFfmpegAsync(source.FilePath, target, ct).ConfigureAwait(false)
+            return await GenerateImageWithFfmpegAsync(source.FilePath, target, maximumEdge, ct).ConfigureAwait(false)
                 ? target
                 : null;
         }
@@ -81,7 +94,7 @@ public sealed class ViewThumbnailService(
         File.Exists(target)
         && File.GetLastWriteTimeUtc(target) >= File.GetLastWriteTimeUtc(source);
 
-    private async Task<bool> GenerateVideoAsync(string source, string target, CancellationToken ct)
+    private async Task<bool> GenerateVideoAsync(string source, string target, int maximumEdge, CancellationToken ct)
     {
         if (ffmpeg is not { IsAvailable: true })
         {
@@ -94,7 +107,7 @@ public sealed class ViewThumbnailService(
         try
         {
             var result = await ffmpeg.RunAsync(
-                $"-y -ss 0.5 -i {Quote(source)} -frames:v 1 -vf scale={MaximumEdge}:-2:force_original_aspect_ratio=decrease {Quote(temporary)}",
+                $"-y -ss 0.5 -i {Quote(source)} -frames:v 1 -vf scale={maximumEdge}:-2:force_original_aspect_ratio=decrease {Quote(temporary)}",
                 ct).ConfigureAwait(false);
             if (result.ExitCode != 0 || !File.Exists(temporary))
             {
@@ -113,7 +126,7 @@ public sealed class ViewThumbnailService(
         }
     }
 
-    private async Task<bool> GenerateImageWithFfmpegAsync(string source, string target, CancellationToken ct)
+    private async Task<bool> GenerateImageWithFfmpegAsync(string source, string target, int maximumEdge, CancellationToken ct)
     {
         if (ffmpeg is not { IsAvailable: true })
         {
@@ -126,7 +139,7 @@ public sealed class ViewThumbnailService(
         try
         {
             var result = await ffmpeg.RunAsync(
-                $"-y -i {Quote(source)} -frames:v 1 -vf scale={MaximumEdge}:-2:force_original_aspect_ratio=decrease {Quote(temporary)}",
+                $"-y -i {Quote(source)} -frames:v 1 -vf scale={maximumEdge}:-2:force_original_aspect_ratio=decrease {Quote(temporary)}",
                 ct).ConfigureAwait(false);
             if (result.ExitCode != 0 || !File.Exists(temporary))
             {
@@ -145,7 +158,7 @@ public sealed class ViewThumbnailService(
         }
     }
 
-    private static bool GenerateImage(string source, string target)
+    private static bool GenerateImage(string source, string target, int maximumEdge)
     {
         using var input = File.Open(source, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         using var bitmap = SKBitmap.Decode(input);
@@ -154,7 +167,7 @@ public sealed class ViewThumbnailService(
             return false;
         }
 
-        var scale = Math.Min(1d, MaximumEdge / (double)Math.Max(bitmap.Width, bitmap.Height));
+        var scale = Math.Min(1d, maximumEdge / (double)Math.Max(bitmap.Width, bitmap.Height));
         using var resized = bitmap.Resize(new SKImageInfo(
             Math.Max(1, (int)Math.Round(bitmap.Width * scale)),
             Math.Max(1, (int)Math.Round(bitmap.Height * scale))),

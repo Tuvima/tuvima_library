@@ -30,6 +30,7 @@ public sealed partial class SuccessResponseGuardrailTests
         "DownloadBackup",
         "GetArtworkVariant",
         "GetCharacterPortrait",
+        "GetViewItemPreview",
         "GetAssetBackground",
         "GetAssetCover",
         "GetAssetCoverThumb",

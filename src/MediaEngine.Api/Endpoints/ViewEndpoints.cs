@@ -116,7 +116,7 @@ public static class ViewEndpoints
         }).WithName("UpdateViewPreferences").Produces<ViewPreferencesDto>();
 
         group.MapGet("/assets", async (string? scope, Guid? scopeProfileId,
-            int? limit, string? cursor, string? q, string[]? kind,
+            int? limit, string? cursor, DateTimeOffset? anchorBefore, string? q, string[]? kind,
             bool? favorite, bool? hidden, Guid? galleryId, string? lifecycle,
             IViewRequestProfileContext identity, IViewProfileRepository preferences,
             IViewResourceAuthorizationService authorization,
@@ -144,12 +144,51 @@ public static class ViewEndpoints
                     requested, PagedRequest.From(0, limit, 120, 500).Limit, cursor, q, kind,
                     favorite == true, hidden == true, hidden == true, galleryId,
                     ParseLifecycle(lifecycle),
-                    AllowStaleSelectionFallback: string.IsNullOrWhiteSpace(scope)), ct);
+                    AllowStaleSelectionFallback: string.IsNullOrWhiteSpace(scope),
+                    AnchorBefore: anchorBefore), ct);
                 return Access(result.Outcome, result.Page);
             }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
             catch (InvalidOperationException exception) { return ApiErrors.Unprocessable(exception.Message); }
         }).WithName("GetViewAssets").Produces<ViewAssetTimelinePageDto>();
+
+        group.MapGet("/assets/timeline-index", async (string? scope, Guid? scopeProfileId,
+            string? q, string[]? kind, bool? favorite, bool? hidden, Guid? galleryId, string? lifecycle,
+            IViewRequestProfileContext identity, IViewProfileRepository preferences,
+            IViewResourceAuthorizationService authorization,
+            IViewQueryOrchestrator queries, CancellationToken ct) =>
+        {
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (!authority.IsAuthenticated)
+            {
+                return Unauthenticated();
+            }
+
+            try
+            {
+                var preferenceAccess = await AuthorizeDefaultScopePreferenceAsync(
+                    authority, scope, authorization, ct);
+                if (preferenceAccess is not null)
+                {
+                    return Access(preferenceAccess.Outcome);
+                }
+
+                var requested = authority.ActiveProfileId is { } profileId
+                    ? await GetScopeAsync(profileId, scope, scopeProfileId, preferences, ct)
+                    : ParseScope(scope, scopeProfileId);
+                var result = await queries.IndexAsync(new ViewAssetQueryRequest(
+                    requested, 120, Search: q, MediaKinds: kind,
+                    FavoritesOnly: favorite == true,
+                    IncludeHidden: hidden == true,
+                    HiddenOnly: hidden == true,
+                    GalleryId: galleryId,
+                    Lifecycle: ParseLifecycle(lifecycle),
+                    AllowStaleSelectionFallback: string.IsNullOrWhiteSpace(scope)), ct);
+                return Access(result.Outcome, result.Index);
+            }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+            catch (InvalidOperationException exception) { return ApiErrors.Unprocessable(exception.Message); }
+        }).WithName("GetViewTimelineIndex").Produces<ViewTimelineIndexDto>();
 
         group.MapGet("/folders", async (string? scope, Guid? scopeProfileId,
             Guid? sourceId, string? path, bool? recursive, string? q, int? offset, int? limit,
@@ -351,11 +390,72 @@ public static class ViewEndpoints
             return thumbnail is null ? Results.NoContent() : Results.File(thumbnail, "image/jpeg");
         }).WithName("GetViewItemThumbnail").Produces(StatusCodes.Status200OK).RequireRateLimiting("streaming");
 
+        group.MapGet("/items/{id:guid}/preview", async (Guid id, string? scope, Guid? scopeProfileId,
+            IViewRequestProfileContext identity, IViewProfileRepository preferences,
+            IViewResourceAuthorizationService authorization, IViewResourceStore resources,
+            ViewThumbnailService thumbnails, CancellationToken ct) =>
+        {
+            var decision = await AuthorizeItemAsync(id, ViewResourceKind.Thumbnail, ViewResourceAction.Read,
+                scope, scopeProfileId, identity, preferences, authorization, ct);
+            if (!decision.IsAllowed) return Access(decision.Outcome);
+            var file = decision.Scope is null ? null : await resources.ResolveContentAsync(
+                id, LocalAssetFileRoles.Primary, decision.Scope, ct);
+            if (file is null || !File.Exists(file.FilePath)) return Missing();
+            var preview = await thumbnails.GetOrCreatePreviewAsync(id, file, ct);
+            return preview is null ? Results.NoContent() : Results.File(preview, "image/jpeg");
+        }).WithName("GetViewItemPreview").Produces(StatusCodes.Status200OK).RequireRateLimiting("streaming");
+
         MapFlag(group, "favorite", (repo, id, value, ct) => repo.SetFlagsAsync(id, value, null, ct));
         MapFlag(group, "hidden", (repo, id, value, ct) => repo.SetFlagsAsync(id, null, value, ct));
         MapLifecycle(group, "archive", LocalAssetLifecycleState.Archived);
         MapLifecycle(group, "trash", LocalAssetLifecycleState.Trashed);
         MapLifecycle(group, "restore", LocalAssetLifecycleState.Active);
+
+        group.MapPut("/items/{id:guid}/description", async (Guid id,
+            UpdateLocalAssetDescriptionRequest request, IViewRequestProfileContext identity,
+            IViewResourceAuthorizationService authorization, ILocalAssetRepository assets, CancellationToken ct) =>
+        {
+            var decision = await AuthorizeOwnedItemAsync(id, identity, authorization, ct);
+            if (!decision.IsAllowed) return Access(decision.Outcome);
+            try
+            {
+                if (!await assets.UpdateDescriptionAsync(id, request.Description, ct)) return Missing();
+                return Results.Ok(assets.Find(id, ct));
+            }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+        }).WithName("UpdateViewItemDescription").Produces<LocalAssetDto>();
+
+        group.MapPut("/items/{id:guid}/tags", async (Guid id,
+            UpdateLocalAssetTagsRequest request, IViewRequestProfileContext identity,
+            IViewResourceAuthorizationService authorization, ILocalAssetRepository assets, CancellationToken ct) =>
+        {
+            var decision = await AuthorizeOwnedItemAsync(id, identity, authorization, ct);
+            if (!decision.IsAllowed) return Access(decision.Outcome);
+            try
+            {
+                await assets.ReplaceTagsAsync(id, request.Tags ?? [], ct);
+                return Results.Ok(assets.Find(id, ct));
+            }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+            catch (InvalidOperationException) { return Missing(); }
+        }).WithName("UpdateViewItemTags").Produces<LocalAssetDto>();
+
+        group.MapPut("/items/{id:guid}/location", async (Guid id,
+            UpdateLocalAssetLocationRequest request, IViewRequestProfileContext identity,
+            IViewResourceAuthorizationService authorization, ILocalAssetRepository assets, CancellationToken ct) =>
+        {
+            var decision = await AuthorizeOwnedItemAsync(id, identity, authorization, ct);
+            if (!decision.IsAllowed) return Access(decision.Outcome);
+            try
+            {
+                var update = new LocalAssetLocationUpdate(request.Latitude, request.Longitude,
+                    request.Name, request.City, request.Region, request.Country,
+                    request.CountryCode, request.ResetToEmbedded);
+                if (!await assets.UpdateLocationAsync(id, update, ct)) return Missing();
+                return Results.Ok(assets.Find(id, ct));
+            }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+        }).WithName("UpdateViewItemLocation").Produces<LocalAssetDto>();
 
         group.MapPost("/shared/contributions/preview", async (ViewSharedContributionPreviewRequest request,
             IViewRequestProfileContext identity, ViewSharedContributionService contributions, CancellationToken ct) =>
@@ -1087,7 +1187,7 @@ public static class ViewEndpoints
         IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization, CancellationToken ct) =>
         await authorization.AuthorizeAsync(await identity.ResolveAuthorityAsync(ct),
             new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Asset, id,
-                ViewResourceAction.Contribute), ct);
+                ViewResourceAction.Manage), ct);
 
     private static async Task<ViewAccessDecision?> AuthorizeDefaultScopePreferenceAsync(
         RequestAuthority authority,

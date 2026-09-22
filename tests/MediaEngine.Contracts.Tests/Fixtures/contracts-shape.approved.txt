@@ -3345,6 +3345,22 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.LocalAssetDt
   ThumbnailUrl: System.String | nullability=not-null | accessors=get,init
   ContentUrl: System.String | nullability=not-null | accessors=get,init
   ScopeKind: System.String | nullability=not-null | accessors=get,init
+  Description: System.String | nullability=nullable | accessors=get,init
+  LensModel: System.String | nullability=nullable | accessors=get,init
+  ExposureTime: System.String | nullability=nullable | accessors=get,init
+  Aperture: System.Double? | nullability=nullable | accessors=get,init
+  Iso: System.Int32? | nullability=nullable | accessors=get,init
+  FocalLengthMm: System.Double? | nullability=nullable | accessors=get,init
+  VideoCodec: System.String | nullability=nullable | accessors=get,init
+  FrameRate: System.Double? | nullability=nullable | accessors=get,init
+  LocationCity: System.String | nullability=nullable | accessors=get,init
+  LocationRegion: System.String | nullability=nullable | accessors=get,init
+  LocationCountry: System.String | nullability=nullable | accessors=get,init
+  LocationCountryCode: System.String | nullability=nullable | accessors=get,init
+  LocationSource: System.String | nullability=nullable | accessors=get,init
+  LocationUserOverride: System.Boolean | nullability=not-null | accessors=get,init
+  EmbeddedLatitude: System.Double? | nullability=nullable | accessors=get,init
+  EmbeddedLongitude: System.Double? | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.LocalAssetFileDto
   Id: System.Guid | nullability=not-null | accessors=get,init
@@ -3372,6 +3388,22 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.LocalAssetSc
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.SetLocalAssetFlagRequest
   Value: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.UpdateLocalAssetDescriptionRequest
+  Description: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.UpdateLocalAssetLocationRequest
+  Latitude: System.Double? | nullability=nullable | accessors=get,init
+  Longitude: System.Double? | nullability=nullable | accessors=get,init
+  Name: System.String | nullability=nullable | accessors=get,init
+  City: System.String | nullability=nullable | accessors=get,init
+  Region: System.String | nullability=nullable | accessors=get,init
+  Country: System.String | nullability=nullable | accessors=get,init
+  CountryCode: System.String | nullability=nullable | accessors=get,init
+  ResetToEmbedded: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.UpdateLocalAssetTagsRequest
+  Tags: System.Collections.Generic.IReadOnlyCollection<System.String> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.UpdateViewSourceRequest
   Name: System.String | nullability=not-null | accessors=get,init
@@ -3711,6 +3743,16 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSourceAd
   CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
   UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
   IncludeInTimeline: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewTimelineBucketDto
+  Year: System.Int32 | nullability=not-null | accessors=get,init
+  Month: System.Int32 | nullability=not-null | accessors=get,init
+  AssetCount: System.Int32 | nullability=not-null | accessors=get,init
+  EarliestAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  LatestAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewTimelineIndexDto
+  Buckets: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewTimelineBucketDto> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewUploadResponseDto
   ItemId: System.Guid | nullability=not-null | accessors=get,init

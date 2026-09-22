@@ -16,7 +16,8 @@ public sealed record ViewAssetQueryRequest(
     bool HiddenOnly = false,
     Guid? GalleryId = null,
     LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active,
-    bool AllowStaleSelectionFallback = false);
+    bool AllowStaleSelectionFallback = false,
+    DateTimeOffset? AnchorBefore = null);
 
 /// <summary>
 /// Authorized persistence plan. Backends receive only library IDs approved by
@@ -35,11 +36,17 @@ public sealed record ViewAssetQueryPlan(
     LocalAssetLifecycleFilter Lifecycle,
     CollectionRuleDefinition? SmartRule,
     bool TimelineEligibleOnly,
-    bool IncludeSharedLibraryAssets);
+    bool IncludeSharedLibraryAssets,
+    DateTimeOffset? AnchorBefore = null);
 
 public sealed record ViewQueryResult(
     ViewAccessOutcome Outcome,
     ViewAssetTimelinePageDto? Page = null,
+    ResolvedViewScope? Scope = null);
+
+public sealed record ViewTimelineIndexResult(
+    ViewAccessOutcome Outcome,
+    ViewTimelineIndexDto? Index = null,
     ResolvedViewScope? Scope = null);
 
 /// <summary>
@@ -99,8 +106,56 @@ public sealed class ViewQueryOrchestrator(
             request.Lifecycle,
             smartRule,
             request.GalleryId is null && string.IsNullOrWhiteSpace(request.Search),
-            decision.Scope.Kind == ViewScopeKind.Shared);
+            decision.Scope.Kind == ViewScopeKind.Shared,
+            request.AnchorBefore);
         var page = await backend.QueryAsync(plan, ct).ConfigureAwait(false);
         return new ViewQueryResult(ViewAccessOutcome.Allowed, page, decision.Scope);
+    }
+
+    public async Task<ViewTimelineIndexResult> IndexAsync(
+        ViewAssetQueryRequest request,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var decision = await authorization.AuthorizeAsync(
+            await profileContext.ResolveAuthorityAsync(ct).ConfigureAwait(false),
+            new ViewResourceRequest(
+                request.Scope,
+                request.GalleryId.HasValue ? ViewResourceKind.Gallery : ViewResourceKind.Search,
+                request.GalleryId,
+                AllowStaleSelectionFallback: request.AllowStaleSelectionFallback),
+            ct).ConfigureAwait(false);
+        if (!decision.IsAllowed || decision.Scope is null)
+        {
+            return new ViewTimelineIndexResult(decision.Outcome);
+        }
+
+        CollectionRuleDefinition? smartRule = null;
+        if (request.GalleryId is { } galleryId)
+        {
+            if (smartGalleries is null)
+            {
+                throw new InvalidOperationException("Smart Gallery query services are unavailable.");
+            }
+            smartRule = await smartGalleries.ResolveRuleAsync(galleryId, ct).ConfigureAwait(false);
+        }
+
+        var plan = new ViewAssetQueryPlan(
+            decision.Scope,
+            request.Limit,
+            null,
+            request.Search,
+            request.MediaKinds,
+            request.FavoritesOnly,
+            request.IncludeHidden,
+            request.HiddenOnly,
+            smartRule is null ? request.GalleryId : null,
+            request.Lifecycle,
+            smartRule,
+            request.GalleryId is null && string.IsNullOrWhiteSpace(request.Search),
+            decision.Scope.Kind == ViewScopeKind.Shared,
+            null);
+        var index = await backend.IndexAsync(plan, ct).ConfigureAwait(false);
+        return new ViewTimelineIndexResult(ViewAccessOutcome.Allowed, index, decision.Scope);
     }
 }

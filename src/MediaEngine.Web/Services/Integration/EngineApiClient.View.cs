@@ -46,6 +46,7 @@ public sealed partial class EngineApiClient
         AddQuery(query, "scopeProfileId", options.Scope == ViewScopeKind.Profile
             ? options.ScopeProfileId?.ToString("D") : null);
         AddQuery(query, "cursor", options.Cursor);
+        AddQuery(query, "anchorBefore", options.AnchorBefore?.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
         AddQuery(query, "q", options.Search?.Trim());
         foreach (var kind in options.Kinds ?? [])
         {
@@ -59,6 +60,28 @@ public sealed partial class EngineApiClient
         AddQuery(query, "limit", Math.Clamp(options.Limit, 1, 500).ToString(System.Globalization.CultureInfo.InvariantCulture));
         return GetAsync<ViewAssetTimelinePageDto>("GET /view/assets", $"/view/assets?{string.Join('&', query)}", ct: ct);
     }
+
+    public Task<ViewTimelineIndexDto?> GetViewTimelineIndexAsync(ViewAssetQueryOptions options, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        AddQuery(query, "scope", ScopeValue(options.Scope));
+        AddQuery(query, "scopeProfileId", options.Scope == ViewScopeKind.Profile
+            ? options.ScopeProfileId?.ToString("D") : null);
+        AddQuery(query, "q", options.Search?.Trim());
+        foreach (var kind in options.Kinds ?? []) AddQuery(query, "kind", kind);
+        AddQuery(query, "favorite", options.FavoritesOnly ? "true" : null);
+        AddQuery(query, "hidden", options.HiddenOnly ? "true" : null);
+        AddQuery(query, "lifecycle", options.Lifecycle);
+        AddQuery(query, "galleryId", options.GalleryId?.ToString("D"));
+        return GetAsync<ViewTimelineIndexDto>("GET /view/assets/timeline-index", $"/view/assets/timeline-index?{string.Join('&', query)}", ct: ct);
+    }
+
+    public Task<LocalAssetDto?> GetViewItemAsync(Guid itemId, ViewScopeKind scope, Guid? scopeProfileId = null, CancellationToken ct = default) =>
+        GetAsync<LocalAssetDto>("GET /view/items/{id}", $"/view/items/{itemId:D}", new Dictionary<string, string?>
+        {
+            ["scope"] = ScopeValue(scope),
+            ["scopeProfileId"] = scope == ViewScopeKind.Profile ? scopeProfileId?.ToString("D") : null,
+        }, ct: ct);
 
     public Task<ViewFolderPageDto?> GetViewFoldersAsync(ViewFolderQueryOptions options, CancellationToken ct = default)
     {
@@ -120,6 +143,12 @@ public sealed partial class EngineApiClient
     public Task<bool> ArchiveViewItemAsync(Guid itemId, CancellationToken ct = default) => LifecycleAsync(itemId, "archive", ct);
     public Task<bool> TrashViewItemAsync(Guid itemId, CancellationToken ct = default) => LifecycleAsync(itemId, "trash", ct);
     public Task<bool> RestoreViewItemAsync(Guid itemId, CancellationToken ct = default) => LifecycleAsync(itemId, "restore", ct);
+    public Task<LocalAssetDto?> UpdateViewItemDescriptionAsync(Guid itemId, string? description, CancellationToken ct = default) =>
+        PutViewItemAsync(itemId, "description", new UpdateLocalAssetDescriptionRequest(description), ct);
+    public Task<LocalAssetDto?> UpdateViewItemTagsAsync(Guid itemId, IReadOnlyCollection<string> tags, CancellationToken ct = default) =>
+        PutViewItemAsync(itemId, "tags", new UpdateLocalAssetTagsRequest(tags), ct);
+    public Task<LocalAssetDto?> UpdateViewItemLocationAsync(Guid itemId, UpdateLocalAssetLocationRequest request, CancellationToken ct = default) =>
+        PutViewItemAsync(itemId, "location", request, ct);
     public Task<ViewSharedContributionPreviewDto?> PreviewViewSharedContributionAsync(ViewSharedContributionPreviewRequest request, CancellationToken ct = default) =>
         PostAsync<ViewSharedContributionPreviewRequest, ViewSharedContributionPreviewDto>("POST /view/shared/contributions/preview", "/view/shared/contributions/preview", request, ct: ct);
     public Task<ViewSharedContributionDto?> SubmitViewSharedContributionAsync(ViewSharedContributionSubmitRequest request, CancellationToken ct = default) =>
@@ -232,6 +261,28 @@ public sealed partial class EngineApiClient
 
     private Task<bool> LifecycleAsync(Guid itemId, string action, CancellationToken ct) =>
         PostAsync("POST /view/items/{id}/lifecycle", $"/view/items/{itemId:D}/{action}", new { }, ct: ct);
+
+    private async Task<LocalAssetDto?> PutViewItemAsync<T>(Guid itemId, string field, T value, CancellationToken ct)
+    {
+        var endpoint = $"PUT /view/items/{{id}}/{field}";
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"/view/items/{itemId:D}/{field}")
+            {
+                Content = JsonContent.Create(value)
+            };
+            using var response = await _http.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+            ClearFailure(endpoint);
+            return await response.Content.ReadFromJsonAsync<LocalAssetDto>(cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception exception) { RecordExceptionFailure(endpoint, exception, true); return null; }
+    }
 
     private Task<T?> GetViewDiscoveryAsync<T>(string resource, ViewDiscoveryQueryOptions options, CancellationToken ct)
     {

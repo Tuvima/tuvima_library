@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Artwork
 @using MediaEngine.Contracts.Artwork
+@using MediaEngine.Web.Models.ViewDTOs
 @inject IEngineApiClient ApiClient
 @implements IDisposable
 
@@ -108,6 +109,23 @@
     </div>
 </div>
 
+@if (_viewerAsset is not null)
+{
+    <MediaViewerShell Item="@ViewerItem" Capabilities="@ArtworkViewerCapabilities" HasPrevious="@CanViewPrevious" HasNext="@CanViewNext" OnClose="CloseViewer" OnPrevious="ViewPrevious" OnNext="ViewNext">
+        <InfoContent>
+            <dl>
+                <div><dt>Dimensions</dt><dd>@Dimensions(_viewerAsset)</dd></div>
+                <div><dt>Aspect</dt><dd>@_viewerAsset.Aspect</dd></div>
+                <div><dt>Source</dt><dd>@(_viewerAsset.SourceProvider ?? "Library")</dd></div>
+                <div><dt>Added</dt><dd>@(_viewerAsset.CreatedAt?.LocalDateTime.ToString("d") ?? "Not recorded")</dd></div>
+                <div><dt>Used by</dt><dd>@_viewerAsset.LinkCount assignment@(_viewerAsset.LinkCount == 1 ? string.Empty : "s")</dd></div>
+                <div><dt>Preferred uses</dt><dd>@_viewerAsset.PreferredLinkCount</dd></div>
+            </dl>
+            @if (_viewerAsset.Contexts.Count > 0) { <section class="artwork-asset-browser__viewer-context"><h3>Related to</h3>@foreach (var context in _viewerAsset.Contexts.Take(12)) { <div><strong>@context.EntityLabel</strong><span>@string.Join(" · ", new[] { context.Role, context.MediaType, context.Year }.Where(value => !string.IsNullOrWhiteSpace(value)))</span></div> }</section> }
+        </InfoContent>
+    </MediaViewerShell>
+}
+
 @code {
     private static readonly (string Label, ArtworkPickerScope Value)[] PickerScopes = [("Recommended", ArtworkPickerScope.Recommended), ("Related", ArtworkPickerScope.Related), ("All Artwork", ArtworkPickerScope.All)];
     private static readonly (string Label, string Value)[] RoleOptions = [("All roles", ""), ("Primary", "Primary"), ("Background", "Background"), ("Portrait", "Portrait"), ("Logo", "Logo")];
@@ -125,6 +143,7 @@
 
     private ArtworkAssetPageDto? _page;
     private Guid? _selectedAssetId;
+    private ArtworkAssetDto? _viewerAsset;
     private string _search = string.Empty;
     private string _role = string.Empty;
     private string _aspect = string.Empty;
@@ -201,6 +220,7 @@
     private async Task SelectAssetAsync(ArtworkAssetDto asset)
     {
         _selectedAssetId = asset.Id;
+        _viewerAsset = asset;
         await SelectionChanged.InvokeAsync(asset);
     }
 
@@ -229,5 +249,13 @@
     private static string AssetTitle(ArtworkAssetDto asset) => asset.DisplayContext?.EntityLabel ?? asset.Contexts.FirstOrDefault()?.EntityLabel ?? "Library artwork";
     private static string AssetFacts(ArtworkAssetDto asset) { var context = asset.DisplayContext ?? asset.Contexts.FirstOrDefault(); return string.Join(" · ", new[] { context?.Role, context?.MediaType, context?.Year, asset.SourceProvider }.Where(value => !string.IsNullOrWhiteSpace(value))); }
     private static string Dimensions(ArtworkAssetDto asset) => asset.Width.HasValue && asset.Height.HasValue ? $"{asset.Width} × {asset.Height}" : "Not recorded";
+    private int ViewerIndex => _viewerAsset is null ? -1 : (_page?.Items.ToList().FindIndex(asset => asset.Id == _viewerAsset.Id) ?? -1);
+    private bool CanViewPrevious => ViewerIndex > 0;
+    private bool CanViewNext => ViewerIndex >= 0 && ViewerIndex < (_page?.Items.Count ?? 0) - 1;
+    private MediaViewerItem ViewerItem => new(_viewerAsset!.Id.ToString("D"), MediaViewerKind.Image, AssetTitle(_viewerAsset), AssetFacts(_viewerAsset), _viewerAsset.ContentUrl, _viewerAsset.ContentUrl, PositionLabel: ViewerIndex >= 0 ? $"{ViewerIndex + 1} of {_page?.Items.Count ?? 0}" : null, AltText: AssetTitle(_viewerAsset));
+    private MediaViewerCapabilities ArtworkViewerCapabilities => new(CanDownload: true, CanShowInfo: true, CanZoom: true, CanSlideshow: CanViewNext);
+    private void CloseViewer() => _viewerAsset = null;
+    private void ViewPrevious() { if (CanViewPrevious) _viewerAsset = _page!.Items[ViewerIndex - 1]; }
+    private void ViewNext() { if (CanViewNext) _viewerAsset = _page!.Items[ViewerIndex + 1]; }
     public void Dispose() { _searchCts?.Cancel(); _searchCts?.Dispose(); }
 }

@@ -37,7 +37,23 @@ public sealed record LocalAssetDto(
     [property: JsonPropertyName("tags")] IReadOnlyList<string> Tags,
     [property: JsonPropertyName("thumbnail_url")] string ThumbnailUrl,
     [property: JsonPropertyName("content_url")] string ContentUrl,
-    [property: JsonPropertyName("scope_kind")] string ScopeKind = "personal");
+    [property: JsonPropertyName("scope_kind")] string ScopeKind = "personal",
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("lens_model")] string? LensModel = null,
+    [property: JsonPropertyName("exposure_time")] string? ExposureTime = null,
+    [property: JsonPropertyName("aperture")] double? Aperture = null,
+    [property: JsonPropertyName("iso")] int? Iso = null,
+    [property: JsonPropertyName("focal_length_mm")] double? FocalLengthMm = null,
+    [property: JsonPropertyName("video_codec")] string? VideoCodec = null,
+    [property: JsonPropertyName("frame_rate")] double? FrameRate = null,
+    [property: JsonPropertyName("location_city")] string? LocationCity = null,
+    [property: JsonPropertyName("location_region")] string? LocationRegion = null,
+    [property: JsonPropertyName("location_country")] string? LocationCountry = null,
+    [property: JsonPropertyName("location_country_code")] string? LocationCountryCode = null,
+    [property: JsonPropertyName("location_source")] string? LocationSource = null,
+    [property: JsonPropertyName("location_user_override")] bool LocationUserOverride = false,
+    [property: JsonPropertyName("embedded_latitude")] double? EmbeddedLatitude = null,
+    [property: JsonPropertyName("embedded_longitude")] double? EmbeddedLongitude = null);
 
 public sealed record LocalAssetFileDto(
     [property: JsonPropertyName("id")] Guid Id,
@@ -58,6 +74,16 @@ public sealed record ViewAssetTimelinePageDto(
     [property: JsonPropertyName("items")] IReadOnlyList<LocalAssetDto> Items,
     [property: JsonPropertyName("next_cursor")] string? NextCursor,
     [property: JsonPropertyName("has_more")] bool HasMore);
+
+public sealed record ViewTimelineBucketDto(
+    [property: JsonPropertyName("year")] int Year,
+    [property: JsonPropertyName("month")] int Month,
+    [property: JsonPropertyName("asset_count")] int AssetCount,
+    [property: JsonPropertyName("earliest_at")] DateTimeOffset EarliestAt,
+    [property: JsonPropertyName("latest_at")] DateTimeOffset LatestAt);
+
+public sealed record ViewTimelineIndexDto(
+    [property: JsonPropertyName("buckets")] IReadOnlyList<ViewTimelineBucketDto> Buckets);
 
 public sealed record ViewResolvedScopeDto(
     [property: JsonPropertyName("kind")] ViewScopeKind Kind,
@@ -92,6 +118,22 @@ public sealed record ViewPreferencesRequest(
     [property: JsonPropertyName("scope")] string? Scope,
     [property: JsonPropertyName("scope_profile_id")] Guid? ScopeProfileId,
     [property: JsonPropertyName("timeline_density")] ViewTimelineDensity TimelineDensity);
+
+public sealed record UpdateLocalAssetDescriptionRequest(
+    [property: JsonPropertyName("description")] string? Description);
+
+public sealed record UpdateLocalAssetTagsRequest(
+    [property: JsonPropertyName("tags")] IReadOnlyCollection<string> Tags);
+
+public sealed record UpdateLocalAssetLocationRequest(
+    [property: JsonPropertyName("latitude")] double? Latitude,
+    [property: JsonPropertyName("longitude")] double? Longitude,
+    [property: JsonPropertyName("name")] string? Name = null,
+    [property: JsonPropertyName("city")] string? City = null,
+    [property: JsonPropertyName("region")] string? Region = null,
+    [property: JsonPropertyName("country")] string? Country = null,
+    [property: JsonPropertyName("country_code")] string? CountryCode = null,
+    [property: JsonPropertyName("reset_to_embedded")] bool ResetToEmbedded = false);
 
 public sealed record ViewGalleryRequest(
     [property: JsonPropertyName("name")] string Name,
