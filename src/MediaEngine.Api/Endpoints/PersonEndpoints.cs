@@ -312,6 +312,7 @@ public static class PersonEndpoints
         // Downloads and caches if no local file exists.
         group.MapGet("/{id:guid}/headshot", async (
             Guid id,
+            string? size,
             IPersonRepository personRepo,
             IEntityAssetRepository assetRepo,
             IHttpClientFactory httpFactory,
@@ -327,11 +328,18 @@ public static class PersonEndpoints
             }
 
             var preferredHeadshot = await assetRepo.GetPreferredAsync(id.ToString(), "Headshot", ct);
-            if (!string.IsNullOrWhiteSpace(preferredHeadshot?.LocalImagePath)
-                && File.Exists(preferredHeadshot.LocalImagePath)
-                && IsLikelyImageFile(preferredHeadshot.LocalImagePath))
+            var preferredHeadshotPath = size?.Trim().ToLowerInvariant() switch
             {
-                return Results.File(preferredHeadshot.LocalImagePath, GetImageMimeTypeOrJpeg(preferredHeadshot.LocalImagePath));
+                "s" => preferredHeadshot?.LocalImagePathSmall ?? preferredHeadshot?.LocalImagePathMedium ?? preferredHeadshot?.LocalImagePath,
+                "m" => preferredHeadshot?.LocalImagePathMedium ?? preferredHeadshot?.LocalImagePathLarge ?? preferredHeadshot?.LocalImagePath,
+                "l" => preferredHeadshot?.LocalImagePathLarge ?? preferredHeadshot?.LocalImagePath,
+                _ => preferredHeadshot?.LocalImagePath,
+            };
+            if (!string.IsNullOrWhiteSpace(preferredHeadshotPath)
+                && File.Exists(preferredHeadshotPath)
+                && IsLikelyImageFile(preferredHeadshotPath))
+            {
+                return Results.File(preferredHeadshotPath, GetImageMimeTypeOrJpeg(preferredHeadshotPath));
             }
 
             // Try local headshot path first.

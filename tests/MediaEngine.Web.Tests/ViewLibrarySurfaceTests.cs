@@ -110,6 +110,11 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("_entityKind = value ?? \"media\"", artwork, StringComparison.Ordinal);
         Assert.Contains("await LoadAsync();", artwork, StringComparison.Ordinal);
         Assert.Contains("view-artwork-card--square", artworkStyles, StringComparison.Ordinal);
+        Assert.Contains("view-artwork-card--tv", artworkStyles, StringComparison.Ordinal);
+        Assert.Contains("object-fit: contain", artworkStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("owned item", artwork, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("content?size=s", readModel, StringComparison.Ordinal);
+        Assert.DoesNotContain("content?size=m", readModel, StringComparison.Ordinal);
         Assert.Contains("Icons.Material.Outlined.Public", artwork, StringComparison.Ordinal);
         Assert.Contains("Icons.Material.Outlined.PersonOutline", artwork, StringComparison.Ordinal);
         Assert.Contains("primary_person_media_credits", readModel, StringComparison.Ordinal);

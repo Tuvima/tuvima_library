@@ -124,7 +124,7 @@
                     {
                         var context = asset.Contexts.FirstOrDefault();
                         <AppNativeButton Type="button" Class="@($"view-artwork-card view-artwork-card--{AssetShape(asset)}")" OnClick="(() => OpenAssetAsync(asset))" AriaLabel="@($"Open {AssetTitle(asset)}")">
-                            <span class="view-artwork-card__image"><img src="@asset.ThumbnailUrl" alt="" loading="lazy" /><span class="view-artwork-card__open"><MudIcon Icon="@Icons.Material.Outlined.OpenInFull" /> Open</span></span>
+                            <span class="view-artwork-card__image"><img src="@asset.ThumbnailUrl" srcset="@GalleryImageSrcSet(asset.ThumbnailUrl)" sizes="@GalleryImageSizes" alt="" loading="lazy" decoding="async" data-image-display="artwork-gallery-card" /><span class="view-artwork-card__open"><MudIcon Icon="@Icons.Material.Outlined.OpenInFull" /> Open</span></span>
                             <span class="view-artwork-card__body"><strong>@AssetTitle(asset)</strong><span class="view-artwork-card__meta">@string.Join(" · ", new[] { context?.Role, context?.MediaType, context?.Year, asset.SourceProvider }.Where(value => !string.IsNullOrWhiteSpace(value)))</span></span>
                         </AppNativeButton>
                     }
@@ -149,7 +149,7 @@
                         <span class="view-artwork-card__image">
                             @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
                             {
-                                <img src="@item.ImageUrl" alt="" loading="lazy" />
+                                <img src="@item.ImageUrl" srcset="@GalleryImageSrcSet(item.ImageUrl)" sizes="@GalleryImageSizes" alt="" loading="lazy" decoding="async" data-image-display="artwork-gallery-card" />
                             }
                             else if (item.ResolutionMode == ArtworkResolutionMode.AutomaticGroup && item.PreviewItems.Count > 0)
                             {
@@ -283,9 +283,17 @@
     {
         var next = KindFromLocation(args.Location);
         if (string.Equals(next, _entityKind, StringComparison.OrdinalIgnoreCase)) return;
-        _entityKind = next;
-        _mediaType = "all";
-        _ = InvokeAsync(LoadAsync);
+        _ = InvokeAsync(async () =>
+        {
+            _entityKind = next;
+            _mediaType = "all";
+            _page = null;
+            _assetPage = null;
+            _loading = true;
+            StateHasChanged();
+            await LoadAsync();
+            StateHasChanged();
+        });
     }
 
     private async Task LoadAsync()
@@ -337,6 +345,7 @@
         _page = null;
         _assetPage = null;
         _loading = true;
+        StateHasChanged();
         var route = value switch
         {
             "people" => "/view/artwork/people",
@@ -498,6 +507,8 @@
         string.Equals(item.GroupKind, "MusicAlbum", StringComparison.OrdinalIgnoreCase)
             || string.Equals(item.MediaType, "Music", StringComparison.OrdinalIgnoreCase)
             ? "square" :
+        string.Equals(item.GroupKind, "TvShow", StringComparison.OrdinalIgnoreCase)
+            ? "tv" :
         item.IsStructural ? "group" :
         item.EntityType == "Person" || string.Equals(item.PrimaryAssetType, "Headshot", StringComparison.OrdinalIgnoreCase)
             ? "person"
@@ -518,9 +529,7 @@
     {
         if (item.IsStructural)
         {
-            var groupIdentity = string.Join(" · ", new[] { item.Subtitle, item.Year }.Where(value => !string.IsNullOrWhiteSpace(value)));
-            var owned = $"{item.OwnedWorkCount} owned {(item.OwnedWorkCount == 1 ? "item" : "items")}";
-            return string.Join(" · ", new[] { groupIdentity, owned }.Where(value => !string.IsNullOrWhiteSpace(value)));
+            return string.Join(" · ", new[] { item.Subtitle, item.Year }.Where(value => !string.IsNullOrWhiteSpace(value)));
         }
 
         if (item.EntityType == "Person")
@@ -543,6 +552,20 @@
         "CharacterPortrait" => "Character portrait",
         _ => value,
     };
+
+    private string GalleryImageSizes => _tileSize switch
+    {
+        "small" => "(max-width: 640px) 44vw, 160px",
+        "large" => "(max-width: 640px) 92vw, 300px",
+        _ => "(max-width: 640px) 44vw, 220px",
+    };
+
+    private static string? GalleryImageSrcSet(string? url)
+    {
+        var small = MediaTileArtworkUrl.Sized(url, "s");
+        if (small is null) return null;
+        return MediaTileArtworkUrl.SrcSet(small, MediaTileArtworkUrl.Sized(url, "m"));
+    }
 
     private bool IsPeopleView => string.Equals(_entityKind, "people", StringComparison.OrdinalIgnoreCase);
     private bool IsUniverseView => string.Equals(_entityKind, "universes", StringComparison.OrdinalIgnoreCase);

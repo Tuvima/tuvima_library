@@ -131,6 +131,11 @@ public sealed class ArtworkLibraryReadService(
                    collection.background_artwork_path AS BackgroundPath,
                    collection.logo_artwork_path AS LogoPath,
                    collection.wikidata_qid AS CanonicalId,
+                   (SELECT link.artwork_asset_id
+                      FROM entity_artwork_links link
+                     WHERE link.entity_id=collection.id AND link.entity_type='Collection'
+                       AND link.role='Primary'
+                     ORDER BY link.is_preferred DESC, link.sort_order, link.created_at LIMIT 1) AS PreferredAssetId,
                    COUNT(DISTINCT item.work_id) AS OwnedWorkCount
             FROM collections collection
             LEFT JOIN collection_items item ON item.collection_id = collection.id
@@ -142,7 +147,7 @@ public sealed class ArtworkLibraryReadService(
 
         foreach (var row in rows)
         {
-            var hasCover = !string.IsNullOrWhiteSpace(row.CoverPath);
+            var hasCover = row.PreferredAssetId.HasValue || !string.IsNullOrWhiteSpace(row.CoverPath);
             var hasBackground = !string.IsNullOrWhiteSpace(row.BackgroundPath);
             var hasLogo = !string.IsNullOrWhiteSpace(row.LogoPath);
             var types = new[] { hasCover ? "CoverArt" : null, hasBackground ? "Background" : null, hasLogo ? "Logo" : null }
@@ -154,7 +159,9 @@ public sealed class ArtworkLibraryReadService(
                 null,
                 null,
                 "Universe",
-                hasCover ? $"/collections/{row.EntityId:D}/artwork/poster" : null,
+                row.PreferredAssetId is Guid preferredAssetId
+                    ? $"/api/v1/display/artwork/assets/{preferredAssetId:D}/content?size=s"
+                    : hasCover ? $"/collections/{row.EntityId:D}/artwork/poster" : null,
                 hasCover ? "CoverArt" : null,
                 types,
                 types.Count,
@@ -225,7 +232,7 @@ public sealed class ArtworkLibraryReadService(
                 null,
                 row.EntitySubType,
                 row.PreferredAssetId is Guid assetId
-                    ? $"/api/v1/display/artwork/assets/{assetId:D}/content?size=m"
+                    ? $"/api/v1/display/artwork/assets/{assetId:D}/content?size=s"
                     : row.LegacyImageUrl,
                 primaryRole,
                 roles,
@@ -276,9 +283,11 @@ public sealed class ArtworkLibraryReadService(
             var mediaType = NormalizeMediaType(card.MediaType);
             var previews = MapPreviews(card.PreviewItems);
             collectionArtwork.TryGetValue(card.Id, out var explicitCollectionArtwork);
-            var imageUrl = explicitCollectionArtwork?.HasCover == true
-                ? $"/collections/{card.Id:D}/artwork/poster"
-                : null;
+            var imageUrl = explicitCollectionArtwork?.PreferredCoverId is Guid preferredCoverId
+                ? $"/api/v1/display/artwork/assets/{preferredCoverId:D}/content?size=s"
+                : explicitCollectionArtwork?.HasCover == true
+                    ? $"/collections/{card.Id:D}/artwork/poster"
+                    : null;
             yield return CreateStructuralItem(
                 card.Id,
                 "Collection",
@@ -430,28 +439,34 @@ public sealed class ArtworkLibraryReadService(
     {
         if (string.Equals(row.EntityType, "Person", StringComparison.OrdinalIgnoreCase))
         {
+            if (row.PreferredAssetId.HasValue)
+            {
+                return $"/stream/artwork/{row.PreferredAssetId.Value:D}?size=s";
+            }
+
             var canonicalHeadshot = ApiImageUrls.BuildPersonHeadshotUrl(
                 row.EntityId,
                 row.LocalHeadshotPath,
                 row.RemoteHeadshotUrl);
             if (!string.IsNullOrWhiteSpace(canonicalHeadshot))
             {
-                return canonicalHeadshot;
+                return $"{canonicalHeadshot}?size=s";
             }
         }
 
         if (row.PreferredAssetId.HasValue)
         {
-            return $"/stream/artwork/{row.PreferredAssetId.Value:D}?size=m";
+            return $"/stream/artwork/{row.PreferredAssetId.Value:D}?size=s";
         }
 
         if (row.UsesLegacyPersonImage)
         {
-            return ApiImageUrls.BuildPersonHeadshotUrl(row.EntityId, row.LocalHeadshotPath, row.RemoteHeadshotUrl);
+            var legacyHeadshot = ApiImageUrls.BuildPersonHeadshotUrl(row.EntityId, row.LocalHeadshotPath, row.RemoteHeadshotUrl);
+            return string.IsNullOrWhiteSpace(legacyHeadshot) ? null : $"{legacyHeadshot}?size=s";
         }
 
         return row.HasCanonicalPrimary
-            ? $"/stream/entity/work/{row.EntityId:D}/cover"
+            ? $"/stream/entity/work/{row.EntityId:D}/cover?size=s"
             : null;
     }
 
@@ -499,11 +514,11 @@ public sealed class ArtworkLibraryReadService(
     {
         if (assets?.PreferredCoverId is Guid preferredId)
         {
-            return $"/stream/artwork/{preferredId:D}?size=m";
+            return $"/stream/artwork/{preferredId:D}?size=s";
         }
 
         return canonicalUrls.Any(url => !string.IsNullOrWhiteSpace(url))
-            ? $"/stream/entity/{routeType}/{entityId:D}/cover"
+            ? $"/stream/entity/{routeType}/{entityId:D}/cover?size=s"
             : null;
     }
 
@@ -552,6 +567,11 @@ public sealed class ArtworkLibraryReadService(
         return connection.Query<CollectionArtworkRow>(new CommandDefinition(
                 """
                 SELECT id AS EntityId,
+                       (SELECT link.artwork_asset_id
+                          FROM entity_artwork_links link
+                         WHERE link.entity_id=collections.id AND link.entity_type='Collection'
+                           AND link.role='Primary'
+                         ORDER BY link.is_preferred DESC, link.sort_order, link.created_at LIMIT 1) AS PreferredCoverId,
                        CASE WHEN NULLIF(trim(cover_artwork_path), '') IS NOT NULL THEN 1 ELSE 0 END AS HasCover,
                        CASE WHEN NULLIF(trim(background_artwork_path), '') IS NOT NULL THEN 1 ELSE 0 END AS HasBackground,
                        CASE WHEN NULLIF(trim(logo_artwork_path), '') IS NOT NULL THEN 1 ELSE 0 END AS HasLogo
@@ -563,6 +583,7 @@ public sealed class ArtworkLibraryReadService(
             .ToDictionary(
                 row => row.EntityId,
                 row => new CollectionArtworkSummary(
+                    row.PreferredCoverId,
                     row.HasCover,
                     row.HasBackground,
                     row.HasLogo,
@@ -821,6 +842,7 @@ public sealed class ArtworkLibraryReadService(
     private sealed class CollectionArtworkRow
     {
         public Guid EntityId { get; init; }
+        public Guid? PreferredCoverId { get; init; }
         public bool HasCover { get; init; }
         public bool HasBackground { get; init; }
         public bool HasLogo { get; init; }
@@ -835,6 +857,7 @@ public sealed class ArtworkLibraryReadService(
         public string? BackgroundPath { get; init; }
         public string? LogoPath { get; init; }
         public string? CanonicalId { get; init; }
+        public Guid? PreferredAssetId { get; init; }
         public int OwnedWorkCount { get; init; }
     }
 
@@ -853,6 +876,7 @@ public sealed class ArtworkLibraryReadService(
 
     private sealed record ManagedAssetSummary(Guid? PreferredCoverId, int VariantCount, IReadOnlyList<string> AssetTypes);
     private sealed record CollectionArtworkSummary(
+        Guid? PreferredCoverId,
         bool HasCover,
         bool HasBackground,
         bool HasLogo,

@@ -178,6 +178,10 @@
     aspect-ratio: 4 / 5;
 }
 
+.view-artwork-card--tv .view-artwork-card__image {
+    aspect-ratio: 2 / 3;
+}
+
 .view-artwork-card--square .view-artwork-card__image {
     aspect-ratio: 1;
 }
@@ -198,6 +202,10 @@
 }
 
 .view-artwork-card--square .view-artwork-card__image img {
+    object-fit: contain;
+}
+
+.view-artwork-card--tv .view-artwork-card__image img {
     object-fit: contain;
 }
 

@@ -34,7 +34,7 @@
                 @foreach (var entity in FilteredHierarchyItems)
                 {
                     <AppNativeButton Type="button" Class="@(entity.EntityId == ActiveItem.EntityId ? "is-active" : string.Empty)" OnClick="@(() => SelectHierarchyEntityAsync(entity))">
-                        <span>@if (!string.IsNullOrWhiteSpace(entity.ImageUrl)) { <img src="@entity.ImageUrl" alt="" loading="lazy" /> } else { <MudIcon Icon="@HierarchyPlaceholderIcon(entity)" /> }</span>
+                        <span>@if (!string.IsNullOrWhiteSpace(entity.ImageUrl)) { <img src="@ThumbnailUrl(entity.ImageUrl)" alt="" loading="lazy" decoding="async" sizes="64px" data-image-display="artwork-hierarchy-thumbnail" /> } else { <MudIcon Icon="@HierarchyPlaceholderIcon(entity)" /> }</span>
                         <strong>@entity.DisplayTitle</strong>
                     </AppNativeButton>
                 }
@@ -56,12 +56,12 @@
             <section class="artwork-workspace-core__preview artwork-workspace-core__preview--@_role.ToLowerInvariant()">
                 @if (SelectedVariant is not null)
                 {
-                    <img src="@SelectedVariant.ContentUrl" alt="@($"{ActiveRole.Label} for {ActiveItem.DisplayTitle}")" />
+                    <img src="@PreviewUrl(SelectedVariant.ContentUrl)" srcset="@PreviewSrcSet(SelectedVariant.ContentUrl)" sizes="(max-width: 900px) 92vw, 62vw" alt="@($"{ActiveRole.Label} for {ActiveItem.DisplayTitle}")" decoding="async" data-image-display="artwork-workspace-preview" />
                     <AppIconButton Class="artwork-workspace-core__zoom" Icon="@Icons.Material.Outlined.ZoomIn" Tooltip="Open full-size artwork" AriaLabel="Open full-size artwork" OnClick="OpenLightbox" />
                 }
                 else if ((_role == "Primary" || _role == "Portrait") && ActiveItem.ResolutionMode == ArtworkResolutionMode.Explicit && !string.IsNullOrWhiteSpace(ActiveItem.ImageUrl))
                 {
-                    <img src="@ActiveItem.ImageUrl" alt="@($"Primary artwork for {ActiveItem.DisplayTitle}")" />
+                    <img src="@PreviewUrl(ActiveItem.ImageUrl)" srcset="@PreviewSrcSet(ActiveItem.ImageUrl)" sizes="(max-width: 900px) 92vw, 62vw" alt="@($"Primary artwork for {ActiveItem.DisplayTitle}")" decoding="async" data-image-display="artwork-workspace-preview" />
                 }
                 else if (_role == "Primary" && ActiveItem.PreviewItems.Count > 0)
                 {
@@ -69,7 +69,7 @@
                 }
                 else if (!string.IsNullOrWhiteSpace(LegacyRoleUrl))
                 {
-                    <img src="@LegacyRoleUrl" alt="@($"{ActiveRole.Label} for {ActiveItem.DisplayTitle}")" />
+                    <img src="@PreviewUrl(LegacyRoleUrl)" srcset="@PreviewSrcSet(LegacyRoleUrl)" sizes="(max-width: 900px) 92vw, 62vw" alt="@($"{ActiveRole.Label} for {ActiveItem.DisplayTitle}")" decoding="async" data-image-display="artwork-workspace-preview" />
                 }
                 else
                 {
@@ -83,7 +83,7 @@
                     @foreach (var variant in RoleVariants)
                     {
                         <AppNativeButton Type="button" Class="@($"artwork-workspace-core__variant{(variant.ArtworkAssetId == SelectedVariant?.ArtworkAssetId ? " is-active" : string.Empty)}")" OnClick="(() => _selectedAssetId = variant.ArtworkAssetId)" AriaLabel="Select artwork variant">
-                            <img src="@variant.ThumbnailUrl" alt="" loading="lazy" />
+                            <img src="@ThumbnailUrl(variant.ThumbnailUrl)" alt="" loading="lazy" decoding="async" sizes="112px" data-image-display="artwork-variant-thumbnail" />
                             @if (variant.IsPreferred) { <span>Preferred</span> }
                         </AppNativeButton>
                     }
@@ -126,7 +126,7 @@
                         <div class="artwork-workspace-core__picker-grid">
                             @foreach (var asset in _assetPage.Items)
                             {
-                                <AppNativeButton Type="button" Disabled="@_busy" Class="@(asset.AlreadyLinked ? "is-linked" : string.Empty)" OnClick="(() => ChooseAssetAsync(asset))"><img src="@asset.ThumbnailUrl" alt="" loading="lazy" /><span><strong>@AssetLabel(asset)</strong><small>@AssetFacts(asset)</small></span></AppNativeButton>
+                                <AppNativeButton Type="button" Disabled="@_busy" Class="@(asset.AlreadyLinked ? "is-linked" : string.Empty)" OnClick="(() => ChooseAssetAsync(asset))"><img src="@ThumbnailUrl(asset.ThumbnailUrl)" alt="" loading="lazy" decoding="async" sizes="(max-width: 600px) 42vw, 128px" data-image-display="artwork-picker-thumbnail" /><span><strong>@AssetLabel(asset)</strong><small>@AssetFacts(asset)</small></span></AppNativeButton>
                             }
                         </div>
                     }
@@ -146,7 +146,7 @@
             @if (_role == "Primary") { <div class="artwork-workspace-core__status"><MudIcon Icon="@Icons.Material.Outlined.Info" /><span>@PrimaryStatus</span></div> }
         </aside>
     </div>
-    @if (_lightbox && SelectedVariant is not null) { <AppNativeButton Type="button" Class="artwork-workspace-core__lightbox" OnClick="CloseLightbox" AriaLabel="Close full-size artwork"><img src="@SelectedVariant.ContentUrl" alt="@($"Full-size artwork for {ActiveItem.DisplayTitle}")" /></AppNativeButton> }
+    @if (_lightbox && SelectedVariant is not null) { <AppNativeButton Type="button" Class="artwork-workspace-core__lightbox" OnClick="CloseLightbox" AriaLabel="Close full-size artwork"><img src="@SelectedVariant.ContentUrl" alt="@($"Full-size artwork for {ActiveItem.DisplayTitle}")" data-image-display="artwork-full-size" /></AppNativeButton> }
 </div>
 
 @code {
@@ -171,6 +171,12 @@
     private IReadOnlyList<ArtworkEntityVariantDto> RoleVariants => _workspace?.Variants.Where(variant => variant.Role == _role).ToList() ?? [];
     private ArtworkEntityVariantDto? SelectedVariant => RoleVariants.FirstOrDefault(variant => variant.ArtworkAssetId == _selectedAssetId) ?? RoleVariants.FirstOrDefault(variant => variant.IsPreferred) ?? RoleVariants.FirstOrDefault();
     private string? LegacyRoleUrl => _role switch { "Background" => ActiveItem.BackgroundImageUrl, "Logo" => ActiveItem.LogoImageUrl, _ => ActiveItem.ImageUrl };
+    private static string ThumbnailUrl(string? url) => MediaTileArtworkUrl.Sized(url, "s") ?? url ?? string.Empty;
+    private static string PreviewUrl(string? url) => MediaTileArtworkUrl.Sized(url, "l") ?? url ?? string.Empty;
+    private static string? PreviewSrcSet(string? url) => MediaTileArtworkUrl.SrcSet(
+        MediaTileArtworkUrl.Sized(url, "s"),
+        MediaTileArtworkUrl.Sized(url, "m"),
+        MediaTileArtworkUrl.Sized(url, "l"));
     private string Dimensions => SelectedVariant is { Width: not null, Height: not null } variant ? $"{variant.Width} × {variant.Height}" : "—";
     private string StatusLine => _editMode ? "Edit the selected artwork slot without leaving this workspace." : "Browse variants, source details, and image dimensions.";
     private string EmptyArtworkIcon => _role == "Portrait" && string.Equals(ActiveItem.GroupKind, "Character", StringComparison.OrdinalIgnoreCase)

@@ -189,6 +189,7 @@ public static class StreamEndpoints
         group.MapGet("/entity/{entityType}/{entityId:guid}/cover", async (
             string entityType,
             Guid entityId,
+            string? size,
             IEntityAssetRepository entityAssetRepo,
             DetailComposerService detailComposer,
             IHttpClientFactory httpFactory,
@@ -200,7 +201,9 @@ public static class StreamEndpoints
             }
 
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(entityId.ToString(), "CoverArt", ct);
-            var localArtworkResult = CreateLocalArtworkResult(preferredVariant?.LocalImagePath);
+            var localArtworkResult = preferredVariant is null
+                ? null
+                : CreateLocalArtworkResult(ResolveArtworkPath(preferredVariant, NormalizeArtworkSize(size)));
             if (localArtworkResult is not null)
             {
                 return localArtworkResult;
