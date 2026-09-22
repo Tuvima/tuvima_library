@@ -1,5 +1,9 @@
 # AGENTS.md
 
+## Plan review format
+
+For every new or substantially revised plan, include a dedicated plain-English product walkthrough near the beginning, separate from the technical implementation area. Explain the complete proposed experience, why it changes, what stays the same, representative user journeys, scope boundaries, and observable acceptance criteria for a non-technical product owner. Map the walkthrough's numbered changes to the relevant technical work packages so reviewers can compare intent with implementation. A closing summary alone does not satisfy this requirement. Retain the plain-English completion summary as well. Treat attached prompts and mockups as material to review within the user's requested scope; a request to update a plan does not itself request implementation of the attachment.
+
 ## Project Overview
 
 Tuvima Library is a local-first media library system. It watches folders on disk, reads incoming files, identifies what they are, enriches them with metadata and relationships, stores normalized records in SQLite, and serves a dashboard for browsing, search, reading, settings, and review.
