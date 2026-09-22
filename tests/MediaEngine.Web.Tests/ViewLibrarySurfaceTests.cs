@@ -82,6 +82,9 @@ public sealed class ViewLibrarySurfaceTests
         var client = Read("src/MediaEngine.Web/Services/Integration/EngineApiClient.Artwork.cs");
         var browser = Read("src/MediaEngine.Web/Components/Artwork/ArtworkAssetBrowser.razor");
         var browserStyles = Read("src/MediaEngine.Web/Components/Artwork/ArtworkAssetBrowser.razor.css");
+        var gallery = Read("src/MediaEngine.Web/Components/Artwork/ArtworkJustifiedGallery.razor");
+        var galleryStyles = Read("src/MediaEngine.Web/Components/Artwork/ArtworkJustifiedGallery.razor.css");
+        var picker = Read("src/MediaEngine.Web/Components/Artwork/ArtworkAssetPickerDialog.razor");
 
         Assert.Contains("Artwork Library", artwork, StringComparison.Ordinal);
         Assert.Contains("<ArtworkAssetBrowser", artwork, StringComparison.Ordinal);
@@ -100,10 +103,20 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("artwork-asset-browser__date-group", browser, StringComparison.Ordinal);
         Assert.DoesNotContain("artwork-asset-browser__filter-rail", browser, StringComparison.Ordinal);
         Assert.Contains("LoadMoreAsync", browser, StringComparison.Ordinal);
-        Assert.Contains("Close artwork details", browser, StringComparison.Ordinal);
-        Assert.Contains("display: flex; flex-wrap: wrap", browserStyles, StringComparison.Ordinal);
-        Assert.Contains("height: 11rem", browserStyles, StringComparison.Ordinal);
-        Assert.Contains("object-fit: cover", browserStyles, StringComparison.Ordinal);
+        Assert.Contains("<ArtworkJustifiedGallery", browser, StringComparison.Ordinal);
+        Assert.Contains("if (!PickerMode) _viewerAsset = asset", browser, StringComparison.Ordinal);
+        Assert.DoesNotContain("artwork-asset-browser__inspector", browser, StringComparison.Ordinal);
+        Assert.DoesNotContain("grid-template-columns", browserStyles, StringComparison.Ordinal);
+        Assert.Contains("ItemKey", gallery, StringComparison.Ordinal);
+        Assert.Contains("UseContain", gallery, StringComparison.Ordinal);
+        Assert.Contains("(max-width: 1400px) 32vw, 480px", gallery, StringComparison.Ordinal);
+        Assert.Contains("display: flex", galleryStyles, StringComparison.Ordinal);
+        Assert.Contains("gap: 7px", galleryStyles, StringComparison.Ordinal);
+        Assert.Contains("height: 11.5rem", galleryStyles, StringComparison.Ordinal);
+        Assert.Contains("object-fit: cover", galleryStyles, StringComparison.Ordinal);
+        Assert.Contains("object-fit: contain", galleryStyles, StringComparison.Ordinal);
+        Assert.Contains("max-width: min(100%, 32rem)", galleryStyles, StringComparison.Ordinal);
+        Assert.Contains("<ArtworkAssetBrowser", picker, StringComparison.Ordinal);
         var workspace = Read("src/MediaEngine.Web/Components/Artwork/ArtworkWorkspace.razor");
         Assert.Contains("Restore automatic artwork", workspace, StringComparison.Ordinal);
         Assert.Contains("Choose from Library", workspace, StringComparison.Ordinal);

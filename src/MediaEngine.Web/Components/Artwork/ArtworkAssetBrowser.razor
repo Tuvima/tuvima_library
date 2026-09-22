@@ -73,15 +73,19 @@
                             {
                                 <section class="artwork-asset-browser__date-group" aria-labelledby="@day.Id">
                                     <h3 id="@day.Id">@day.Label</h3>
-                                    <div class="artwork-asset-browser__grid">
-                                        @foreach (var asset in day.Items)
-                                        {
-                                            <AppNativeButton Type="button" Class="@AssetClass(asset)" aria-pressed="@(asset.Id == _selectedAssetId)" OnClick="@(() => SelectAssetAsync(asset))" AriaLabel="@($"Select {AssetTitle(asset)}")">
-                                                <span class="artwork-asset-browser__image"><img src="@asset.ThumbnailUrl" alt="" loading="lazy" decoding="async" sizes="(max-width: 720px) 42vw, 220px" data-image-display="artwork-asset-browser-card" />@if (asset.IsPreferredForTarget) { <span class="artwork-asset-browser__preferred"><MudIcon Icon="@Icons.Material.Outlined.Star" /> Preferred</span> }</span>
-                                                <span class="artwork-asset-browser__caption"><strong>@AssetTitle(asset)</strong><small>@AssetFacts(asset)</small></span>
-                                            </AppNativeButton>
-                                        }
-                                    </div>
+                                    <ArtworkJustifiedGallery TItem="ArtworkAssetDto"
+                                                               Items="@day.Items"
+                                                               ItemKey="AssetKey"
+                                                               ImageUrl="AssetImageUrl"
+                                                               Width="AssetWidth"
+                                                               Height="AssetHeight"
+                                                               Title="AssetTitle"
+                                                               SupportingText="AssetFacts"
+                                                               IsSelected="IsSelectedAsset"
+                                                               IsPreferred="IsPreferredAsset"
+                                                               UseContain="ShouldContainAsset"
+                                                               OnSelect="SelectAssetAsync"
+                                                               AriaLabel="@($"Artwork added {day.Label}")" />
                                 </section>
                             }
                         </section>
@@ -94,38 +98,6 @@
             }
         </div>
 
-        <aside class="artwork-asset-browser__inspector" aria-live="polite">
-            <h2 class="artwork-asset-browser__inspector-title">Preview</h2>
-            @if (SelectedAsset is null)
-            {
-                <div class="artwork-asset-browser__empty-inspector"><MudIcon Icon="@Icons.Material.Outlined.ImageSearch" /><strong>Select an image</strong><span>Preview its source, dimensions, relationships, and current uses.</span></div>
-            }
-            else
-            {
-                <AppNativeButton Type="button" Class="artwork-asset-browser__inspector-close" OnClick="ClearSelectionAsync" AriaLabel="Close artwork details"><MudIcon Icon="@Icons.Material.Outlined.Close" /></AppNativeButton>
-                <div class="artwork-asset-browser__preview artwork-asset-browser__preview--@Shape(SelectedAsset)"><img src="@SelectedAsset.ContentUrl" alt="@AssetTitle(SelectedAsset)" data-image-display="artwork-asset-browser-inspector" /></div>
-                <div class="artwork-asset-browser__inspector-copy">
-                    <span class="artwork-asset-browser__eyebrow">Selected artwork</span>
-                    <h3>@AssetTitle(SelectedAsset)</h3>
-                    @if (!string.IsNullOrWhiteSpace(SelectedAsset.MatchExplanation)) { <p class="artwork-asset-browser__match">@SelectedAsset.MatchExplanation</p> }
-                    <dl>
-                        <div><dt>Dimensions</dt><dd>@Dimensions(SelectedAsset)</dd></div>
-                        <div><dt>Shape</dt><dd>@SelectedAsset.Aspect</dd></div>
-                        <div><dt>Source</dt><dd>@(SelectedAsset.SourceProvider ?? "Library")</dd></div>
-                        <div><dt>Added</dt><dd>@(SelectedAsset.CreatedAt?.LocalDateTime.ToString("d") ?? "Not recorded")</dd></div>
-                        <div><dt>Used by</dt><dd>@SelectedAsset.LinkCount assignment@(SelectedAsset.LinkCount == 1 ? string.Empty : "s")</dd></div>
-                    </dl>
-                    @if (SelectedAsset.Contexts.Count > 0)
-                    {
-                        <div class="artwork-asset-browser__contexts"><strong>Related to</strong>@foreach (var context in SelectedAsset.Contexts.Take(8)) { <span>@context.EntityLabel@if (!string.IsNullOrWhiteSpace(context.Role)) { <small>@context.Role</small> }</span> }</div>
-                    }
-                    @if (ManageRequested.HasDelegate)
-                    {
-                        <AppButton Label="Manage usage" ButtonStyle="AppButtonStyle.Outlined" StartIcon="@Icons.Material.Outlined.Edit" OnClick="@(() => ManageRequested.InvokeAsync(SelectedAsset))" />
-                    }
-                </div>
-            }
-        </aside>
     </div>
 </div>
 
@@ -244,14 +216,8 @@
     private async Task SelectAssetAsync(ArtworkAssetDto asset)
     {
         _selectedAssetId = asset.Id;
-        _viewerAsset = asset;
+        if (!PickerMode) _viewerAsset = asset;
         await SelectionChanged.InvokeAsync(asset);
-    }
-
-    private async Task ClearSelectionAsync()
-    {
-        _selectedAssetId = null;
-        await SelectionChanged.InvokeAsync(null);
     }
 
     private async Task SetScopeAsync(ArtworkPickerScope value) { if (_scope == value) return; _scope = value; await LoadAsync(); }
@@ -271,23 +237,7 @@
     private async Task DebouncedSearchAsync(CancellationToken ct) { try { await Task.Delay(250, ct); await InvokeAsync(LoadAsync); } catch (OperationCanceledException) { } }
     private string ScopeClass(ArtworkPickerScope value) => $"app-discovery-filter__tab{(_scope == value ? " is-active" : string.Empty)}";
     private string UsageClass(ArtworkUsageFilter value) => $"app-discovery-filter__tab{(_usage == value ? " is-active" : string.Empty)}";
-    private string AssetClass(ArtworkAssetDto asset) => $"artwork-asset-browser__card artwork-asset-browser__card--{Shape(asset)} {AspectClass(asset)}{(asset.Id == _selectedAssetId ? " is-selected" : string.Empty)}";
     private static string Shape(ArtworkAssetDto asset) => asset.Aspect.ToLowerInvariant() switch { "portrait" => "portrait", "square" => "square", "banner" => "banner", "unsupportedrect" => "other", _ => "landscape" };
-    private static string AspectClass(ArtworkAssetDto asset)
-    {
-        var aspect = asset.Width is > 0 && asset.Height is > 0
-            ? Math.Clamp(asset.Width.Value / (double)asset.Height.Value, .35, 4.5)
-            : Shape(asset) switch { "portrait" => .67, "square" => 1, "banner" => 3, "other" => 1.25, _ => 1.6 };
-        return aspect switch
-        {
-            < .6 => "artwork-aspect--narrow",
-            < .88 => "artwork-aspect--portrait",
-            < 1.18 => "artwork-aspect--square",
-            < 1.85 => "artwork-aspect--landscape",
-            < 2.75 => "artwork-aspect--wide",
-            _ => "artwork-aspect--panorama"
-        };
-    }
     private IReadOnlyList<ArtworkMonthGroup> TimelineMonths
     {
         get
@@ -320,6 +270,22 @@
     }
     private static string AssetTitle(ArtworkAssetDto asset) => asset.DisplayContext?.EntityLabel ?? asset.Contexts.FirstOrDefault()?.EntityLabel ?? "Library artwork";
     private static string AssetFacts(ArtworkAssetDto asset) { var context = asset.DisplayContext ?? asset.Contexts.FirstOrDefault(); return string.Join(" · ", new[] { context?.Role, context?.MediaType, context?.Year, asset.SourceProvider }.Where(value => !string.IsNullOrWhiteSpace(value))); }
+    private static string AssetKey(ArtworkAssetDto asset) => asset.Id.ToString("D");
+    private static string AssetImageUrl(ArtworkAssetDto asset) => asset.ThumbnailUrl;
+    private static int? AssetWidth(ArtworkAssetDto asset) => asset.Width ?? Shape(asset) switch { "portrait" => 2, "square" => 1, "banner" => 3, "other" => 5, _ => 16 };
+    private static int? AssetHeight(ArtworkAssetDto asset) => asset.Height ?? Shape(asset) switch { "portrait" => 3, "square" => 1, "banner" => 1, "other" => 4, _ => 10 };
+    private bool IsSelectedAsset(ArtworkAssetDto asset) => asset.Id == _selectedAssetId;
+    private static bool IsPreferredAsset(ArtworkAssetDto asset) => asset.IsPreferredForTarget;
+    private static bool ShouldContainAsset(ArtworkAssetDto asset)
+    {
+        if (asset.Aspect.Equals("Banner", StringComparison.OrdinalIgnoreCase)) return true;
+        var role = asset.DisplayContext?.Role ?? asset.Contexts.FirstOrDefault()?.Role ?? string.Empty;
+        return role.Contains("logo", StringComparison.OrdinalIgnoreCase)
+            || role.Contains("icon", StringComparison.OrdinalIgnoreCase)
+            || role.Contains("title", StringComparison.OrdinalIgnoreCase)
+            || role.Contains("wordmark", StringComparison.OrdinalIgnoreCase)
+            || role.Contains("transparent", StringComparison.OrdinalIgnoreCase);
+    }
     private static string Dimensions(ArtworkAssetDto asset) => asset.Width.HasValue && asset.Height.HasValue ? $"{asset.Width} × {asset.Height}" : "Not recorded";
     private int ViewerIndex => _viewerAsset is null ? -1 : (_page?.Items.ToList().FindIndex(asset => asset.Id == _viewerAsset.Id) ?? -1);
     private bool CanViewPrevious => ViewerIndex > 0;
