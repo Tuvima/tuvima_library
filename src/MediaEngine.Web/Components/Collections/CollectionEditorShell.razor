@@ -1320,8 +1320,7 @@
             <ArtworkWorkspace @key="collectionArtworkItem.EntityId"
                               Item="@collectionArtworkItem"
                               ActiveProfileId="@Request.ActiveProfileId"
-                              ShowClose="false"
-                              StartInEditMode="true" />
+                              ShowClose="false" />
         }
         else
         {
@@ -1394,27 +1393,25 @@
     </div>;
 
     private RenderFragment RenderHistoryTab() => @<div class="collection-editor-pane">
-        <MediaEditorPanel Title="History" Description="Collection changes and system activity.">
-            <div class="collection-editor-history-list">
-                @if (EditingCollection is null)
-                {
-                    <div class="collection-editor-empty">
-                        <MudIcon Icon="@Icons.Material.Outlined.History" />
-                        <span>History begins after the collection is created.</span>
-                    </div>
-                }
-                else
-                {
-                    <div class="collection-editor-history-entry">
-                        <MudIcon Icon="@Icons.Material.Outlined.AddCircleOutline" />
-                        <div><strong>Collection created</strong><span>@EditingCollection.CreatedAt.ToLocalTime().ToString("f")</span></div>
-                    </div>
-                    <div class="collection-editor-history-note">
-                        Detailed rule, membership, and artwork events will appear when collection audit events are recorded by the Engine.
-                    </div>
-                }
-            </div>
-        </MediaEditorPanel>
+        <div class="collection-editor-history-list">
+            @if (EditingCollection is null)
+            {
+                <div class="collection-editor-empty">
+                    <MudIcon Icon="@Icons.Material.Outlined.History" />
+                    <span>History begins after the collection is created.</span>
+                </div>
+            }
+            else
+            {
+                <div class="collection-editor-history-entry">
+                    <MudIcon Icon="@Icons.Material.Outlined.AddCircleOutline" />
+                    <div><strong>Collection created</strong><span>@EditingCollection.CreatedAt.ToLocalTime().ToString("f")</span></div>
+                </div>
+                <div class="collection-editor-history-note">
+                    Detailed rule, membership, and artwork events will appear when collection audit events are recorded by the Engine.
+                </div>
+            }
+        </div>
     </div>;
 
     private RenderFragment RenderRulesTab() => @<div class="collection-editor-pane">

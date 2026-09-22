@@ -99,6 +99,11 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("Choose from Library", workspace, StringComparison.Ordinal);
         Assert.Contains("From URL", workspace, StringComparison.Ordinal);
         Assert.Contains("Set preferred", workspace, StringComparison.Ordinal);
+        Assert.Contains("@if (!AllowEdit)", workspace, StringComparison.Ordinal);
+        Assert.DoesNotContain("Editing artwork", workspace, StringComparison.Ordinal);
+        Assert.DoesNotContain("Edit artwork", workspace, StringComparison.Ordinal);
+        Assert.DoesNotContain("View · Library Artwork", workspace, StringComparison.Ordinal);
+        Assert.DoesNotContain("StartInEditMode", workspace, StringComparison.Ordinal);
         Assert.Contains("RefreshProviderAsync", workspace, StringComparison.Ordinal);
         Assert.Contains("AvailableRoles", workspace, StringComparison.Ordinal);
         Assert.Contains("ArtworkRolePresentationResolver", workspace, StringComparison.Ordinal);

@@ -277,17 +277,6 @@
                 {
                     <div class="sme-details sme-details--single">
                         <div class="sme-fields-pane sme-details-main">
-                            <EditorTargetSummary Label="@(ActiveScope?.Label ?? "item")"
-                                                 Title="@CurrentTargetTitle"
-                                                 Subtitle="@ActiveScope?.DisplaySubtitle"
-                                                 RetailMatched="@HasCurrentRetailMatch"
-                                                 CanonicalMatched="@HasCurrentCanonicalIdentity">
-                                @if (IsTabVisible("links"))
-                                {
-                                    <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" OnClick="@(() => SelectTabInternalAsync("links"))">Review matches</AppButton>
-                                }
-                            </EditorTargetSummary>
-
                             @if (HasInheritedArtwork && InheritedArtworkOwnerScope is not null)
                             {
                                 <div class="sme-inherited-capability">
@@ -572,9 +561,6 @@
                         @if (IsSingleItem)
                         {
                             <div class="sme-match-workflow">
-                                <EditorTargetSummary Label="@(ActiveScope?.Label ?? "item")" Title="@CurrentTargetTitle"
-                                                     Subtitle="@ActiveScope?.DisplaySubtitle" RetailMatched="@HasCurrentRetailMatch"
-                                                     CanonicalMatched="@HasCurrentCanonicalIdentity" />
                                 @{
                                     var currentRetail = BuildCurrentRetailMatchCard();
                                     var currentQid = BuildCurrentWikidataMatchCard();
@@ -1133,7 +1119,6 @@
                             <ArtworkWorkspace @key="@($"{unifiedArtworkItem.EntityType}:{unifiedArtworkItem.EntityId}:{ActiveScope?.ScopeId}")"
                                               Item="@unifiedArtworkItem"
                                               ShowClose="false"
-                                              StartInEditMode="true"
                                               ProviderRefreshEntityId="@EditorContextEntityId"
                                               ProviderRefreshScopeId="@ActiveScope?.ScopeId"
                                               OnChanged="UnifiedArtworkChangedAsync" />

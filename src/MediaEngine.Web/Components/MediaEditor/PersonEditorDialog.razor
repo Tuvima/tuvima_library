@@ -147,12 +147,10 @@
                 <ArtworkWorkspace @key="PersonId"
                                   Item="@PersonArtworkItem"
                                   ShowClose="false"
-                                  StartInEditMode="true"
                                   OnChanged="PersonArtworkChangedAsync" />
             }
             else if (_activeTab == "history")
             {
-                <div class="person-editor__tab-heading"><div><h3>History</h3><p>Identity, metadata, artwork, and enrichment activity for this person.</p></div></div>
                 <div class="person-editor__history">
                     @if (_state.History.Count == 0)
                     {

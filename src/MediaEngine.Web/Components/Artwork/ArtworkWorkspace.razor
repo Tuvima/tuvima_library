@@ -6,19 +6,13 @@
 @inject IDialogService DialogService
 
 <div class="artwork-workspace-core">
-    <header class="artwork-workspace-core__header">
-        <div><span>View · Library Artwork</span><h2>@ActiveItem.DisplayTitle</h2><p>@StatusLine</p></div>
-        <div class="artwork-workspace-core__header-actions">
-            @if (AllowEdit)
-            {
-                <AppButton ButtonStyle="@(_editMode ? AppButtonStyle.Filled : AppButtonStyle.Outlined)" StartIcon="@Icons.Material.Outlined.Edit" OnClick="ToggleEditAsync">@(_editMode ? "Editing artwork" : "Edit artwork")</AppButton>
-            }
-            @if (ShowClose)
-            {
-                <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Close artwork workspace" AriaLabel="Close artwork workspace" OnClick="CloseAsync" />
-            }
-        </div>
-    </header>
+    @if (ShowClose)
+    {
+        <header class="artwork-workspace-core__header">
+            <h2>@ActiveItem.DisplayTitle</h2>
+            <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Close artwork workspace" AriaLabel="Close artwork workspace" OnClick="CloseAsync" />
+        </header>
+    }
 
     @if (_hierarchyItems.Count > 0)
     {
@@ -113,9 +107,8 @@
         </div>
 
         <aside class="artwork-workspace-core__details">
-            <span class="artwork-workspace-core__eyebrow">@ActiveRole.Label</span>
-            <h3>@(_editMode ? $"Add or edit {ActiveRole.Label.ToLowerInvariant()}" : ActiveItem.DisplayTitle)</h3>
-            @if (!_editMode)
+            <h3>@ActiveRole.Label</h3>
+            @if (!AllowEdit)
             {
                 <dl class="artwork-workspace-core__metadata">
                     <div><dt>Artwork role</dt><dd>@ActiveRole.Label</dd></div><div><dt>Source</dt><dd>@(SelectedVariant?.SourceProvider ?? "Library")</dd></div>
@@ -164,13 +157,12 @@
     [Parameter] public EventCallback<bool> OnClose { get; set; }
     [Parameter] public EventCallback OnChanged { get; set; }
     [Parameter] public bool AllowEdit { get; set; } = true;
-    [Parameter] public bool StartInEditMode { get; set; }
     [Parameter] public bool ShowClose { get; set; } = true;
     [Parameter] public Guid? ProviderRefreshEntityId { get; set; }
     [Parameter] public string? ProviderRefreshScopeId { get; set; }
     [Parameter] public Guid? InitialAssetId { get; set; }
     [Parameter] public string? InitialRole { get; set; }
-    private ArtworkEntityWorkspaceDto? _workspace; private ArtworkLibraryItemDto? _activeHierarchyItem; private IReadOnlyList<ArtworkLibraryItemDto> _hierarchyItems = []; private Guid? _selectedAssetId; private string _role = "Primary"; private string? _sourceAssetType; private string _source = "upload"; private string _url = string.Empty; private string _hierarchySection = "Overview"; private bool _editMode; private bool _busy; private bool _lightbox; private bool _changed;
+    private ArtworkEntityWorkspaceDto? _workspace; private ArtworkLibraryItemDto? _activeHierarchyItem; private IReadOnlyList<ArtworkLibraryItemDto> _hierarchyItems = []; private Guid? _selectedAssetId; private string _role = "Primary"; private string? _sourceAssetType; private string _source = "upload"; private string _url = string.Empty; private string _hierarchySection = "Overview"; private bool _busy; private bool _lightbox; private bool _changed;
     private ArtworkLibraryItemDto ActiveItem => _activeHierarchyItem ?? Item;
     private IReadOnlyList<ArtworkLibraryItemDto> FilteredHierarchyItems => _hierarchyItems.Where(item => string.Equals(item.GroupKind, _hierarchySection, StringComparison.OrdinalIgnoreCase)).ToList();
     private IReadOnlyList<ArtworkRolePresentation> AvailableRoles => ArtworkRolePresentationResolver.Resolve(_workspace, ActiveItem);
@@ -185,7 +177,6 @@
         MediaTileArtworkUrl.Sized(url, "m"),
         MediaTileArtworkUrl.Sized(url, "l"));
     private string Dimensions => SelectedVariant is { Width: not null, Height: not null } variant ? $"{variant.Width} × {variant.Height}" : "—";
-    private string StatusLine => _editMode ? "Edit the selected artwork slot without leaving this workspace." : "Browse variants, source details, and image dimensions.";
     private string EmptyArtworkIcon => _role == "Portrait" && string.Equals(ActiveItem.GroupKind, "Character", StringComparison.OrdinalIgnoreCase)
         ? Icons.Material.Outlined.PersonOutline
         : _role == "Primary" && string.Equals(ActiveItem.GroupKind, "Universe", StringComparison.OrdinalIgnoreCase)
@@ -201,7 +192,7 @@
         "movie" or "movies" or "book" or "books" or "audiobook" or "audiobooks" or "comic" or "comics" => "item",
         _ => null,
     };
-    protected override async Task OnInitializedAsync() { _editMode = AllowEdit && StartInEditMode; if (string.Equals(Item.GroupKind, "Universe", StringComparison.OrdinalIgnoreCase)) _hierarchyItems = await ApiClient.GetUniverseArtworkHierarchyAsync(Item.EntityId); await ReloadAsync(preserveSelection: false); }
+    protected override async Task OnInitializedAsync() { if (string.Equals(Item.GroupKind, "Universe", StringComparison.OrdinalIgnoreCase)) _hierarchyItems = await ApiClient.GetUniverseArtworkHierarchyAsync(Item.EntityId); await ReloadAsync(preserveSelection: false); }
     private async Task ReloadAsync(bool preserveSelection = true, Guid? selectAssetId = null)
     {
         var previousRole = preserveSelection ? (_role, _sourceAssetType) : (InitialRole ?? string.Empty, (string?)null);
@@ -223,7 +214,6 @@
     private async Task SelectHierarchyEntityAsync(ArtworkLibraryItemDto entity) { _activeHierarchyItem = entity; await ReloadAsync(preserveSelection: false); }
     private static string HierarchyPlaceholderIcon(ArtworkLibraryItemDto entity) => entity.GroupKind switch { "Character" => Icons.Material.Outlined.PersonOutline, "Location" => Icons.Material.Outlined.Place, "Organization" => Icons.Material.Outlined.AccountBalance, "Event" => Icons.Material.Outlined.Event, _ => Icons.Material.Outlined.Category };
     private void SelectRole(ArtworkRolePresentation role) { _role = role.Role; _sourceAssetType = role.SourceAssetType; var variants = VariantsFor(role); _selectedAssetId = variants.FirstOrDefault(variant => variant.IsPreferred)?.ArtworkAssetId ?? variants.FirstOrDefault()?.ArtworkAssetId; }
-    private Task ToggleEditAsync() { _editMode = !_editMode; return Task.CompletedTask; }
     private string SourceClass(string source) => $"artwork-workspace-core__source {(source == _source ? "is-active" : string.Empty)}";
     private async Task UploadAsync(InputFileChangeEventArgs args) { var file = args.File; if (file.Size > MaximumUploadBytes) { Snackbar.Add("Artwork must be 10 MB or smaller.", Severity.Warning); return; } _busy = true; try { await using var stream = file.OpenReadStream(MaximumUploadBytes); var result = await ApiClient.UploadCanonicalArtworkAsync(ActiveItem.EntityType, ActiveItem.EntityId, _role, stream, file.Name, ActiveItem.DisplayTitle, ActiveItem.MediaType, ActiveItem.Year, _sourceAssetType); if (result is null) { Snackbar.Add(ApiClient.LastError ?? "Artwork could not be uploaded.", Severity.Error); return; } _changed = true; await ReloadAsync(selectAssetId: result.Id); await OnChanged.InvokeAsync(); Snackbar.Add($"{ActiveRole.Label} artwork updated.", Severity.Success); } finally { _busy = false; } }
     private async Task AddUrlAsync() { _busy = true; try { var result = await ApiClient.AddArtworkFromUrlAsync(ActiveItem.EntityType, ActiveItem.EntityId, new ArtworkFromUrlRequest(_url, _role, Preferred: true, EntityLabel: ActiveItem.DisplayTitle, MediaType: ActiveItem.MediaType, Year: ActiveItem.Year, SourceAssetType: _sourceAssetType)); if (result is null) { Snackbar.Add(ApiClient.LastError ?? "Artwork could not be added from that URL.", Severity.Error); return; } _changed = true; _url = string.Empty; await ReloadAsync(selectAssetId: result.Id); await OnChanged.InvokeAsync(); Snackbar.Add($"{ActiveRole.Label} artwork added.", Severity.Success); } finally { _busy = false; } }

@@ -42,16 +42,16 @@
                 <div class="sme-body collection-editor-body">
                     @if (_activeTab == "details")
                     {
-                        <div class="collection-editor-pane"><MediaEditorPanel Title="Details" Description="Name and describe this Gallery.">
+                        <div class="collection-editor-pane collection-editor-panel-stack">
                             <AppTextField T="string" @bind-Value="_name" Label="Name" Variant="Variant.Outlined" Immediate="true" />
                             <AppTextarea @bind-Value="_description" Label="Description (optional)" Lines="5" Immediate="true" />
-                        </MediaEditorPanel></div>
+                        </div>
                     }
                     else if (_activeTab == "artwork")
                     {
-                        <div class="collection-editor-pane"><MediaEditorPanel Title="Artwork" Description="Gallery artwork follows its selected cover item.">
+                        <div class="collection-editor-pane">
                             <div class="collection-editor-empty"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesomeMotion" /><strong>Automatic cover</strong><span>The Gallery uses its cover item and falls back to the newest matching photo.</span></div>
-                        </MediaEditorPanel></div>
+                        </div>
                     }
                     else if (_activeTab == "membership")
                     {
@@ -95,9 +95,9 @@
                     }
                     else
                     {
-                        <div class="collection-editor-pane"><MediaEditorPanel Title="History" Description="Gallery changes and system activity.">
+                        <div class="collection-editor-pane">
                             <div class="collection-editor-history-entry"><MudIcon Icon="@Icons.Material.Outlined.AddCircleOutline" /><div><strong>Gallery created</strong><span>@Request.EditingGallery?.CreatedAt.ToLocalTime().ToString("f")</span></div></div>
-                        </MediaEditorPanel></div>
+                        </div>
                     }
                 </div>
                 <footer class="sme-footer collection-editor-footer">

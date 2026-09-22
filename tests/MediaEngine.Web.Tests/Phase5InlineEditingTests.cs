@@ -186,8 +186,9 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("PersonalNotes", contracts, StringComparison.Ordinal);
 
         Assert.Contains("<ArtworkWorkspace", source, StringComparison.Ordinal);
-        Assert.Contains("StartInEditMode=\"true\"", source, StringComparison.Ordinal);
         Assert.Contains("ShowClose=\"false\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("StartInEditMode", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("person-editor__tab-heading", source, StringComparison.Ordinal);
         Assert.Contains("GetPersonTabClass(captured.Id)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("\"Banner\" =>", source, StringComparison.Ordinal);
         Assert.DoesNotContain("person-editor__artwork-type-rail", source, StringComparison.Ordinal);
@@ -323,8 +324,8 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("Identity target", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-header-actions", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-header-match-state", shell, StringComparison.Ordinal);
-        Assert.Contains("EditorTargetSummary", shell, StringComparison.Ordinal);
-        Assert.Contains("Review matches", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("EditorTargetSummary", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Review matches", shell, StringComparison.Ordinal);
         Assert.Contains("Icons.Material.Outlined.Close", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("<div class=\"sme-breadcrumb\">@BreadcrumbText</div>", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("class=\"sme-qid-link\"", shell, StringComparison.Ordinal);
@@ -512,7 +513,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("OverrideActive=\"@HasActiveDisplayOverride(field.Key)\"", shell, StringComparison.Ordinal);
         Assert.Contains("Unlocked=\"@IsInlineOverrideEnabled(field.Key)\"", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Yellow underline means local override", shell, StringComparison.Ordinal);
-        Assert.Contains("EditorTargetSummary", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("EditorTargetSummary", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Override in use", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Override in use", code, StringComparison.Ordinal);
         Assert.Contains("Icons.Material.Outlined.LockOpen", code, StringComparison.Ordinal);
@@ -575,7 +576,7 @@ public sealed class Phase5InlineEditingTests
 
         Assert.Contains("\"details\" => new[] { \"details\", \"options\", \"sorting\" }", code, StringComparison.Ordinal);
         Assert.DoesNotContain("tabs.Add(\"options\");", metadata, StringComparison.Ordinal);
-        Assert.Contains("EditorTargetSummary", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("EditorTargetSummary", shell, StringComparison.Ordinal);
         Assert.Contains("GetLibraryFields()", shell, StringComparison.Ordinal);
         Assert.Contains("return [(\"details\", \"Details\", GetTabIcon(\"details\")), (\"options\", \"Options\"", code, StringComparison.Ordinal);
 
