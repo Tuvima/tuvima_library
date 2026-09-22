@@ -37,8 +37,8 @@
     private ArtworkAssetQuery InitialQuery => LegacyQuery(Navigation.ToAbsoluteUri(Navigation.Uri).AbsolutePath);
 
     private static ArtworkAssetQuery LegacyQuery(string path) => path.EndsWith("/people", StringComparison.OrdinalIgnoreCase)
-        ? new ArtworkAssetQuery(Roles: ["Portrait"], Sort: ArtworkAssetSort.RecentlyUpdated)
-        : new ArtworkAssetQuery(Sort: ArtworkAssetSort.RecentlyUpdated);
+        ? new ArtworkAssetQuery(Roles: ["Portrait"], EntityTypes: ["Person"], Sort: ArtworkAssetSort.Newest)
+        : new ArtworkAssetQuery(Sort: ArtworkAssetSort.Newest);
 
     private Task SelectedAsync(ArtworkAssetDto? asset) { _selected = asset; return Task.CompletedTask; }
     private Task ResultsChangedAsync(int total) { _total = total; return Task.CompletedTask; }

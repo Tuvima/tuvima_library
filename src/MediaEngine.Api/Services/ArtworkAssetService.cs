@@ -48,9 +48,10 @@ public sealed class ArtworkAssetService(
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         var aspects = NormalizeValues(query.Aspects);
-        var mediaTypes = NormalizeValues(query.MediaTypes);
+        var mediaTypes = ExpandMediaTypes(query.MediaTypes);
         var providers = NormalizeValues(query.SourceProviders);
         var years = NormalizeValues(query.Years);
+        var entityTypes = NormalizeValues(query.EntityTypes).Select(value => value.ToLowerInvariant()).ToArray();
         var targetRole = NormalizeOptionalRole(query.TargetRole);
         var targetSourceAssetType = string.IsNullOrWhiteSpace(query.TargetSourceAssetType)
             ? null
@@ -68,11 +69,13 @@ public sealed class ArtworkAssetService(
         if (aspects.Length > 0)
             where.Append(" AND asset.aspect_class IN @aspects");
         if (mediaTypes.Length > 0)
-            where.Append(" AND EXISTS (SELECT 1 FROM artwork_asset_context media_context WHERE media_context.artwork_asset_id = asset.id AND media_context.media_type IN @mediaTypes)");
+            where.Append(" AND EXISTS (SELECT 1 FROM artwork_asset_context media_context WHERE media_context.artwork_asset_id = asset.id AND LOWER(TRIM(media_context.media_type)) IN @mediaTypes)");
         if (providers.Length > 0)
             where.Append(" AND COALESCE(asset.source_provider, '') IN @providers");
         if (years.Length > 0)
             where.Append(" AND EXISTS (SELECT 1 FROM artwork_asset_context year_context WHERE year_context.artwork_asset_id = asset.id AND year_context.year IN @years)");
+        if (entityTypes.Length > 0)
+            where.Append(" AND EXISTS (SELECT 1 FROM artwork_asset_context entity_context WHERE entity_context.artwork_asset_id = asset.id AND LOWER(TRIM(entity_context.entity_type)) IN @entityTypes)");
         if (query.RelatedEntityId.HasValue)
         {
             where.Append(" AND EXISTS (SELECT 1 FROM artwork_asset_context related_context WHERE related_context.artwork_asset_id = asset.id AND related_context.entity_id = @relatedEntityId");
@@ -96,6 +99,15 @@ public sealed class ArtworkAssetService(
             {
                 where.Append(" AND (EXISTS (SELECT 1 FROM entity_artwork_links linked WHERE linked.artwork_asset_id = asset.id AND linked.entity_id = @targetEntityId) OR EXISTS (SELECT 1 FROM artwork_asset_context target_context WHERE target_context.artwork_asset_id = asset.id AND target_context.entity_id = @targetEntityId))");
             }
+        }
+        else
+        {
+            if (query.Usage == ArtworkUsageFilter.Linked)
+                where.Append(" AND EXISTS (SELECT 1 FROM entity_artwork_links linked WHERE linked.artwork_asset_id = asset.id)");
+            else if (query.Usage == ArtworkUsageFilter.Selected)
+                where.Append(" AND EXISTS (SELECT 1 FROM entity_artwork_links linked WHERE linked.artwork_asset_id = asset.id AND linked.is_preferred = 1)");
+            else if (query.Usage == ArtworkUsageFilter.Unlinked)
+                where.Append(" AND NOT EXISTS (SELECT 1 FROM entity_artwork_links linked WHERE linked.artwork_asset_id = asset.id)");
         }
 
         var baseOrderBy = query.Sort switch
@@ -133,6 +145,7 @@ public sealed class ArtworkAssetService(
         parameters.Add("mediaTypes", mediaTypes);
         parameters.Add("providers", providers);
         parameters.Add("years", years);
+        parameters.Add("entityTypes", entityTypes);
         parameters.Add("relatedEntityId", query.RelatedEntityId);
         parameters.Add("relatedEntityType", string.IsNullOrWhiteSpace(query.RelatedEntityType) ? null : query.RelatedEntityType.Trim());
         parameters.Add("minimumWidth", query.MinimumWidth);
@@ -195,6 +208,20 @@ public sealed class ArtworkAssetService(
         var byAsset = contexts.ToLookup(context => context.ArtworkAssetId);
         var items = assets.Select(asset => ToDto(asset, byAsset[asset.Id], query)).ToList();
         return new ArtworkAssetPageDto(items, boundedOffset, boundedLimit, total);
+    }
+
+    private static string[] ExpandMediaTypes(IReadOnlyList<string>? values)
+    {
+        var expanded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var value in NormalizeValues(values))
+        {
+            var normalized = value.ToLowerInvariant();
+            expanded.Add(normalized);
+            if (normalized is "tv" or "music") continue;
+            if (normalized.EndsWith('s')) expanded.Add(normalized[..^1]);
+            else expanded.Add($"{normalized}s");
+        }
+        return expanded.ToArray();
     }
 
     public async Task<ArtworkEntityWorkspaceDto> GetEntityAsync(

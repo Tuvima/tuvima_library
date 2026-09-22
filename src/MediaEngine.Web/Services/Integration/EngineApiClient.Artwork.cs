@@ -70,6 +70,7 @@ public sealed partial class EngineApiClient
         AddQuery(query, "mediaType", request.MediaTypes);
         AddQuery(query, "source", request.SourceProviders);
         AddQuery(query, "year", request.Years);
+        AddQuery(query, "entityType", request.EntityTypes);
         AddQuery(query, "relatedEntityType", request.RelatedEntityType);
         AddQuery(query, "relatedEntityId", request.RelatedEntityId?.ToString("D"));
         AddQuery(query, "targetEntityType", request.TargetEntityType);

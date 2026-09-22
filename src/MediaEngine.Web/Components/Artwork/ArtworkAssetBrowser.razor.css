@@ -182,17 +182,27 @@
     color: #fff;
 }
 
-.artwork-asset-browser__grid {
-    display: grid;
-    grid-template-columns:repeat(auto-fill, minmax(9.5rem, 1fr));
-    align-items: start;
-    gap: .85rem;
-}
+.artwork-asset-browser__timeline { display: grid; gap: 2rem; }
+.artwork-asset-browser__month > h2 { margin: 0 0 1rem; font-size: 1.3rem; }
+.artwork-asset-browser__date-group + .artwork-asset-browser__date-group { margin-top: 1.4rem; }
+.artwork-asset-browser__date-group > h3 { min-height: 2.25rem; margin: 0 0 .45rem; font-size: 1rem; }
+.artwork-asset-browser__grid { display: flex; flex-wrap: wrap; align-items: stretch; gap: .42rem; }
+.artwork-asset-browser__grid::after { content: ""; flex-grow: 999999; min-width: 20%; }
+.artwork-aspect--narrow { --artwork-aspect: .5; }
+.artwork-aspect--portrait { --artwork-aspect: .72; }
+.artwork-aspect--square { --artwork-aspect: 1; }
+.artwork-aspect--landscape { --artwork-aspect: 1.5; }
+.artwork-aspect--wide { --artwork-aspect: 2.2; }
+.artwork-aspect--panorama { --artwork-aspect: 3.2; }
 
 .artwork-asset-browser__grid ::deep .artwork-asset-browser__card {
     position: relative;
-    display: grid;
-    min-width: 0;
+    display: block;
+    flex-grow: calc(var(--artwork-aspect) * 100);
+    flex-basis: calc(var(--artwork-aspect) * 11rem);
+    height: 11rem;
+    min-width: 4.5rem;
+    max-width: 100%;
     padding: 0;
     overflow: hidden;
     border: 1px solid rgba(145, 181, 217, .12);
@@ -211,18 +221,15 @@
 }
 
 .artwork-asset-browser__image {
-    position: relative;
-    display: grid;
-    place-items: center;
-    aspect-ratio: 1;
+    position: absolute;
+    inset: 0;
+    display: block;
     overflow: hidden;
     background: radial-gradient(circle at 45% 35%, rgba(107, 69, 171, .2), rgba(4, 7, 12, .96));
 }
 
-.artwork-asset-browser__card--portrait .artwork-asset-browser__image { aspect-ratio: 2 / 3; }
-.artwork-asset-browser__card--landscape .artwork-asset-browser__image { aspect-ratio: 16 / 10; }
-.artwork-asset-browser__card--banner .artwork-asset-browser__image { aspect-ratio: 3 / 1; }
-.artwork-asset-browser__image img { width: 100%; height: 100%; object-fit:contain; }
+.artwork-asset-browser__image img { width: 100%; height: 100%; object-fit: cover; transition: transform .18s ease; }
+.artwork-asset-browser__card:hover .artwork-asset-browser__image img { transform: scale(1.02); }
 
 .artwork-asset-browser__preferred {
     position: absolute;
@@ -317,7 +324,7 @@
 
 @media (max-width: 720px) {
     .artwork-asset-browser__body { grid-template-columns: 1fr; }
-    .artwork-asset-browser__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .artwork-asset-browser__grid ::deep .artwork-asset-browser__card { flex-basis: calc(var(--artwork-aspect) * 8rem); height: 8rem; }
     .artwork-asset-browser__results-toolbar { align-items: flex-start; }
     .artwork-asset-browser__sort { display: grid; gap: .25rem; }
 }

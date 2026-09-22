@@ -37,6 +37,7 @@ public sealed record ArtworkAssetQuery(
     IReadOnlyList<string>? MediaTypes = null,
     IReadOnlyList<string>? SourceProviders = null,
     IReadOnlyList<string>? Years = null,
+    IReadOnlyList<string>? EntityTypes = null,
     string? RelatedEntityType = null,
     Guid? RelatedEntityId = null,
     string? TargetEntityType = null,

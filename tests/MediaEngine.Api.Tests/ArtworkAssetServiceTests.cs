@@ -72,7 +72,36 @@ public sealed class ArtworkAssetServiceTests : IDisposable
         Assert.Equal("still", role.PresentationKey);
     }
 
-    private void SeedAsset(Guid assetId, string hashSuffix, string searchText, Guid contextEntityId)
+    [Fact]
+    public async Task BrowseAsync_AppliesLibraryMediaEntityAndUsageFilters()
+    {
+        var movieAssetId = Guid.NewGuid();
+        var personAssetId = Guid.NewGuid();
+        var unusedAssetId = Guid.NewGuid();
+        SeedAsset(movieAssetId, "movie", "Example movie poster", Guid.NewGuid(), mediaType: "Movies", preferred: true);
+        SeedAsset(personAssetId, "person", "Example actor portrait", Guid.NewGuid(), entityType: "Person", mediaType: null);
+        SeedAsset(unusedAssetId, "unused", "Unused book cover", Guid.NewGuid(), mediaType: "Books", linked: false);
+
+        var movies = await _service.BrowseAsync(new ArtworkAssetQuery(MediaTypes: ["Movie"]), CancellationToken.None);
+        var people = await _service.BrowseAsync(new ArtworkAssetQuery(EntityTypes: ["Person"]), CancellationToken.None);
+        var preferred = await _service.BrowseAsync(new ArtworkAssetQuery(Usage: ArtworkUsageFilter.Selected), CancellationToken.None);
+        var unused = await _service.BrowseAsync(new ArtworkAssetQuery(Usage: ArtworkUsageFilter.Unlinked), CancellationToken.None);
+
+        Assert.Equal(movieAssetId, Assert.Single(movies.Items).Id);
+        Assert.Equal(personAssetId, Assert.Single(people.Items).Id);
+        Assert.Equal(movieAssetId, Assert.Single(preferred.Items).Id);
+        Assert.Equal(unusedAssetId, Assert.Single(unused.Items).Id);
+    }
+
+    private void SeedAsset(
+        Guid assetId,
+        string hashSuffix,
+        string searchText,
+        Guid contextEntityId,
+        string entityType = "Work",
+        string? mediaType = "Movies",
+        bool linked = true,
+        bool preferred = false)
     {
         using var connection = _database.CreateConnection();
         connection.Execute(
@@ -80,12 +109,9 @@ public sealed class ArtworkAssetServiceTests : IDisposable
             INSERT INTO artwork_assets
                 (id, content_hash, original_path, width_px, height_px, aspect_class, source_provider, created_at)
             VALUES (@assetId, @hash, @path, 1000, 1500, 'Portrait', 'test', @createdAt);
-            INSERT INTO entity_artwork_links
-                (id, entity_id, entity_type, artwork_asset_id, role, context, source_asset_type, is_preferred, created_at)
-            VALUES (@linkId, @contextEntityId, 'Work', @assetId, 'Primary', '', 'CoverArt', 0, @createdAt);
             INSERT INTO artwork_asset_context
                 (artwork_asset_id, entity_id, entity_type, entity_label, media_type, year, role, provider, canonical_id, search_text, created_at)
-            VALUES (@assetId, @contextEntityId, 'Work', @label, 'Movies', '2001', 'Primary', 'test', @canonicalId, @searchText, @createdAt);
+            VALUES (@assetId, @contextEntityId, @entityType, @label, @mediaType, '2001', 'Primary', 'test', @canonicalId, @searchText, @createdAt);
             """,
             new
             {
@@ -93,12 +119,31 @@ public sealed class ArtworkAssetServiceTests : IDisposable
                 hash = $"hash-{hashSuffix}-{assetId:N}",
                 path = Path.Combine(_root, $"{assetId:N}.jpg"),
                 createdAt = DateTimeOffset.UtcNow.ToString("O"),
-                linkId = Guid.NewGuid(),
                 contextEntityId,
+                entityType,
+                mediaType,
                 label = searchText.StartsWith("Spirited", StringComparison.Ordinal) ? "Spirited Away" : "Library item",
                 canonicalId = $"Q{Math.Abs(assetId.GetHashCode())}",
                 searchText,
             });
+        if (linked)
+        {
+            connection.Execute(
+                """
+                INSERT INTO entity_artwork_links
+                    (id, entity_id, entity_type, artwork_asset_id, role, context, source_asset_type, is_preferred, created_at)
+                VALUES (@linkId, @contextEntityId, @entityType, @assetId, 'Primary', '', 'CoverArt', @preferred, @createdAt);
+                """,
+                new
+                {
+                    linkId = Guid.NewGuid(),
+                    contextEntityId,
+                    entityType,
+                    assetId,
+                    preferred,
+                    createdAt = DateTimeOffset.UtcNow.ToString("O"),
+                });
+        }
     }
 
     public void Dispose()
