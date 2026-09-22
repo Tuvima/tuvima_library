@@ -1,0 +1,51 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<section class="app-discovery-filter" aria-label="@AriaLabel">
+    <label class="app-discovery-filter__search">
+        <MudIcon Icon="@Icons.Material.Outlined.Search" />
+        <AppNativeInput Type="search"
+                        Value="@SearchValue"
+                        OnInput="HandleSearch"
+                        Placeholder="@SearchPlaceholder"
+                        AriaLabel="@SearchAriaLabel" />
+    </label>
+    <div class="app-discovery-filter__controls">
+        <div class="app-discovery-filter__tabs" role="tablist" aria-label="@QuickFilterAriaLabel">
+            @QuickFilters
+        </div>
+        @if (AdvancedFilters is not null)
+        {
+            <AppNativeButton Type="button"
+                             Class="@AdvancedButtonClass"
+                             AriaLabel="@AdvancedFilterAriaLabel"
+                             aria-expanded="@_expanded"
+                             OnClick="@(_ => _expanded = !_expanded)">
+                <MudIcon Icon="@Icons.Material.Outlined.Tune" />
+                Filters
+            </AppNativeButton>
+        }
+    </div>
+    @if (_expanded && AdvancedFilters is not null)
+    {
+        <div class="app-discovery-filter__advanced">
+            @AdvancedFilters
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public string AriaLabel { get; set; } = "Filters";
+    [Parameter] public string SearchValue { get; set; } = string.Empty;
+    [Parameter] public string SearchPlaceholder { get; set; } = "Search";
+    [Parameter] public string SearchAriaLabel { get; set; } = "Search";
+    [Parameter] public string QuickFilterAriaLabel { get; set; } = "Quick filters";
+    [Parameter] public string AdvancedFilterAriaLabel { get; set; } = "More filters";
+    [Parameter] public bool HasActiveAdvancedFilters { get; set; }
+    [Parameter] public EventCallback<object?> SearchChanged { get; set; }
+    [Parameter] public RenderFragment? QuickFilters { get; set; }
+    [Parameter] public RenderFragment? AdvancedFilters { get; set; }
+
+    private bool _expanded;
+    private string AdvancedButtonClass => $"app-discovery-filter__more{(_expanded || HasActiveAdvancedFilters ? " is-active" : string.Empty)}";
+    private Task HandleSearch(ChangeEventArgs args) => SearchChanged.InvokeAsync(args.Value);
+}

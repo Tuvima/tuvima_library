@@ -12,7 +12,8 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("<ViewSectionShell", source, StringComparison.Ordinal);
         Assert.Contains("<PageTitle>Photos - Tuvima Library</PageTitle>", source, StringComparison.Ordinal);
         Assert.Contains("Search photos, dates, devices, locations, and tags", source, StringComparison.Ordinal);
-        Assert.Contains("role=\"tablist\"", source, StringComparison.Ordinal);
+        Assert.Contains("<AppDiscoveryFilterBar", source, StringComparison.Ordinal);
+        Assert.Contains("role=\"tablist\"", Read("src/MediaEngine.Web/Components/Shared/AppDiscoveryFilterBar.razor"), StringComparison.Ordinal);
         Assert.Contains("<ViewImmersiveViewer", source, StringComparison.Ordinal);
         Assert.Contains("ToggleFavoriteAsync", source, StringComparison.Ordinal);
         Assert.Contains("ArchiveViewItemAsync", source, StringComparison.Ordinal);
@@ -90,6 +91,9 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("Recommended", browser, StringComparison.Ordinal);
         Assert.Contains("Related", browser, StringComparison.Ordinal);
         Assert.Contains("All Artwork", browser, StringComparison.Ordinal);
+        Assert.Contains("<AppDiscoveryFilterBar", browser, StringComparison.Ordinal);
+        Assert.Contains("UsageQuickFilters", browser, StringComparison.Ordinal);
+        Assert.DoesNotContain("artwork-asset-browser__filter-rail", browser, StringComparison.Ordinal);
         Assert.Contains("LoadMoreAsync", browser, StringComparison.Ordinal);
         Assert.Contains("Close artwork details", browser, StringComparison.Ordinal);
         Assert.Contains("grid-template-columns:repeat(auto-fill", browserStyles, StringComparison.Ordinal);
@@ -177,8 +181,11 @@ public sealed class ViewLibrarySurfaceTests
         var galleries = Read("src/MediaEngine.Web/Components/Pages/ViewGalleriesPage.razor");
         var galleryEditor = Read("src/MediaEngine.Web/Components/Collections/GalleryEditorShell.razor");
         var shell = Read("src/MediaEngine.Web/Components/Pages/ViewSectionShell.razor");
+        var timelineStyles = Read("src/MediaEngine.Web/Components/Pages/ViewPhotoTimeline.razor.css");
+        var selectionStyles = Read("src/MediaEngine.Web/Components/Pages/ViewSelectionToolbar.razor.css");
 
         Assert.Contains("ViewSelectionToolbar", photos, StringComparison.Ordinal);
+        Assert.Contains("<AppDiscoveryFilterBar", photos, StringComparison.Ordinal);
         Assert.Contains("OnSelectDateGroup", timeline, StringComparison.Ordinal);
         Assert.DoesNotContain("Select @group.Items.Count", timeline, StringComparison.Ordinal);
         Assert.Contains("aria-checked", timeline, StringComparison.Ordinal);
@@ -187,6 +194,10 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("Density=\"@Workspace.Density\"", photos, StringComparison.Ordinal);
         Assert.Contains("view-density--@Density", timeline, StringComparison.Ordinal);
         Assert.Contains("view-tile__select-control", timeline, StringComparison.Ordinal);
+        Assert.Contains(".view-tile.is-selected", timelineStyles, StringComparison.Ordinal);
+        Assert.Contains("::deep .view-tile__select-control[aria-checked=\"true\"]", timelineStyles, StringComparison.Ordinal);
+        Assert.Contains("width:max-content", selectionStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("background:rgba(30,41,59,.42)", selectionStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("<AppCheckbox", timeline, StringComparison.Ordinal);
         Assert.Contains("ViewGalleryKind.Manual", shell, StringComparison.Ordinal);
         Assert.Contains("ViewGalleryKind.Smart", galleries, StringComparison.Ordinal);

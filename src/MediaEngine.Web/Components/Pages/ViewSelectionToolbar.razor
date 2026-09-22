@@ -2,10 +2,10 @@
 @namespace MediaEngine.Web.Components.Pages
 
 <section class="view-selection-toolbar" role="toolbar" aria-label="Selected photo actions">
-    <header>
+    <div class="view-selection-toolbar__count">
         <strong>@Count selected</strong>
-        <AppNativeButton Type="button" Class="view-selection-toolbar__close" AriaLabel="Clear photo selection" OnClick="@(_ => OnClear.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.Close" /></AppNativeButton>
-    </header>
+    </div>
+    <span class="view-selection-toolbar__divider" aria-hidden="true"></span>
     <div class="view-selection-toolbar__actions">
         <AppOverflowMenu Label="Add to Gallery"
                          Icon="@Icons.Material.Outlined.PhotoLibrary"
@@ -24,7 +24,6 @@
                          DividerBefore="@(ManualGalleries.Count > 0)"
                          OnClick="@(() => OnCreateGallery.InvokeAsync())" />
         </AppOverflowMenu>
-        <span class="view-selection-toolbar__divider"></span>
         @if (ShowSharedLibrary)
         {
             <AppNativeButton Type="button" Class="view-selection-toolbar__action" OnClick="@(_ => OnSharedLibrary.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.GroupWork" />Submit to Shared Library</AppNativeButton>
@@ -42,8 +41,9 @@
         {
             <AppNativeButton Type="button" Class="view-selection-toolbar__action" OnClick="@(_ => OnTrash.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.DeleteOutline" />Trash</AppNativeButton>
         }
-        <AppNativeButton Type="button" Class="view-selection-toolbar__action" OnClick="@(_ => OnClear.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.Close" />Clear</AppNativeButton>
     </div>
+    <span class="view-selection-toolbar__divider" aria-hidden="true"></span>
+    <AppNativeButton Type="button" Class="view-selection-toolbar__close" AriaLabel="Clear photo selection" OnClick="@(_ => OnClear.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.Close" /></AppNativeButton>
 </section>
 
 @code {

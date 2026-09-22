@@ -34,11 +34,26 @@ else
 {
     @if (_uploading) { <section class="view-upload-status" role="status" aria-live="polite"><span>Uploading @_uploadFileName…</span><MudProgressLinear Color="Color.Primary" Indeterminate="true" /></section> }
     @if (!string.IsNullOrWhiteSpace(_uploadError)) { <section class="view-upload-status is-error" role="alert">@_uploadError</section> }
-    <section class="view-toolbar" aria-label="View filters">
-        <label class="view-search"><MudIcon Icon="@Icons.Material.Outlined.Search" /><AppNativeInput Type="search" Value="@_search" ValueChanged="SearchChanged" Placeholder="Search photos, dates, devices, locations, and tags" AriaLabel="Search Photos" /></label>
-        <div class="view-filter-controls"><div class="view-kind-tabs" role="tablist" aria-label="Photos quick filters">@foreach (var filter in PrimaryFilters) { <AppNativeButton Type="button" Class="@FilterClass(filter.Key)" AriaLabel="@filter.Value" OnClick="@(_ => SetFilterAsync(filter.Key))">@filter.Value</AppNativeButton> }</div><AppNativeButton Type="button" Class="@($"view-more-filters{(_showMoreFilters ? " is-active" : string.Empty)}")" AriaLabel="More photo filters" OnClick="@(_ => _showMoreFilters = !_showMoreFilters)"><MudIcon Icon="@Icons.Material.Outlined.Tune" />Filters</AppNativeButton></div>
-        @if (_showMoreFilters) { <div class="view-kind-tabs view-kind-tabs--secondary" aria-label="More filters"><AppNativeButton Type="button" Class="@FilterClass("hidden")" OnClick="@(_ => SetFilterAsync("hidden"))">Hidden</AppNativeButton><AppNativeButton Type="button" Class="@FilterClass("trash")" OnClick="@(_ => SetFilterAsync("trash"))">Trash</AppNativeButton><AppNativeButton Type="button" Class="@FilterClass("documents")" OnClick="@(_ => SetFilterAsync("documents"))">Documents</AppNativeButton></div> }
-    </section>
+    <AppDiscoveryFilterBar AriaLabel="View filters"
+                           SearchValue="@_search"
+                           SearchChanged="SearchChanged"
+                           SearchPlaceholder="Search photos, dates, devices, locations, and tags"
+                           SearchAriaLabel="Search Photos"
+                           QuickFilterAriaLabel="Photos quick filters"
+                           AdvancedFilterAriaLabel="More photo filters"
+                           HasActiveAdvancedFilters="@(_filter is "hidden" or "trash" or "documents")">
+        <QuickFilters>
+            @foreach (var filter in PrimaryFilters)
+            {
+                <AppNativeButton Type="button" Class="@FilterClass(filter.Key)" AriaLabel="@filter.Value" OnClick="@(_ => SetFilterAsync(filter.Key))">@filter.Value</AppNativeButton>
+            }
+        </QuickFilters>
+        <AdvancedFilters>
+            <AppNativeButton Type="button" Class="@FilterClass("hidden")" OnClick="@(_ => SetFilterAsync("hidden"))">Hidden</AppNativeButton>
+            <AppNativeButton Type="button" Class="@FilterClass("trash")" OnClick="@(_ => SetFilterAsync("trash"))">Trash</AppNativeButton>
+            <AppNativeButton Type="button" Class="@FilterClass("documents")" OnClick="@(_ => SetFilterAsync("documents"))">Documents</AppNativeButton>
+        </AdvancedFilters>
+    </AppDiscoveryFilterBar>
     @if (_selected.Count > 0) { <ViewSelectionToolbar Count="@_selected.Count" ManualGalleries="@Workspace.OwnedGalleries.Where(g => g.Kind == ViewGalleryKind.Manual).ToList()" OnClear="ClearSelection" OnAddToGallery="AddSelectionToGalleryAsync" OnCreateGallery="CreateGalleryFromSelectionAsync" OnSharedLibrary="SubmitSelectionToSharedAsync" ShowSharedLibrary="@(Workspace.ScopeKind == ViewScopeKind.Mine)" OnFavorite="FavoriteSelectionAsync" OnArchive="ArchiveSelectionAsync" OnRestore="RestoreSelectionAsync" ShowRestore="@(_filter is "archive" or "trash")" OnTrash="TrashSelectionAsync" ShowTrash="@(_filter != "trash")" /> }
     @if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Photos" Message="Building your personal timeline." /> }
     else if (_page is null) { <AppErrorState Title="Photos could not be loaded" Message="The Engine did not return a timeline." Retry="@(() => LoadAsync())" /> }
@@ -53,7 +68,7 @@ else
 @code {
     private static readonly IReadOnlyDictionary<string, string> PrimaryFilters = new Dictionary<string, string> { ["all"] = "All", ["favorites"] = "Favorites", ["videos"] = "Videos", ["archive"] = "Archive" };
     private ViewSectionShell? _viewSectionShell; private ViewAssetTimelinePageDto? _page; private ViewTimelineIndexDto? _timelineIndex; private LocalAssetDto? _activeItem; private readonly HashSet<Guid> _selected = []; private readonly Dictionary<(Guid, Guid, ViewMediaResourceKind, ViewMediaResourceRole, ViewScopeKind, Guid?), CachedMediaGrant> _grants = [];
-    private CancellationTokenSource? _searchCts; private Guid? _profileId; private string _search = ""; private string _filter = "all"; private bool _initializing = true, _loading, _loadingMore, _uploading, _showMoreFilters; private string? _uploadFileName, _uploadError;
+    private CancellationTokenSource? _searchCts; private Guid? _profileId; private string _search = ""; private string _filter = "all"; private bool _initializing = true, _loading, _loadingMore, _uploading; private string? _uploadFileName, _uploadError;
     private DateTimeOffset? _anchorBefore; private Guid? _selectionAnchor; private int? _activeYear, _activeMonth; private ElementReference _timelineSentinel; private IJSObjectReference? _timelineModule; private DotNetObjectReference<ViewPage>? _timelineReference; private bool _observeTimeline, _focusAnchoredPeriod;
     protected override async Task OnInitializedAsync() { Orchestrator.OnProfileChanged += OnProfileChanged; await InitializeAsync(); }
     private async Task InitializeAsync() { _initializing = true; _profileId = (await Orchestrator.GetActiveProfileAsync())?.Id; await Workspace.InitializeAsync(); await Workspace.LoadGalleriesAsync(); _initializing = false; await LoadAsync(); }
@@ -94,7 +109,7 @@ else
             if (ReferenceEquals(_searchCts, search)) _loading = false;
         }
     }
-    private async Task SetFilterAsync(string filter) { _filter = filter; await LoadAsync(); } private string FilterClass(string filter) => $"view-kind-tab{(_filter == filter ? " is-active" : "")}"; private string SelectedScopeValue => ScopeValue(Workspace.ScopeKind, Workspace.ScopeProfileId); private static string ScopeValue(ViewScopeKind kind, Guid? profile) => $"{kind}:{(kind == ViewScopeKind.Profile ? profile?.ToString("D") : null)}";
+    private async Task SetFilterAsync(string filter) { _filter = filter; await LoadAsync(); } private string FilterClass(string filter) => $"app-discovery-filter__tab{(_filter == filter ? " is-active" : "")}"; private string SelectedScopeValue => ScopeValue(Workspace.ScopeKind, Workspace.ScopeProfileId); private static string ScopeValue(ViewScopeKind kind, Guid? profile) => $"{kind}:{(kind == ViewScopeKind.Profile ? profile?.ToString("D") : null)}";
     private string ScopeDescription => Workspace.ScopeKind switch
     {
         ViewScopeKind.Mine => "Your private photo and video timeline.",

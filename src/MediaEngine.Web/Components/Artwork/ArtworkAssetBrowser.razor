@@ -5,40 +5,44 @@
 @implements IDisposable
 
 <div class="artwork-asset-browser @(PickerMode ? "is-picker" : "is-library")">
-    <header class="artwork-asset-browser__toolbar">
-        @if (PickerMode)
-        {
-            <div class="artwork-asset-browser__scope" role="tablist" aria-label="Artwork suggestions">
+    <AppDiscoveryFilterBar AriaLabel="Artwork filters"
+                           SearchValue="@_search"
+                           SearchChanged="SearchChangedValue"
+                           SearchPlaceholder="Search titles, people, characters, universes, and IDs"
+                           SearchAriaLabel="Search artwork library"
+                           QuickFilterAriaLabel="@(PickerMode ? "Artwork suggestions" : "Artwork quick filters")"
+                           AdvancedFilterAriaLabel="More artwork filters"
+                           HasActiveAdvancedFilters="@HasActiveAdvancedFilters">
+        <QuickFilters>
+            @if (PickerMode)
+            {
                 @foreach (var option in PickerScopes)
                 {
-                    <AppNativeButton Type="button" role="tab" aria-selected="@(option.Value == _scope)" Class="@ScopeClass(option.Value)" OnClick="@(() => SetScopeAsync(option.Value))">@option.Label</AppNativeButton>
+                    <AppNativeButton Type="button" role="tab" aria-selected="@(option.Value == _scope)" Class="@ScopeClass(option.Value)" OnClick="@(_ => SetScopeAsync(option.Value))">@option.Label</AppNativeButton>
                 }
-            </div>
-        }
-        <label class="artwork-asset-browser__search">
-            <MudIcon Icon="@Icons.Material.Outlined.Search" />
-            <AppNativeInput Type="search" Value="@_search" OnInput="SearchChanged" Placeholder="Search titles, people, characters, universes, and IDs" AriaLabel="Search artwork library" />
-        </label>
-    </header>
-
-    <div class="artwork-asset-browser__body">
-        <aside class="artwork-asset-browser__filter-rail" aria-label="Artwork filters">
-            <div class="artwork-asset-browser__filter-heading">
-                <strong>Filters</strong>
-                @if (HasActiveFilters)
+            }
+            else
+            {
+                @foreach (var option in UsageQuickFilters)
                 {
-                    <AppNativeButton Type="button" Class="artwork-asset-browser__clear" OnClick="ClearFiltersAsync">Clear all</AppNativeButton>
+                    <AppNativeButton Type="button" role="tab" aria-selected="@(option.Value == _usage)" Class="@UsageClass(option.Value)" OnClick="@(_ => SetUsageAsync(option.Value))">@option.Label</AppNativeButton>
                 }
-            </div>
+            }
+        </QuickFilters>
+        <AdvancedFilters>
             <label><span>Media type</span><AppNativeSelect Value="@_mediaType" OnChange="MediaTypeChangedAsync" aria-label="Filter by media type">@foreach (var option in MediaTypeOptions) { <option value="@option.Value">@option.Label</option> }</AppNativeSelect></label>
             <label><span>Artwork role</span><AppNativeSelect Value="@_role" OnChange="RoleChangedAsync" aria-label="Filter by artwork role">@foreach (var option in RoleOptions) { <option value="@option.Value">@option.Label</option> }</AppNativeSelect></label>
             <label><span>Orientation</span><AppNativeSelect Value="@_aspect" OnChange="AspectChangedAsync" aria-label="Filter by image orientation">@foreach (var option in AspectOptions) { <option value="@option.Value">@option.Label</option> }</AppNativeSelect></label>
             <label><span>Source / provider</span><AppNativeSelect Value="@_source" OnChange="SourceChangedAsync" aria-label="Filter by source provider">@foreach (var option in SourceOptions) { <option value="@option.Value">@option.Label</option> }</AppNativeSelect></label>
             <label><span>Year</span><AppNativeInput Type="search" Value="@_year" OnInput="YearChanged" Placeholder="Any" AriaLabel="Filter artwork by year" /></label>
-            <label><span>Usage</span><AppNativeSelect Value="@_usage.ToString()" OnChange="UsageChangedAsync" aria-label="Filter by artwork usage">@foreach (var option in UsageOptions) { <option value="@option.Value">@option.Label</option> }</AppNativeSelect></label>
-            <AppSwitchRow Class="artwork-asset-browser__unused-toggle" Label="Show only unused" Value="@(_usage == ArtworkUsageFilter.Unlinked)" ValueChanged="UnusedChangedAsync" />
-        </aside>
+            @if (HasActiveFilters)
+            {
+                <AppNativeButton Type="button" Class="app-discovery-filter__clear" OnClick="ClearFiltersAsync">Clear all</AppNativeButton>
+            }
+        </AdvancedFilters>
+    </AppDiscoveryFilterBar>
 
+    <div class="artwork-asset-browser__body">
         <div class="artwork-asset-browser__results">
             <div class="artwork-asset-browser__results-toolbar">
                 <div class="artwork-asset-browser__summary"><strong>@((_page?.Total ?? 0).ToString("N0"))</strong><span>result@((_page?.Total ?? 0) == 1 ? string.Empty : "s")</span></div>
@@ -128,11 +132,11 @@
 
 @code {
     private static readonly (string Label, ArtworkPickerScope Value)[] PickerScopes = [("Recommended", ArtworkPickerScope.Recommended), ("Related", ArtworkPickerScope.Related), ("All Artwork", ArtworkPickerScope.All)];
+    private static readonly (string Label, ArtworkUsageFilter Value)[] UsageQuickFilters = [("All", ArtworkUsageFilter.All), ("In use", ArtworkUsageFilter.Linked), ("Preferred", ArtworkUsageFilter.Selected), ("Unused", ArtworkUsageFilter.Unlinked)];
     private static readonly (string Label, string Value)[] RoleOptions = [("All roles", ""), ("Primary", "Primary"), ("Background", "Background"), ("Portrait", "Portrait"), ("Logo", "Logo")];
     private static readonly (string Label, string Value)[] AspectOptions = [("All shapes", ""), ("Portrait", "Portrait"), ("Square", "Square"), ("Landscape", "Landscape"), ("Banner", "Banner"), ("Other", "UnsupportedRect")];
     private static readonly (string Label, string Value)[] MediaTypeOptions = [("Any", ""), ("Movie", "Movie"), ("TV", "TV"), ("Book", "Book"), ("Comic", "Comic"), ("Music", "Music"), ("Audiobook", "Audiobook")];
     private static readonly (string Label, string Value)[] SourceOptions = [("All sources", ""), ("TMDB", "tmdb"), ("Fanart.tv", "fanart_tv"), ("Wikidata", "wikidata"), ("Uploads", "user_upload"), ("URL imports", "url")];
-    private static readonly (string Label, ArtworkUsageFilter Value)[] UsageOptions = [("Any", ArtworkUsageFilter.All), ("In use", ArtworkUsageFilter.Linked), ("Preferred", ArtworkUsageFilter.Selected), ("Unused", ArtworkUsageFilter.Unlinked)];
     private static readonly (string Label, ArtworkAssetSort Value)[] SortOptions = [("Relevance", ArtworkAssetSort.Relevance), ("Newest added", ArtworkAssetSort.Newest), ("Recently updated", ArtworkAssetSort.RecentlyUpdated), ("Resolution", ArtworkAssetSort.Resolution)];
 
     [Parameter] public ArtworkAssetQuery InitialQuery { get; set; } = new();
@@ -235,15 +239,17 @@
     private async Task AspectChangedAsync(object? value) { _aspect = value?.ToString() ?? string.Empty; await LoadAsync(); }
     private async Task MediaTypeChangedAsync(object? value) { _mediaType = value?.ToString() ?? string.Empty; await LoadAsync(); }
     private async Task SourceChangedAsync(object? value) { _source = value?.ToString() ?? string.Empty; await LoadAsync(); }
-    private async Task UsageChangedAsync(object? value) { if (Enum.TryParse<ArtworkUsageFilter>(value?.ToString(), out var usage)) _usage = usage; await LoadAsync(); }
-    private async Task UnusedChangedAsync(bool value) { _usage = value ? ArtworkUsageFilter.Unlinked : ArtworkUsageFilter.All; await LoadAsync(); }
+    private Task SearchChangedValue(object? value) { SearchChanged(new ChangeEventArgs { Value = value }); return Task.CompletedTask; }
+    private async Task SetUsageAsync(ArtworkUsageFilter usage) { _usage = usage; await LoadAsync(); }
     private async Task SortChangedAsync(object? value) { if (Enum.TryParse<ArtworkAssetSort>(value?.ToString(), out var sort)) _sort = sort; await LoadAsync(); }
     private void SearchChanged(ChangeEventArgs args) { _search = args.Value?.ToString() ?? string.Empty; _searchCts?.Cancel(); _searchCts?.Dispose(); _searchCts = new CancellationTokenSource(); _ = DebouncedSearchAsync(_searchCts.Token); }
     private void YearChanged(ChangeEventArgs args) { _year = args.Value?.ToString() ?? string.Empty; _searchCts?.Cancel(); _searchCts?.Dispose(); _searchCts = new CancellationTokenSource(); _ = DebouncedSearchAsync(_searchCts.Token); }
     private bool HasActiveFilters => !string.IsNullOrWhiteSpace(_role) || !string.IsNullOrWhiteSpace(_aspect) || !string.IsNullOrWhiteSpace(_mediaType) || !string.IsNullOrWhiteSpace(_source) || !string.IsNullOrWhiteSpace(_year) || _usage != ArtworkUsageFilter.All;
+    private bool HasActiveAdvancedFilters => !string.IsNullOrWhiteSpace(_role) || !string.IsNullOrWhiteSpace(_aspect) || !string.IsNullOrWhiteSpace(_mediaType) || !string.IsNullOrWhiteSpace(_source) || !string.IsNullOrWhiteSpace(_year);
     private async Task ClearFiltersAsync() { _role = string.Empty; _aspect = string.Empty; _mediaType = string.Empty; _source = string.Empty; _year = string.Empty; _usage = ArtworkUsageFilter.All; await LoadAsync(); }
     private async Task DebouncedSearchAsync(CancellationToken ct) { try { await Task.Delay(250, ct); await InvokeAsync(LoadAsync); } catch (OperationCanceledException) { } }
-    private string ScopeClass(ArtworkPickerScope value) => $"artwork-asset-browser__scope-button{(_scope == value ? " is-active" : string.Empty)}";
+    private string ScopeClass(ArtworkPickerScope value) => $"app-discovery-filter__tab{(_scope == value ? " is-active" : string.Empty)}";
+    private string UsageClass(ArtworkUsageFilter value) => $"app-discovery-filter__tab{(_usage == value ? " is-active" : string.Empty)}";
     private string AssetClass(ArtworkAssetDto asset) => $"artwork-asset-browser__card artwork-asset-browser__card--{Shape(asset)}{(asset.Id == _selectedAssetId ? " is-selected" : string.Empty)}";
     private static string Shape(ArtworkAssetDto asset) => asset.Aspect.ToLowerInvariant() switch { "portrait" => "portrait", "square" => "square", "banner" => "banner", "unsupportedrect" => "other", _ => "landscape" };
     private static string AssetTitle(ArtworkAssetDto asset) => asset.DisplayContext?.EntityLabel ?? asset.Contexts.FirstOrDefault()?.EntityLabel ?? "Library artwork";
