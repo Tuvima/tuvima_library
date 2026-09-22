@@ -2193,6 +2193,34 @@ CREATE INDEX IF NOT EXISTS idx_entity_artwork_links_asset
     ON entity_artwork_links(artwork_asset_id);
 CREATE INDEX IF NOT EXISTS idx_artwork_asset_context_search
     ON artwork_asset_context(search_text COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS idx_artwork_asset_context_facets
+    ON artwork_asset_context(entity_type, media_type, year, role, provider, entity_id);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS artwork_asset_search USING fts5(
+    artwork_asset_id UNINDEXED,
+    search_text,
+    tokenize = 'trigram'
+);
+
+CREATE TRIGGER IF NOT EXISTS trg_artwork_asset_context_search_insert
+AFTER INSERT ON artwork_asset_context BEGIN
+    INSERT INTO artwork_asset_search(artwork_asset_id, search_text)
+    VALUES (new.artwork_asset_id, new.search_text);
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_artwork_asset_context_search_update
+AFTER UPDATE OF search_text, artwork_asset_id ON artwork_asset_context BEGIN
+    DELETE FROM artwork_asset_search
+    WHERE artwork_asset_id = old.artwork_asset_id AND search_text = old.search_text;
+    INSERT INTO artwork_asset_search(artwork_asset_id, search_text)
+    VALUES (new.artwork_asset_id, new.search_text);
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_artwork_asset_context_search_delete
+AFTER DELETE ON artwork_asset_context BEGIN
+    DELETE FROM artwork_asset_search
+    WHERE artwork_asset_id = old.artwork_asset_id AND search_text = old.search_text;
+END;
 
 CREATE INDEX IF NOT EXISTS idx_profile_saved_items_recent
     ON profile_saved_items(profile_id, saved_at DESC);
@@ -2889,7 +2917,8 @@ FROM selected_credits credit
 INNER JOIN persons person
     ON (credit.person_qid IS NOT NULL
         AND person.wikidata_qid = credit.person_qid COLLATE NOCASE)
-    OR person.name = credit.person_name COLLATE NOCASE
+    OR (credit.person_qid IS NULL
+        AND person.name = credit.person_name COLLATE NOCASE)
 WHERE credit.credit_key != 'author'
    OR NOT EXISTS (
     SELECT 1
@@ -2897,7 +2926,8 @@ WHERE credit.credit_key != 'author'
     INNER JOIN persons collective_person
         ON (collective_credit.person_qid IS NOT NULL
             AND collective_person.wikidata_qid = collective_credit.person_qid COLLATE NOCASE)
-        OR collective_person.name = collective_credit.person_name COLLATE NOCASE
+        OR (collective_credit.person_qid IS NULL
+            AND collective_person.name = collective_credit.person_name COLLATE NOCASE)
     WHERE collective_credit.media_asset_id = credit.media_asset_id
       AND collective_credit.credit_key = credit.credit_key
       AND collective_person.is_pseudonym = 1

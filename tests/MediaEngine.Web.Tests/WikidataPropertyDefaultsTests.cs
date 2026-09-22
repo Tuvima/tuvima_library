@@ -30,8 +30,7 @@ public sealed class WikidataPropertyDefaultsTests
             && property.Category == "Universe: Object");
         Assert.Contains(properties, property => property.PCode == "P5800"
             && property.Category == "Universe: Object");
-        Assert.Contains(properties, property => property.PCode == "P793"
-            && property.ClaimKey == "narrative_event"
+        Assert.DoesNotContain(properties, property => property.PCode == "P793"
             && property.Category == "Stage 1: Story & Narrative");
         Assert.Equal(17, WikidataPropertyDefaults.CategoryOrder("Universe: Event"));
         Assert.Equal(18, WikidataPropertyDefaults.CategoryOrder("Universe: Object"));

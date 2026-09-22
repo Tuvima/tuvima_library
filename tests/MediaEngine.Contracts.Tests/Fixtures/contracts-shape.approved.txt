@@ -293,6 +293,161 @@ MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.ResourceSnapshotDto
   CpuPressure: System.Double | nullability=not-null | accessors=get,set
   TranscodingActive: System.Boolean | nullability=not-null | accessors=get,set
 
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkAssetContextDto
+  EntityId: System.Guid | nullability=not-null | accessors=get,init
+  EntityType: System.String | nullability=not-null | accessors=get,init
+  EntityLabel: System.String | nullability=not-null | accessors=get,init
+  MediaType: System.String | nullability=nullable | accessors=get,init
+  Year: System.String | nullability=nullable | accessors=get,init
+  Role: System.String | nullability=nullable | accessors=get,init
+  Provider: System.String | nullability=nullable | accessors=get,init
+  CanonicalId: System.String | nullability=nullable | accessors=get,init
+  RelationshipKind: System.String | nullability=not-null | accessors=get,init
+  MatchReason: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkAssetDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  ContentUrl: System.String | nullability=not-null | accessors=get,init
+  ThumbnailUrl: System.String | nullability=not-null | accessors=get,init
+  Width: System.Int32? | nullability=nullable | accessors=get,init
+  Height: System.Int32? | nullability=nullable | accessors=get,init
+  Aspect: System.String | nullability=not-null | accessors=get,init
+  SourceProvider: System.String | nullability=nullable | accessors=get,init
+  SourceUrl: System.String | nullability=nullable | accessors=get,init
+  Contexts: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Artwork.ArtworkAssetContextDto> | nullability=not-null | accessors=get,init
+  AlreadyLinked: System.Boolean | nullability=not-null | accessors=get,init
+  CreatedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  UpdatedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  LinkCount: System.Int32 | nullability=not-null | accessors=get,init
+  PreferredLinkCount: System.Int32 | nullability=not-null | accessors=get,init
+  IsPreferredForTarget: System.Boolean | nullability=not-null | accessors=get,init
+  DisplayContext: MediaEngine.Contracts.Artwork.ArtworkAssetContextDto | nullability=nullable | accessors=get,init
+  MatchExplanation: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkAssetPageDto
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Artwork.ArtworkAssetDto> | nullability=not-null | accessors=get,init
+  Offset: System.Int32 | nullability=not-null | accessors=get,init
+  Limit: System.Int32 | nullability=not-null | accessors=get,init
+  Total: System.Int32 | nullability=not-null | accessors=get,init
+  HasMore: System.Boolean | nullability=not-null | accessors=get
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkAssetQuery
+  Search: System.String | nullability=nullable | accessors=get,init
+  Roles: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
+  Aspects: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
+  MediaTypes: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
+  SourceProviders: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
+  Years: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
+  RelatedEntityType: System.String | nullability=nullable | accessors=get,init
+  RelatedEntityId: System.Guid? | nullability=nullable | accessors=get,init
+  TargetEntityType: System.String | nullability=nullable | accessors=get,init
+  TargetEntityId: System.Guid? | nullability=nullable | accessors=get,init
+  TargetRole: System.String | nullability=nullable | accessors=get,init
+  TargetSourceAssetType: System.String | nullability=nullable | accessors=get,init
+  PickerScope: MediaEngine.Contracts.Artwork.ArtworkPickerScope | nullability=not-null | accessors=get,init
+  Usage: MediaEngine.Contracts.Artwork.ArtworkUsageFilter | nullability=not-null | accessors=get,init
+  Sort: MediaEngine.Contracts.Artwork.ArtworkAssetSort | nullability=not-null | accessors=get,init
+  MinimumWidth: System.Int32? | nullability=nullable | accessors=get,init
+  MinimumHeight: System.Int32? | nullability=nullable | accessors=get,init
+  Offset: System.Int32 | nullability=not-null | accessors=get,init
+  Limit: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkAssetSort
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkBrowsePageDto
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Artwork.ArtworkLibraryItemDto> | nullability=not-null | accessors=get,init
+  Offset: System.Int32 | nullability=not-null | accessors=get,init
+  Limit: System.Int32 | nullability=not-null | accessors=get,init
+  Total: System.Int32 | nullability=not-null | accessors=get,init
+  HasMore: System.Boolean | nullability=not-null | accessors=get
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkEntityVariantDto
+  LinkId: System.Guid | nullability=not-null | accessors=get,init
+  ArtworkAssetId: System.Guid | nullability=not-null | accessors=get,init
+  Role: System.String | nullability=not-null | accessors=get,init
+  Context: System.String | nullability=nullable | accessors=get,init
+  SourceAssetType: System.String | nullability=nullable | accessors=get,init
+  IsPreferred: System.Boolean | nullability=not-null | accessors=get,init
+  IsUserOverride: System.Boolean | nullability=not-null | accessors=get,init
+  ContentUrl: System.String | nullability=not-null | accessors=get,init
+  ThumbnailUrl: System.String | nullability=not-null | accessors=get,init
+  Width: System.Int32? | nullability=nullable | accessors=get,init
+  Height: System.Int32? | nullability=nullable | accessors=get,init
+  Aspect: System.String | nullability=not-null | accessors=get,init
+  SourceProvider: System.String | nullability=nullable | accessors=get,init
+  SourceUrl: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkEntityWorkspaceDto
+  EntityId: System.Guid | nullability=not-null | accessors=get,init
+  EntityType: System.String | nullability=not-null | accessors=get,init
+  Variants: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Artwork.ArtworkEntityVariantDto> | nullability=not-null | accessors=get,init
+  SupportedRoles: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Artwork.ArtworkRoleDescriptorDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkFromUrlRequest
+  Url: System.String | nullability=not-null | accessors=get,init
+  Role: System.String | nullability=not-null | accessors=get,init
+  Context: System.String | nullability=nullable | accessors=get,init
+  Preferred: System.Boolean | nullability=not-null | accessors=get,init
+  EntityLabel: System.String | nullability=nullable | accessors=get,init
+  MediaType: System.String | nullability=nullable | accessors=get,init
+  Year: System.String | nullability=nullable | accessors=get,init
+  SourceAssetType: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkLibraryItemDto
+  EntityId: System.Guid | nullability=not-null | accessors=get,init
+  EntityType: System.String | nullability=not-null | accessors=get,init
+  DisplayTitle: System.String | nullability=not-null | accessors=get,init
+  MediaType: System.String | nullability=nullable | accessors=get,init
+  Year: System.String | nullability=nullable | accessors=get,init
+  Subtitle: System.String | nullability=nullable | accessors=get,init
+  ImageUrl: System.String | nullability=nullable | accessors=get,init
+  PrimaryAssetType: System.String | nullability=nullable | accessors=get,init
+  AssetTypes: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  VariantCount: System.Int32 | nullability=not-null | accessors=get,init
+  OwnedWorkCount: System.Int32 | nullability=not-null | accessors=get,init
+  UsesLegacyPersonImage: System.Boolean | nullability=not-null | accessors=get,init
+  IsStructural: System.Boolean | nullability=not-null | accessors=get,init
+  GroupKind: System.String | nullability=nullable | accessors=get,init
+  ResolutionMode: MediaEngine.Contracts.Artwork.ArtworkResolutionMode | nullability=not-null | accessors=get,init
+  PreviewItems: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Artwork.ArtworkLibraryPreviewItemDto> | nullability=not-null | accessors=get,init
+  BackgroundImageUrl: System.String | nullability=nullable | accessors=get,init
+  LogoImageUrl: System.String | nullability=nullable | accessors=get,init
+  CanonicalId: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkLibraryPreviewItemDto
+  WorkId: System.Guid | nullability=not-null | accessors=get,init
+  AssetId: System.Guid? | nullability=nullable | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  ImageUrl: System.String | nullability=not-null | accessors=get,init
+  Shape: System.String | nullability=not-null | accessors=get,init
+  Position: System.String | nullability=nullable | accessors=get,init
+  MediaType: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkLinkRequest
+  ArtworkAssetId: System.Guid | nullability=not-null | accessors=get,init
+  Role: System.String | nullability=not-null | accessors=get,init
+  Context: System.String | nullability=nullable | accessors=get,init
+  Preferred: System.Boolean | nullability=not-null | accessors=get,init
+  EntityLabel: System.String | nullability=nullable | accessors=get,init
+  MediaType: System.String | nullability=nullable | accessors=get,init
+  Year: System.String | nullability=nullable | accessors=get,init
+  SourceAssetType: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkPickerScope
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkResolutionMode
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkRoleCatalog
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkRoleDescriptorDto
+  Role: System.String | nullability=not-null | accessors=get,init
+  SourceAssetType: System.String | nullability=nullable | accessors=get,init
+  PresentationKey: System.String | nullability=not-null | accessors=get,init
+  IsDefault: System.Boolean | nullability=not-null | accessors=get,init
+  SupportsAutomatic: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkUsageFilter
+
 MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.AcceptAccountInvitationRequest
   Token: System.String | nullability=not-null | accessors=get,init
   Password: System.String | nullability=not-null | accessors=get,init
@@ -994,6 +1149,11 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionCr
   Visibility: System.String | nullability=not-null | accessors=get,init
   IconName: System.String | nullability=nullable | accessors=get,init
   CollectionType: System.String | nullability=not-null | accessors=get,init
+  MembershipMode: System.String | nullability=not-null | accessors=get,init
+  PrimaryArea: System.String | nullability=not-null | accessors=get,init
+  OwnerKind: System.String | nullability=not-null | accessors=get,init
+  Audience: System.String | nullability=not-null | accessors=get,init
+  SelectedProfileIds: System.Collections.Generic.List<System.Guid> | nullability=not-null | accessors=get,init
   RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | nullability=not-null | accessors=get,init
   SortField: System.String | nullability=nullable | accessors=get,init
   SortDirection: System.String | nullability=not-null | accessors=get,init
@@ -1137,6 +1297,11 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionMa
   Scope: System.String | nullability=not-null | accessors=get,init
   ProfileId: System.Guid? | nullability=nullable | accessors=get,init
   Visibility: System.String | nullability=not-null | accessors=get,init
+  MembershipMode: System.String | nullability=not-null | accessors=get,init
+  PrimaryArea: System.String | nullability=not-null | accessors=get,init
+  OwnerKind: System.String | nullability=not-null | accessors=get,init
+  Audience: System.String | nullability=not-null | accessors=get,init
+  SelectedProfileIds: System.Collections.Generic.IReadOnlyList<System.Guid> | nullability=not-null | accessors=get,init
   IsEnabled: System.Boolean | nullability=not-null | accessors=get,init
   IsFeatured: System.Boolean | nullability=not-null | accessors=get,init
   MinItems: System.Int32 | nullability=not-null | accessors=get,init
@@ -1297,6 +1462,11 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionUp
   Description: System.String | nullability=nullable | accessors=get,init
   Visibility: System.String | nullability=nullable | accessors=get,init
   IconName: System.String | nullability=nullable | accessors=get,init
+  MembershipMode: System.String | nullability=nullable | accessors=get,init
+  PrimaryArea: System.String | nullability=nullable | accessors=get,init
+  OwnerKind: System.String | nullability=nullable | accessors=get,init
+  Audience: System.String | nullability=nullable | accessors=get,init
+  SelectedProfileIds: System.Collections.Generic.List<System.Guid> | nullability=nullable | accessors=get,init
   RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | nullability=nullable | accessors=get,init
   SortField: System.String | nullability=nullable | accessors=get,init
   SortDirection: System.String | nullability=nullable | accessors=get,init
@@ -1430,6 +1600,11 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.ManagedColle
   Scope: System.String | nullability=not-null | accessors=get,init
   ProfileId: System.Guid? | nullability=nullable | accessors=get,init
   Visibility: System.String | nullability=not-null | accessors=get,init
+  MembershipMode: System.String | nullability=not-null | accessors=get,init
+  PrimaryArea: System.String | nullability=not-null | accessors=get,init
+  OwnerKind: System.String | nullability=not-null | accessors=get,init
+  Audience: System.String | nullability=not-null | accessors=get,init
+  SelectedProfileIds: System.Collections.Generic.IReadOnlyList<System.Guid> | nullability=not-null | accessors=get,init
   IsEnabled: System.Boolean | nullability=not-null | accessors=get,init
   IsFeatured: System.Boolean | nullability=not-null | accessors=get,init
   MinItems: System.Int32 | nullability=not-null | accessors=get,init
@@ -3297,6 +3472,7 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGalleryD
   ItemCount: System.Int32 | nullability=not-null | accessors=get,init
   CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
   UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  SoundtrackPlaylistId: System.Guid? | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGalleryItemDto
   GalleryId: System.Guid | nullability=not-null | accessors=get,init
@@ -3327,6 +3503,7 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGalleryR
   SmartRuleJson: System.String | nullability=nullable | accessors=get,init
   CoverItemId: System.Guid? | nullability=nullable | accessors=get,init
   SortOrder: System.Int32 | nullability=not-null | accessors=get,init
+  SoundtrackPlaylistId: System.Guid? | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGalleryShareDto
   GalleryId: System.Guid | nullability=not-null | accessors=get,init
@@ -5080,6 +5257,25 @@ MediaEngine.Contracts.Plugins.MediaEngine.Contracts.Plugins.PluginToolRequiremen
   License: System.String | nullability=nullable | accessors=get,set
   SourceUrl: System.String | nullability=nullable | accessors=get,set
   Platforms: System.Collections.Generic.List<MediaEngine.Contracts.Plugins.PluginToolPlatformDto> | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.ProfileState.MediaEngine.Contracts.ProfileState.ProfileReactionDto
+  EntityKind: MediaEngine.Domain.Enums.ProfileEntityKind | nullability=not-null | accessors=get,init
+  EntityId: System.Guid | nullability=not-null | accessors=get,init
+  Reaction: MediaEngine.Domain.Enums.ProfileReactionKind | nullability=not-null | accessors=get,init
+  UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.ProfileState.MediaEngine.Contracts.ProfileState.ProfileSavedItemDto
+  EntityKind: MediaEngine.Domain.Enums.ProfileEntityKind | nullability=not-null | accessors=get,init
+  EntityId: System.Guid | nullability=not-null | accessors=get,init
+  SavedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  Position: System.Int32? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.ProfileState.MediaEngine.Contracts.ProfileState.ProfileStateMutationDto
+  EntityKind: MediaEngine.Domain.Enums.ProfileEntityKind | nullability=not-null | accessors=get,init
+  EntityId: System.Guid | nullability=not-null | accessors=get,init
+  IsSaved: System.Boolean | nullability=not-null | accessors=get,init
+  Reaction: MediaEngine.Domain.Enums.ProfileReactionKind? | nullability=nullable | accessors=get,init
+  UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Profiles.MediaEngine.Contracts.Profiles.ProfileOverviewActivityDto
   Id: System.Int64 | nullability=not-null | accessors=get,init

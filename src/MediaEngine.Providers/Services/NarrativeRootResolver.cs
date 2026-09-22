@@ -74,7 +74,8 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         }
 
         // Priority 1: fictional_universe (P1434) — broadest
-        if (TryExtractQidAndLabel(lookup, "fictional_universe", out var qid, out var label))
+        if (TryExtractQidAndLabel(lookup, "fictional_universe", out var qid, out var label)
+            && !IsKnownFictionalMemberQid(lookup, qid))
         {
             var root = await UpsertRootAsync(qid, label, NarrativeLevel.Universe, parentQid: null, ct);
             await StoreNarrativeRootOnWork(entityId, root, ingestionRunId, ct);
@@ -88,7 +89,8 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         }
 
         // Priority 2: franchise (P8345)
-        if (TryExtractQidAndLabel(lookup, "franchise", out qid, out label))
+        if (TryExtractQidAndLabel(lookup, "franchise", out qid, out label)
+            && !IsKnownFictionalMemberQid(lookup, qid))
         {
             var root = await UpsertRootAsync(qid, label, NarrativeLevel.Franchise, parentQid: null, ct);
             await StoreNarrativeRootOnWork(entityId, root, ingestionRunId, ct);
@@ -226,6 +228,35 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         }
 
         return null;
+    }
+
+    private static bool IsKnownFictionalMemberQid(
+        IReadOnlyDictionary<string, string> lookup,
+        string candidateQid)
+    {
+        foreach (var key in new[]
+                 {
+                     $"{MetadataFieldConstants.Characters}_qid",
+                     $"{MetadataFieldConstants.NarrativeLocation}_qid",
+                     $"{MetadataFieldConstants.NarrativeEvent}_qid",
+                     $"{MetadataFieldConstants.NarrativeObject}_qid",
+                 })
+        {
+            if (!lookup.TryGetValue(key, out var value))
+            {
+                continue;
+            }
+
+            var qids = value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(raw => raw.Contains('/') ? raw.Split('/')[^1] : raw)
+                .Select(raw => raw.Split("::", 2)[0]);
+            if (qids.Contains(candidateQid, StringComparer.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

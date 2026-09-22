@@ -92,7 +92,9 @@ internal static class RelationshipClaimMap
             ["educated_at_qid"] = (RelationshipType.EducatedAt, FictionalEntityType.Organization),
 
             // Character/Location/Org → Person (creator)
-            ["creator_qid"] = (RelationshipType.Creator, FictionalEntityType.Character),
+            // P170 points to a real creator. The relationship edge is retained,
+            // but the target must never be materialized as a fictional Character.
+            ["creator_qid"] = (RelationshipType.Creator, "Person"),
 
             // Location → Location
             ["located_in_qid"] = (RelationshipType.LocatedIn, FictionalEntityType.Location),
@@ -194,15 +196,18 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
                 try
                 {
                     // Find-or-create the target entity. Enqueues enrichment if within depth limit.
-                    await EnsureTargetEntityExists(
-                            targetQid,
-                            ResolveTargetEntityType(claimKey, targetEntityType, sourceEntity?.EntitySubType),
-                            universeQid,
-                            universeLabel,
-                            currentDepth,
-                            maxDepth,
-                            ct)
-                        .ConfigureAwait(false);
+                    if (!string.Equals(targetEntityType, "Person", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await EnsureTargetEntityExists(
+                                targetQid,
+                                ResolveTargetEntityType(claimKey, targetEntityType, sourceEntity?.EntitySubType),
+                                universeQid,
+                                universeLabel,
+                                currentDepth,
+                                maxDepth,
+                                ct)
+                            .ConfigureAwait(false);
+                    }
 
                     var qualifiers = BuildQualifiers(statement);
                     var startTime = GetQualifierValue(statement, "P580");

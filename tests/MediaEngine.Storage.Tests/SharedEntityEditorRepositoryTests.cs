@@ -47,7 +47,7 @@ public sealed class SharedEntityEditorRepositoryTests : IDisposable
         await repo.CreateAsync(entity);
         await repo.LinkToWorkAsync(new FictionalEntityWorkLink(entity.Id, "QVISIBLE", null, "appears_in"));
         await repo.UpdateUserDetailsAsync(entity.Id, "User label", "User description");
-        await repo.UpdateEnrichmentAsync(entity.Id, "New provider description", null, DateTimeOffset.UtcNow);
+        await repo.UpdateEnrichmentAsync(entity.Id, null, "New provider description", null, DateTimeOffset.UtcNow);
 
         Assert.Equal("User label", (await repo.FindByIdAsync(entity.Id))!.Label);
         Assert.Equal("User description", (await repo.FindByQidAsync("Q1"))!.Description);

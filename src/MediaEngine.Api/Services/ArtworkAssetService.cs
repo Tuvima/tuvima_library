@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Cryptography;
+using System.Text;
 using Dapper;
 using MediaEngine.Contracts.Artwork;
 using MediaEngine.Domain.Entities;
@@ -20,44 +21,128 @@ public sealed class ArtworkAssetService(
 {
     private const int MaximumBytes = 10 * 1024 * 1024;
 
-    public async Task<ArtworkAssetPageDto> BrowseAsync(
+    public Task<ArtworkAssetPageDto> BrowseAsync(
         string? search,
         string? role,
         string? aspect,
         Guid? targetEntityId,
         int offset,
         int limit,
-        CancellationToken ct)
+        CancellationToken ct) => BrowseAsync(new ArtworkAssetQuery(
+            Search: search,
+            Roles: string.IsNullOrWhiteSpace(role) ? null : [role],
+            Aspects: string.IsNullOrWhiteSpace(aspect) ? null : [aspect],
+            TargetEntityId: targetEntityId,
+            Offset: offset,
+            Limit: limit), ct);
+
+    public async Task<ArtworkAssetPageDto> BrowseAsync(ArtworkAssetQuery query, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var boundedLimit = Math.Clamp(limit, 1, 100);
-        var boundedOffset = Math.Max(0, offset);
-        var normalizedSearch = string.IsNullOrWhiteSpace(search) ? null : $"%{search.Trim()}%";
-        var normalizedRole = NormalizeOptionalRole(role);
-        var normalizedAspect = string.IsNullOrWhiteSpace(aspect) ? null : aspect.Trim();
+        var boundedLimit = Math.Clamp(query.Limit, 1, 100);
+        var boundedOffset = Math.Max(0, query.Offset);
+        var search = string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim();
+        var normalizedRoles = (query.Roles ?? [])
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(NormalizeRole)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var aspects = NormalizeValues(query.Aspects);
+        var mediaTypes = NormalizeValues(query.MediaTypes);
+        var providers = NormalizeValues(query.SourceProviders);
+        var years = NormalizeValues(query.Years);
+        var targetRole = NormalizeOptionalRole(query.TargetRole);
+        var targetSourceAssetType = string.IsNullOrWhiteSpace(query.TargetSourceAssetType)
+            ? null
+            : query.TargetSourceAssetType.Trim();
+
+        var where = new StringBuilder("WHERE NULLIF(asset.original_path, '') IS NOT NULL");
+        if (search is not null)
+        {
+            where.Append(search.Length < 3
+                ? " AND EXISTS (SELECT 1 FROM artwork_asset_context context WHERE context.artwork_asset_id = asset.id AND context.search_text LIKE @likeSearch COLLATE NOCASE)"
+                : " AND asset.id IN (SELECT artwork_asset_id FROM artwork_asset_search WHERE artwork_asset_search MATCH @ftsSearch)");
+        }
+        if (normalizedRoles.Length > 0)
+            where.Append(" AND EXISTS (SELECT 1 FROM entity_artwork_links role_link WHERE role_link.artwork_asset_id = asset.id AND role_link.role IN @roles)");
+        if (aspects.Length > 0)
+            where.Append(" AND asset.aspect_class IN @aspects");
+        if (mediaTypes.Length > 0)
+            where.Append(" AND EXISTS (SELECT 1 FROM artwork_asset_context media_context WHERE media_context.artwork_asset_id = asset.id AND media_context.media_type IN @mediaTypes)");
+        if (providers.Length > 0)
+            where.Append(" AND COALESCE(asset.source_provider, '') IN @providers");
+        if (years.Length > 0)
+            where.Append(" AND EXISTS (SELECT 1 FROM artwork_asset_context year_context WHERE year_context.artwork_asset_id = asset.id AND year_context.year IN @years)");
+        if (query.RelatedEntityId.HasValue)
+        {
+            where.Append(" AND EXISTS (SELECT 1 FROM artwork_asset_context related_context WHERE related_context.artwork_asset_id = asset.id AND related_context.entity_id = @relatedEntityId");
+            if (!string.IsNullOrWhiteSpace(query.RelatedEntityType)) where.Append(" AND related_context.entity_type = @relatedEntityType");
+            where.Append(')');
+        }
+        if (query.MinimumWidth.HasValue) where.Append(" AND COALESCE(asset.width_px, 0) >= @minimumWidth");
+        if (query.MinimumHeight.HasValue) where.Append(" AND COALESCE(asset.height_px, 0) >= @minimumHeight");
+
+        if (query.TargetEntityId.HasValue)
+        {
+            var targetPredicate = "linked.entity_id = @targetEntityId AND (@targetEntityType IS NULL OR linked.entity_type = @targetEntityType) AND (@targetRole IS NULL OR linked.role = @targetRole) AND (@targetSourceAssetType IS NULL OR COALESCE(linked.source_asset_type, '') = @targetSourceAssetType)";
+            if (query.Usage == ArtworkUsageFilter.Linked)
+                where.Append($" AND EXISTS (SELECT 1 FROM entity_artwork_links linked WHERE linked.artwork_asset_id = asset.id AND {targetPredicate})");
+            else if (query.Usage == ArtworkUsageFilter.Selected)
+                where.Append($" AND EXISTS (SELECT 1 FROM entity_artwork_links linked WHERE linked.artwork_asset_id = asset.id AND linked.is_preferred = 1 AND {targetPredicate})");
+            else if (query.Usage == ArtworkUsageFilter.Unlinked)
+                where.Append($" AND NOT EXISTS (SELECT 1 FROM entity_artwork_links linked WHERE linked.artwork_asset_id = asset.id AND {targetPredicate})");
+
+            if (query.PickerScope is ArtworkPickerScope.Related)
+            {
+                where.Append(" AND (EXISTS (SELECT 1 FROM entity_artwork_links linked WHERE linked.artwork_asset_id = asset.id AND linked.entity_id = @targetEntityId) OR EXISTS (SELECT 1 FROM artwork_asset_context target_context WHERE target_context.artwork_asset_id = asset.id AND target_context.entity_id = @targetEntityId))");
+            }
+        }
+
+        var baseOrderBy = query.Sort switch
+        {
+            ArtworkAssetSort.Resolution => "COALESCE(asset.width_px, 0) * COALESCE(asset.height_px, 0) DESC, asset.id",
+            ArtworkAssetSort.Newest => "asset.created_at DESC, asset.id",
+            ArtworkAssetSort.RecentlyUpdated => "COALESCE(asset.updated_at, asset.created_at) DESC, asset.id",
+            _ when search is not null && search.Length >= 3 => "asset.created_at DESC, asset.id",
+            _ => "COALESCE(asset.updated_at, asset.created_at) DESC, asset.id",
+        };
+        var orderBy = query.PickerScope == ArtworkPickerScope.Recommended && query.TargetEntityId.HasValue
+            ? $"""
+                CASE
+                    WHEN EXISTS (SELECT 1 FROM entity_artwork_links recommendation_link
+                                 WHERE recommendation_link.artwork_asset_id = asset.id
+                                   AND recommendation_link.entity_id = @targetEntityId
+                                   AND (@targetRole IS NULL OR recommendation_link.role = @targetRole)
+                                   AND (@targetSourceAssetType IS NULL OR COALESCE(recommendation_link.source_asset_type, '') = @targetSourceAssetType)) THEN 0
+                    WHEN EXISTS (SELECT 1 FROM artwork_asset_context recommendation_context
+                                 WHERE recommendation_context.artwork_asset_id = asset.id
+                                   AND recommendation_context.entity_id = @targetEntityId) THEN 1
+                    WHEN @targetRole IS NOT NULL AND EXISTS (SELECT 1 FROM entity_artwork_links suitable_link
+                                 WHERE suitable_link.artwork_asset_id = asset.id AND suitable_link.role = @targetRole) THEN 2
+                    ELSE 3
+                END, {baseOrderBy}
+                """
+            : baseOrderBy;
 
         using var connection = database.CreateConnection();
-        const string where = """
-            WHERE NULLIF(asset.original_path, '') IS NOT NULL
-              AND (@search IS NULL OR EXISTS (
-                SELECT 1 FROM artwork_asset_context context
-                WHERE context.artwork_asset_id = asset.id
-                  AND context.search_text LIKE @search COLLATE NOCASE))
-              AND (@role IS NULL OR EXISTS (
-                SELECT 1 FROM entity_artwork_links role_link
-                WHERE role_link.artwork_asset_id = asset.id AND role_link.role = @role))
-              AND (@aspect IS NULL OR asset.aspect_class = @aspect)
-            """;
-
-        var parameters = new
-        {
-            search = normalizedSearch,
-            role = normalizedRole,
-            aspect = normalizedAspect,
-            targetEntityId,
-            offset = boundedOffset,
-            limit = boundedLimit,
-        };
+        var parameters = new DynamicParameters();
+        parameters.Add("likeSearch", search is null ? null : $"%{search}%");
+        parameters.Add("ftsSearch", search is null || search.Length < 3 ? null : $"\"{search.Replace("\"", "\"\"")}\"");
+        parameters.Add("roles", normalizedRoles);
+        parameters.Add("aspects", aspects);
+        parameters.Add("mediaTypes", mediaTypes);
+        parameters.Add("providers", providers);
+        parameters.Add("years", years);
+        parameters.Add("relatedEntityId", query.RelatedEntityId);
+        parameters.Add("relatedEntityType", string.IsNullOrWhiteSpace(query.RelatedEntityType) ? null : query.RelatedEntityType.Trim());
+        parameters.Add("minimumWidth", query.MinimumWidth);
+        parameters.Add("minimumHeight", query.MinimumHeight);
+        parameters.Add("targetEntityId", query.TargetEntityId);
+        parameters.Add("targetEntityType", string.IsNullOrWhiteSpace(query.TargetEntityType) ? null : query.TargetEntityType.Trim());
+        parameters.Add("targetRole", targetRole);
+        parameters.Add("targetSourceAssetType", targetSourceAssetType);
+        parameters.Add("offset", boundedOffset);
+        parameters.Add("limit", boundedLimit);
         var total = await connection.ExecuteScalarAsync<int>($"SELECT COUNT(*) FROM artwork_assets asset {where};", parameters);
         var assets = (await connection.QueryAsync<ArtworkAssetRow>($"""
             SELECT asset.id AS Id,
@@ -66,13 +151,28 @@ public sealed class ArtworkAssetService(
                    asset.aspect_class AS Aspect,
                    asset.source_provider AS SourceProvider,
                    asset.source_url AS SourceUrl,
+                   asset.created_at AS CreatedAt,
+                   asset.updated_at AS UpdatedAt,
+                   (SELECT COUNT(*) FROM entity_artwork_links all_links WHERE all_links.artwork_asset_id = asset.id) AS LinkCount,
+                   (SELECT COUNT(*) FROM entity_artwork_links preferred_links WHERE preferred_links.artwork_asset_id = asset.id AND preferred_links.is_preferred = 1) AS PreferredLinkCount,
                    CASE WHEN @targetEntityId IS NOT NULL AND EXISTS (
                        SELECT 1 FROM entity_artwork_links linked
-                       WHERE linked.artwork_asset_id = asset.id AND linked.entity_id = @targetEntityId)
-                   THEN 1 ELSE 0 END AS AlreadyLinked
+                       WHERE linked.artwork_asset_id = asset.id AND linked.entity_id = @targetEntityId
+                         AND (@targetEntityType IS NULL OR linked.entity_type = @targetEntityType)
+                         AND (@targetRole IS NULL OR linked.role = @targetRole)
+                         AND (@targetSourceAssetType IS NULL OR COALESCE(linked.source_asset_type, '') = @targetSourceAssetType))
+                   THEN 1 ELSE 0 END AS AlreadyLinked,
+                   CASE WHEN @targetEntityId IS NOT NULL AND EXISTS (
+                       SELECT 1 FROM entity_artwork_links linked
+                       WHERE linked.artwork_asset_id = asset.id AND linked.entity_id = @targetEntityId
+                         AND linked.is_preferred = 1
+                         AND (@targetEntityType IS NULL OR linked.entity_type = @targetEntityType)
+                         AND (@targetRole IS NULL OR linked.role = @targetRole)
+                         AND (@targetSourceAssetType IS NULL OR COALESCE(linked.source_asset_type, '') = @targetSourceAssetType))
+                   THEN 1 ELSE 0 END AS IsPreferredForTarget
             FROM artwork_assets asset
             {where}
-            ORDER BY COALESCE(asset.updated_at, asset.created_at) DESC, asset.id
+            ORDER BY {orderBy}
             LIMIT @limit OFFSET @offset;
             """, parameters)).ToList();
 
@@ -86,19 +186,23 @@ public sealed class ArtworkAssetService(
                        media_type AS MediaType,
                        year AS Year,
                        role AS Role,
-                       provider AS Provider
+                       provider AS Provider,
+                       canonical_id AS CanonicalId
                 FROM artwork_asset_context
                 WHERE artwork_asset_id IN @assetIds
-                ORDER BY entity_label, role;
+                ORDER BY entity_label COLLATE NOCASE, role;
                 """, new { assetIds = assets.Select(asset => MediaEngine.Storage.GuidSql.ToBlob(asset.Id)).ToArray() })).ToList();
         var byAsset = contexts.ToLookup(context => context.ArtworkAssetId);
-        var items = assets.Select(asset => ToDto(asset, byAsset[asset.Id])).ToList();
+        var items = assets.Select(asset => ToDto(asset, byAsset[asset.Id], query)).ToList();
         return new ArtworkAssetPageDto(items, boundedOffset, boundedLimit, total);
     }
 
     public async Task<ArtworkEntityWorkspaceDto> GetEntityAsync(
         string entityType,
         Guid entityId,
+        string? mediaType,
+        string? groupKind,
+        IReadOnlyCollection<string>? advertisedAssetTypes,
         CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -122,8 +226,14 @@ public sealed class ArtworkAssetService(
             ORDER BY link.role, link.is_preferred DESC, link.sort_order, link.created_at;
             """, new { entityId, entityType })).ToList();
 
-        return new ArtworkEntityWorkspaceDto(entityId, entityType, rows.Select(ToVariantDto).ToList());
+        return new ArtworkEntityWorkspaceDto(entityId, entityType, rows.Select(ToVariantDto).ToList())
+        {
+            SupportedRoles = ArtworkRoleCatalog.Resolve(entityType, mediaType, groupKind, advertisedAssetTypes),
+        };
     }
+
+    public Task<ArtworkEntityWorkspaceDto> GetEntityAsync(string entityType, Guid entityId, CancellationToken ct) =>
+        GetEntityAsync(entityType, entityId, null, null, null, ct);
 
     public async Task<ArtworkAssetDto> UploadAsync(
         Stream input,
@@ -158,7 +268,7 @@ public sealed class ArtworkAssetService(
                 Id = assetId,
                 EntityId = assetId.ToString("D"),
                 EntityType = "ArtworkAsset",
-                AssetTypeValue = LegacyAssetType(request.Role),
+                AssetTypeValue = LegacyAssetType(request.Role, request.SourceAssetType, entityType),
                 LocalImagePath = originalPath,
                 SourceProvider = sourceProvider,
                 ImageUrl = sourceUrl,
@@ -249,7 +359,7 @@ public sealed class ArtworkAssetService(
         await using var stream = new MemoryStream(downloaded, writable: false);
         return await UploadAsync(stream, extension, entityType, entityId,
             new ArtworkLinkRequest(Guid.Empty, request.Role, request.Context, request.Preferred,
-                request.EntityLabel, request.MediaType, request.Year),
+                request.EntityLabel, request.MediaType, request.Year, request.SourceAssetType),
             "url", request.Url, ct);
     }
 
@@ -273,10 +383,11 @@ public sealed class ArtworkAssetService(
             connection.Execute("""
                 INSERT INTO entity_artwork_links (
                     id, entity_id, entity_type, artwork_asset_id, role, context,
-                    is_preferred, is_user_override, created_at)
-                VALUES (@linkId, @entityId, @entityType, @assetId, @role, @context,
+                    source_asset_type, is_preferred, is_user_override, created_at)
+                VALUES (@linkId, @entityId, @entityType, @assetId, @role, @context, @sourceAssetType,
                         @preferred, 1, @now)
                 ON CONFLICT(entity_id, entity_type, artwork_asset_id, role, context) DO UPDATE SET
+                    source_asset_type = COALESCE(excluded.source_asset_type, entity_artwork_links.source_asset_type),
                     is_preferred = excluded.is_preferred,
                     is_user_override = 1,
                     updated_at = excluded.created_at;
@@ -297,20 +408,7 @@ public sealed class ArtworkAssetService(
                     provider = excluded.provider,
                     search_text = excluded.search_text,
                     updated_at = excluded.created_at;
-                """, new
-                {
-                    linkId,
-                    entityId,
-                    entityType,
-                    assetId = request.ArtworkAssetId,
-                    role,
-                    context,
-                    preferred = request.Preferred ? 1 : 0,
-                    label = string.IsNullOrWhiteSpace(request.EntityLabel) ? entityType : request.EntityLabel.Trim(),
-                    request.MediaType,
-                    request.Year,
-                    now = DateTimeOffset.UtcNow.ToString("O"),
-                }, transaction);
+                """, BuildLinkParameters(linkId, entityId, entityType, role, context, request), transaction);
 
             var durableLinkId = connection.ExecuteScalar<Guid>("""
                 SELECT id FROM entity_artwork_links
@@ -321,13 +419,7 @@ public sealed class ArtworkAssetService(
 
             if (entityType is "Work" or "Person" or "Universe" or "FictionalEntity")
             {
-                var legacyType = role switch
-                {
-                    "Background" => "Background",
-                    "Portrait" => entityType == "FictionalEntity" ? "CharacterPortrait" : "Headshot",
-                    "Logo" => "Logo",
-                    _ => "CoverArt",
-                };
+                var legacyType = LegacyAssetType(role, request.SourceAssetType, entityType);
                 if (request.Preferred)
                 {
                     connection.Execute("""
@@ -447,13 +539,45 @@ public sealed class ArtworkAssetService(
             """, new { hash });
     }
 
-    private static ArtworkAssetDto ToDto(ArtworkAssetRow asset, IEnumerable<ArtworkContextRow> contexts) =>
-        new(asset.Id, $"/api/v1/display/artwork/assets/{asset.Id:D}/content?size=l",
+    private static ArtworkAssetDto ToDto(
+        ArtworkAssetRow asset,
+        IEnumerable<ArtworkContextRow> contexts,
+        ArtworkAssetQuery? query = null)
+    {
+        var contextList = contexts.Select(context => new ArtworkAssetContextDto(
+            context.EntityId, context.EntityType, context.EntityLabel, context.MediaType,
+            context.Year, context.Role, context.Provider)
+        {
+            CanonicalId = context.CanonicalId,
+            MatchReason = query?.RelatedEntityId == context.EntityId
+                ? $"Related directly to {context.EntityLabel}"
+                : null,
+        }).ToList();
+        var displayContext = contextList
+            .OrderByDescending(context => query?.TargetEntityId == context.EntityId)
+            .ThenBy(context => context.EntityLabel, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(context => context.Role, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+        var explanation = displayContext is not null && query?.TargetEntityId == displayContext.EntityId
+            ? $"Already linked to {displayContext.EntityLabel}"
+            : displayContext is not null && query?.RelatedEntityId == displayContext.EntityId
+                ? $"Related to {displayContext.EntityLabel}"
+                : null;
+
+        return new ArtworkAssetDto(asset.Id, $"/api/v1/display/artwork/assets/{asset.Id:D}/content?size=l",
             $"/api/v1/display/artwork/assets/{asset.Id:D}/content?size=s",
             asset.Width, asset.Height, asset.Aspect ?? "UnsupportedRect", asset.SourceProvider, asset.SourceUrl,
-            contexts.Select(context => new ArtworkAssetContextDto(
-                context.EntityId, context.EntityType, context.EntityLabel, context.MediaType,
-                context.Year, context.Role, context.Provider)).ToList(), asset.AlreadyLinked);
+            contextList, asset.AlreadyLinked)
+        {
+            CreatedAt = ParseDate(asset.CreatedAt),
+            UpdatedAt = ParseDate(asset.UpdatedAt),
+            LinkCount = asset.LinkCount,
+            PreferredLinkCount = asset.PreferredLinkCount,
+            IsPreferredForTarget = asset.IsPreferredForTarget,
+            DisplayContext = displayContext,
+            MatchExplanation = explanation,
+        };
+    }
 
     private static ArtworkEntityVariantDto ToVariantDto(ArtworkVariantRow row) =>
         new(row.LinkId, row.ArtworkAssetId, row.Role, row.Context, row.SourceAssetType,
@@ -474,13 +598,57 @@ public sealed class ArtworkAssetService(
     private static string? NormalizeOptionalRole(string? role) =>
         string.IsNullOrWhiteSpace(role) ? null : NormalizeRole(role);
 
-    private static string LegacyAssetType(string role) => NormalizeRole(role) switch
+    private static string[] NormalizeValues(IReadOnlyList<string>? values) =>
+        (values ?? [])
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    private static DynamicParameters BuildLinkParameters(
+        Guid linkId,
+        Guid entityId,
+        string entityType,
+        string role,
+        string context,
+        ArtworkLinkRequest request)
     {
-        "Background" => "Background",
-        "Portrait" => "Headshot",
-        "Logo" => "Logo",
-        _ => "CoverArt",
-    };
+        var parameters = new DynamicParameters();
+        parameters.Add("linkId", linkId);
+        parameters.Add("entityId", entityId);
+        parameters.Add("entityType", entityType);
+        parameters.Add("assetId", request.ArtworkAssetId);
+        parameters.Add("role", role);
+        parameters.Add("context", context);
+        parameters.Add("sourceAssetType", string.IsNullOrWhiteSpace(request.SourceAssetType) ? null : request.SourceAssetType.Trim());
+        parameters.Add("preferred", request.Preferred ? 1 : 0);
+        parameters.Add("label", string.IsNullOrWhiteSpace(request.EntityLabel) ? entityType : request.EntityLabel.Trim());
+        parameters.Add("mediaType", request.MediaType);
+        parameters.Add("year", request.Year);
+        parameters.Add("now", DateTimeOffset.UtcNow.ToString("O"));
+        return parameters;
+    }
+
+    private static DateTimeOffset? ParseDate(string? value) =>
+        DateTimeOffset.TryParse(value, out var parsed) ? parsed : null;
+
+    private static string LegacyAssetType(string role, string? sourceAssetType = null, string? entityType = null)
+    {
+        if (!string.IsNullOrWhiteSpace(sourceAssetType))
+        {
+            var normalized = sourceAssetType.Trim();
+            if (normalized is "CoverArt" or "Background" or "Logo" or "SeasonPoster" or "SeasonThumb" or "EpisodeStill" or "Headshot" or "CharacterPortrait")
+                return normalized;
+        }
+
+        return NormalizeRole(role) switch
+        {
+            "Background" => "Background",
+            "Portrait" => string.Equals(entityType, "FictionalEntity", StringComparison.OrdinalIgnoreCase) ? "CharacterPortrait" : "Headshot",
+            "Logo" => "Logo",
+            _ => "CoverArt",
+        };
+    }
 
     private sealed class ArtworkAssetRow
     {
@@ -491,6 +659,11 @@ public sealed class ArtworkAssetService(
         public string? SourceProvider { get; init; }
         public string? SourceUrl { get; init; }
         public bool AlreadyLinked { get; init; }
+        public bool IsPreferredForTarget { get; init; }
+        public int LinkCount { get; init; }
+        public int PreferredLinkCount { get; init; }
+        public string? CreatedAt { get; init; }
+        public string? UpdatedAt { get; init; }
     }
 
     private sealed class ArtworkContextRow
@@ -503,6 +676,7 @@ public sealed class ArtworkAssetService(
         public string? Year { get; init; }
         public string? Role { get; init; }
         public string? Provider { get; init; }
+        public string? CanonicalId { get; init; }
     }
 
     private sealed class ArtworkVariantRow

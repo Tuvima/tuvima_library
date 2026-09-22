@@ -90,6 +90,7 @@ public interface IFictionalEntityRepository
     /// </summary>
     Task UpdateEnrichmentAsync(
         Guid entityId,
+        string? label,
         string? description,
         string? imageUrl,
         DateTimeOffset enrichedAt,

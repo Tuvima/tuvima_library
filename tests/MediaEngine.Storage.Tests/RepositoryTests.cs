@@ -958,6 +958,58 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task PrimaryPersonCredits_QidBackedCreditNeverFallsBackToConflictingSameNamePerson()
+    {
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var novelistId = Guid.NewGuid();
+        var footballerId = Guid.NewGuid();
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind) VALUES (@workId, 'Audiobooks', 'standalone');
+                INSERT INTO editions (id, work_id) VALUES (@editionId, @workId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
+                VALUES (@assetId, @editionId, @hash, '/library/Audiobooks/Project Hail Mary/Part 01.m4b', 'Normal');
+                INSERT INTO persons (id, name, wikidata_qid, created_at)
+                VALUES (@novelistId, 'Andy Weir', 'Q18590295', @createdAt),
+                       (@footballerId, 'Andy Weir', 'Q4761465', @createdAt);
+                """,
+                new
+                {
+                    workId,
+                    editionId,
+                    assetId,
+                    novelistId,
+                    footballerId,
+                    hash = $"asset_{assetId:N}",
+                    createdAt = DateTimeOffset.UtcNow.ToString("O"),
+                });
+        }
+
+        var arrays = new CanonicalValueArrayRepository(_db);
+        await arrays.SetValuesAsync(workId, "author",
+        [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "Andy Weir", ValueQid = "Q18590295" },
+        ]);
+
+        using var verify = _db.CreateConnection();
+        var credits = (await verify.QueryAsync<(Guid PersonId, string PersonQid)>(
+            """
+            SELECT person_id AS PersonId, person_qid AS PersonQid
+            FROM primary_person_media_credits
+            WHERE media_asset_id = @assetId AND credit_key = 'author';
+            """, new { assetId })).ToList();
+
+        var credit = Assert.Single(credits);
+        Assert.Equal(novelistId, credit.PersonId);
+        Assert.Equal("Q18590295", credit.PersonQid);
+        Assert.DoesNotContain(credits, item => item.PersonId == footballerId);
+    }
+
+    [Fact]
     public async Task WorkIdentityReconciliation_AlignsAudiobookChildAndSeriesRootAuthors()
     {
         var service = new WorkIdentityReconciliationService(_db);

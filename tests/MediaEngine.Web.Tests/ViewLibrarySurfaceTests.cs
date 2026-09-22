@@ -51,11 +51,11 @@ public sealed class ViewLibrarySurfaceTests
 
         Assert.Contains("new(\"Photos\", \"/view\"", shell, StringComparison.Ordinal);
         Assert.Contains("new(\"Galleries\", \"/view/galleries\"", shell, StringComparison.Ordinal);
-        Assert.Contains("new(\"Library Artwork\"", shell, StringComparison.Ordinal);
-        Assert.Contains("new(\"Media\", \"/view/artwork\"", shell, StringComparison.Ordinal);
-        Assert.Contains("new(\"People\", \"/view/artwork/people\"", shell, StringComparison.Ordinal);
-        Assert.Contains("new(\"Universes\", \"/view/artwork/universes\"", shell, StringComparison.Ordinal);
-        Assert.Contains("new(\"All Images\", \"/view/artwork/assets\"", shell, StringComparison.Ordinal);
+        Assert.Contains("new(\"Library\"", shell, StringComparison.Ordinal);
+        Assert.Contains("new(\"Artwork Library\", \"/view/artwork\"", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("new(\"Media\", \"/view/artwork\"", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("new(\"Universes\", \"/view/artwork/universes\"", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("new(\"All Images\", \"/view/artwork/assets\"", shell, StringComparison.Ordinal);
         Assert.Contains("new(\"People\", \"/view/people\"", shell, StringComparison.Ordinal);
         Assert.Contains("new(\"Places\", \"/view/places\"", shell, StringComparison.Ordinal);
         Assert.Contains("IsSmart: gallery.Kind == ViewGalleryKind.Smart", shell, StringComparison.Ordinal);
@@ -75,52 +75,43 @@ public sealed class ViewLibrarySurfaceTests
     }
 
     [Fact]
-    public void ViewArtwork_UsesPagedVirtualGalleriesAndExistingEditors()
+    public void ViewArtwork_UsesOneAssetBrowserAndExistingEditors()
     {
         var artwork = Read("src/MediaEngine.Web/Components/Pages/ViewArtworkPage.razor");
         var client = Read("src/MediaEngine.Web/Services/Integration/EngineApiClient.Artwork.cs");
-        var readModel = Read("src/MediaEngine.Api/Services/ReadServices/ArtworkLibraryReadService.cs");
-        var artworkStyles = Read("src/MediaEngine.Web/Components/Pages/ViewArtworkPage.razor.css");
+        var browser = Read("src/MediaEngine.Web/Components/Artwork/ArtworkAssetBrowser.razor");
+        var browserStyles = Read("src/MediaEngine.Web/Components/Artwork/ArtworkAssetBrowser.razor.css");
 
-        Assert.Contains("Library Artwork", artwork, StringComparison.Ordinal);
-        Assert.Contains("GetArtworkLibraryAsync", artwork, StringComparison.Ordinal);
-        Assert.Contains("LoadMoreAsync", artwork, StringComparison.Ordinal);
-        Assert.Contains("Series / Groups", artwork, StringComparison.Ordinal);
-        Assert.Contains("TV Shows", artwork, StringComparison.Ordinal);
-        Assert.Contains("Albums", artwork, StringComparison.Ordinal);
-        Assert.Contains("ArtworkResolutionMode.AutomaticGroup", artwork, StringComparison.Ordinal);
-        Assert.Contains("MediaArtworkGroupPreview", artwork, StringComparison.Ordinal);
+        Assert.Contains("Artwork Library", artwork, StringComparison.Ordinal);
+        Assert.Contains("<ArtworkAssetBrowser", artwork, StringComparison.Ordinal);
+        Assert.Contains("Manage usage", artwork, StringComparison.Ordinal);
         Assert.Contains("ArtworkWorkspaceDialog", artwork, StringComparison.Ordinal);
+        Assert.Contains("Search titles, people, characters, universes, and IDs", browser, StringComparison.Ordinal);
+        Assert.Contains("Recommended", browser, StringComparison.Ordinal);
+        Assert.Contains("Related", browser, StringComparison.Ordinal);
+        Assert.Contains("All Artwork", browser, StringComparison.Ordinal);
+        Assert.Contains("LoadMoreAsync", browser, StringComparison.Ordinal);
+        Assert.Contains("Close artwork details", browser, StringComparison.Ordinal);
+        Assert.Contains("grid-template-columns:repeat(auto-fill", browserStyles, StringComparison.Ordinal);
+        Assert.Contains("object-fit:contain", browserStyles, StringComparison.Ordinal);
         var workspace = Read("src/MediaEngine.Web/Components/Artwork/ArtworkWorkspace.razor");
         Assert.Contains("Restore automatic artwork", workspace, StringComparison.Ordinal);
         Assert.Contains("Choose from Library", workspace, StringComparison.Ordinal);
         Assert.Contains("From URL", workspace, StringComparison.Ordinal);
         Assert.Contains("Set preferred", workspace, StringComparison.Ordinal);
         Assert.Contains("RefreshProviderAsync", workspace, StringComparison.Ordinal);
-        Assert.Contains("UniverseSections", workspace, StringComparison.Ordinal);
-        Assert.Contains("GetEntityArtworkAsync", workspace, StringComparison.Ordinal);
+        Assert.Contains("AvailableRoles", workspace, StringComparison.Ordinal);
+        Assert.Contains("ArtworkRolePresentationResolver", workspace, StringComparison.Ordinal);
+        Assert.Contains("ArtworkAssetPickerDialog", workspace, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaEditorLauncher.OpenAsync", artwork, StringComparison.Ordinal);
-        Assert.Contains("People images", artwork, StringComparison.Ordinal);
         Assert.Contains("<ArtworkWorkspace", Read("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor"), StringComparison.Ordinal);
         Assert.Contains("<ArtworkWorkspace", Read("src/MediaEngine.Web/Components/MediaEditor/PersonEditorDialog.razor"), StringComparison.Ordinal);
         Assert.Contains("<ArtworkWorkspace", Read("src/MediaEngine.Web/Components/Collections/CollectionEditorShell.razor"), StringComparison.Ordinal);
         Assert.Contains("/api/v1/display/artwork", client, StringComparison.Ordinal);
-        Assert.Contains("GetUniverseArtworkHierarchyAsync", client, StringComparison.Ordinal);
-        Assert.Contains("generation != _loadGeneration", artwork, StringComparison.Ordinal);
-        Assert.Contains("_entityKind = value ?? \"media\"", artwork, StringComparison.Ordinal);
-        Assert.Contains("await LoadAsync();", artwork, StringComparison.Ordinal);
-        Assert.Contains("view-artwork-card--square", artworkStyles, StringComparison.Ordinal);
-        Assert.Contains("view-artwork-card--tv", artworkStyles, StringComparison.Ordinal);
-        Assert.Contains("object-fit: contain", artworkStyles, StringComparison.Ordinal);
+        Assert.Contains("ArtworkAssetQuery request", client, StringComparison.Ordinal);
+        Assert.Contains("generation != _generation", browser, StringComparison.Ordinal);
+        Assert.Contains("await LoadAsync();", browser, StringComparison.Ordinal);
         Assert.DoesNotContain("owned item", artwork, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("content?size=s", readModel, StringComparison.Ordinal);
-        Assert.DoesNotContain("content?size=m", readModel, StringComparison.Ordinal);
-        Assert.Contains("Icons.Material.Outlined.Public", artwork, StringComparison.Ordinal);
-        Assert.Contains("Icons.Material.Outlined.PersonOutline", artwork, StringComparison.Ordinal);
-        Assert.Contains("primary_person_media_credits", readModel, StringComparison.Ordinal);
-        Assert.Contains("LoadCharacterPerformerMatches", readModel, StringComparison.Ordinal);
-        Assert.Contains("character_performer_links", readModel, StringComparison.Ordinal);
-        Assert.Contains("CollectionGroupByField", readModel, StringComparison.Ordinal);
         Assert.DoesNotContain("Wikidata", artwork, StringComparison.OrdinalIgnoreCase);
     }
 

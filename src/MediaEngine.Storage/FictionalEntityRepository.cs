@@ -335,6 +335,7 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
     /// <inheritdoc/>
     public Task UpdateEnrichmentAsync(
         Guid entityId,
+        string? label,
         string? description,
         string? imageUrl,
         DateTimeOffset enrichedAt,
@@ -345,14 +346,16 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
         using var conn = _db.CreateConnection();
         conn.Execute("""
             UPDATE fictional_entities
-            SET    description = @description,
-                   image_url   = @imageUrl,
+            SET    label       = COALESCE(NULLIF(TRIM(@label), ''), label),
+                   description = COALESCE(NULLIF(TRIM(@description), ''), description),
+                   image_url   = COALESCE(NULLIF(TRIM(@imageUrl), ''), image_url),
                    enriched_at = @enrichedAt
             WHERE  id = @entityId;
             """,
             new
             {
                 entityId,
+                label,
                 description,
                 imageUrl,
                 enrichedAt,

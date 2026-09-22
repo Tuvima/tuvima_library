@@ -108,6 +108,14 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
             return null;
         }
 
+        if (!HasCorroboratingIdentityEvidence(libResult, expectedRole, workTitle))
+        {
+            _logger.LogWarning(
+                "Person reconciliation rejected an exact-name result without compatible role/work evidence: '{Name}' ({Role}) -> {Qid}",
+                name, expectedRole, libResult.Qid);
+            return null;
+        }
+
         var canonicalName = libResult.CanonicalName ?? name;
         _logger.LogInformation(
             "Person reconciliation auto-accepted: '{Name}' ({Role}) -> {QID} '{WikiName}' (score={Score:F2})",
@@ -182,6 +190,15 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
                 continue;
             }
 
+            if (!HasCorroboratingIdentityEvidence(libResult, role, uniqueRequests[i].WorkTitle))
+            {
+                _logger.LogWarning(
+                    "Person reconciliation rejected an exact-name result without compatible role/work evidence: '{Name}' ({Role}) -> {Qid}",
+                    personName, role, libResult.Qid);
+                results[personName.ToLowerInvariant()] = null;
+                continue;
+            }
+
             var canonicalName = libResult.CanonicalName ?? personName;
             _logger.LogInformation(
                 "Person reconciliation auto-accepted: '{Name}' ({Role}) -> {QID} '{WikiName}' (score={Score:F2})",
@@ -216,4 +233,55 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
         _ when string.Equals(expectedRole, "Screenwriter", StringComparison.OrdinalIgnoreCase) => TwPersonRole.Screenwriter,
         _ => TwPersonRole.Unknown,
     };
+
+    internal static bool HasCorroboratingIdentityEvidence(
+        TwPersonSearchResult result,
+        string expectedRole,
+        string? workTitle)
+    {
+        if (result.IsGroup)
+        {
+            return expectedRole.Equals("Performer", StringComparison.OrdinalIgnoreCase)
+                || expectedRole.Equals("Artist", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (NotableWorkMatches(result.NotableWorks, workTitle))
+        {
+            return true;
+        }
+
+        var acceptedTerms = expectedRole.Trim().ToLowerInvariant() switch
+        {
+            "author" => new[] { "author", "writer", "novelist", "poet", "journalist", "playwright" },
+            "narrator" => new[] { "narrator", "voice actor", "actor", "performer" },
+            "director" => new[] { "director", "filmmaker" },
+            "actor" or "voiceactor" => new[] { "actor", "actress", "voice actor", "performer" },
+            "composer" => new[] { "composer", "musician", "songwriter" },
+            "performer" or "artist" => new[] { "musician", "singer", "rapper", "performer", "actor", "instrumentalist", "recording artist" },
+            "screenwriter" => new[] { "screenwriter", "writer", "playwright" },
+            _ => Array.Empty<string>(),
+        };
+
+        return acceptedTerms.Length > 0 && result.Occupations.Any(occupation =>
+            acceptedTerms.Any(term => occupation.Contains(term, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static bool NotableWorkMatches(IReadOnlyList<string> notableWorks, string? workTitle)
+    {
+        if (string.IsNullOrWhiteSpace(workTitle))
+        {
+            return false;
+        }
+
+        var normalizedTitle = NormalizeEvidence(workTitle);
+        return normalizedTitle.Length >= 4 && notableWorks.Any(work =>
+        {
+            var normalizedWork = NormalizeEvidence(work);
+            return normalizedWork.Contains(normalizedTitle, StringComparison.Ordinal)
+                || normalizedTitle.Contains(normalizedWork, StringComparison.Ordinal);
+        });
+    }
+
+    private static string NormalizeEvidence(string value) =>
+        new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 }

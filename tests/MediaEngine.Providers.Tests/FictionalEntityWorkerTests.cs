@@ -117,6 +117,32 @@ public sealed class FictionalEntityWorkerTests : IDisposable
         Assert.All(harvesting.Requests, request => Assert.Equal(MediaType.Unknown, request.MediaType));
     }
 
+    [Fact]
+    public async Task NarrativeRootResolver_DoesNotPromoteCharacterIdentityToUniverse()
+    {
+        var workId = await _workRepo.InsertParentAsync(MediaType.Movies, "movie:batman", null, null);
+        await SeedCanonicalsAsync(
+            workId,
+            ("wikidata_qid", "Q200"),
+            (MetadataFieldConstants.FictionalUniverse, "Batman"),
+            ($"{MetadataFieldConstants.FictionalUniverse}_qid", "Q2695156"));
+        await _canonicalArrayRepo.SetValuesAsync(workId, MetadataFieldConstants.Characters,
+        [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "Batman", ValueQid = "Q2695156" },
+        ]);
+        var resolver = new NarrativeRootResolver(
+            _canonicalRepo,
+            _canonicalArrayRepo,
+            new NarrativeRootRepository(_db),
+            new QidLabelRepository(_db),
+            new SystemActivityRepository(_db),
+            NullLogger<NarrativeRootResolver>.Instance);
+
+        var root = await resolver.ResolveAsync(workId);
+
+        Assert.Null(root);
+    }
+
     private async Task<Guid> SeedAssetForExistingWorkAsync(Guid workId, string relativeFilePath)
     {
         var editionId = Guid.NewGuid();

@@ -591,6 +591,9 @@ public sealed class DatabaseStartupSafetyTests
             .ToArray();
         var actualGuidColumns = DeclaredBlobColumns(conn)
             .Where(value => value is not "audio_fingerprints.fingerprint" and not "account_passkeys.credential_id")
+            // FTS5 creates implementation-owned shadow tables with BLOB pages.
+            // Those columns are not application GUID contracts.
+            .Where(value => !value.StartsWith("artwork_asset_search_", StringComparison.Ordinal))
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
 

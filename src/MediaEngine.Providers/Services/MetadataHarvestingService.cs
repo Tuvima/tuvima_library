@@ -10,6 +10,7 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Providers.Contracts;
+using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -70,6 +71,7 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IQidLabelRepository _qidLabelRepo;
     private readonly IEntityTimelineRepository? _timelineRepo;
+    private readonly IEntityAssetRepository? _entityAssetRepo;
     private readonly AssetPathService _assetPathService;
     private readonly ILogger<MetadataHarvestingService> _logger;
 
@@ -93,7 +95,8 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         AssetPathService assetPathService,
         ILogger<MetadataHarvestingService> logger,
         IEntityTimelineRepository? timelineRepo = null,
-        ImageDownloadCoordinator? imageDownloadCoordinator = null)
+        ImageDownloadCoordinator? imageDownloadCoordinator = null,
+        IEntityAssetRepository? entityAssetRepo = null)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(claimRepo);
@@ -129,6 +132,7 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         _qidLabelRepo = qidLabelRepo;
         _assetPathService = assetPathService;
         _timelineRepo = timelineRepo;
+        _entityAssetRepo = entityAssetRepo;
         _logger = logger;
 
     }
@@ -370,7 +374,8 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         CancellationToken ct)
     {
         // Only Wikidata produces fictional entity enrichment claims.
-        if (!string.Equals(provider.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(provider.Name, "wikidata", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(provider.Name, "wikidata_reconciliation", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -442,9 +447,16 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
 
             await _fictionalEntityRepo.UpdateEnrichmentAsync(
                 request.EntityId,
-                canonicalDict.GetValueOrDefault(MetadataFieldConstants.Description),
-                imageUrl: null,
+                canonicalDict.GetValueOrDefault("name"),
+                canonicalDict.GetValueOrDefault(MetadataFieldConstants.Description)
+                    ?? canonicalDict.GetValueOrDefault(MetadataFieldConstants.ShortDescription),
+                canonicalDict.GetValueOrDefault("image_url"),
                 DateTimeOffset.UtcNow,
+                ct).ConfigureAwait(false);
+
+            await PersistFictionalEntityArtworkAsync(
+                request.EntityId,
+                canonicalDict.GetValueOrDefault("image_url"),
                 ct).ConfigureAwait(false);
 
             // Determine action type for activity log.
@@ -500,6 +512,87 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         => !string.IsNullOrWhiteSpace(person.Biography)
            && (!string.IsNullOrWhiteSpace(person.HeadshotUrl)
                || !string.IsNullOrWhiteSpace(person.LocalHeadshotPath));
+
+    private async Task PersistFictionalEntityArtworkAsync(
+        Guid entityId,
+        string? imageUrl,
+        CancellationToken ct)
+    {
+        if (_entityAssetRepo is null || string.IsNullOrWhiteSpace(imageUrl))
+        {
+            return;
+        }
+
+        try
+        {
+            var existing = (await _entityAssetRepo.GetByEntityAsync(
+                    entityId.ToString("D"),
+                    AssetType.CharacterPortrait.ToString(),
+                    ct).ConfigureAwait(false))
+                .FirstOrDefault(asset => string.Equals(asset.ImageUrl, imageUrl, StringComparison.OrdinalIgnoreCase));
+            if (existing is not null && !string.IsNullOrWhiteSpace(existing.LocalImagePath)
+                                     && File.Exists(existing.LocalImagePath))
+            {
+                await _entityAssetRepo.SetPreferredAsync(existing.Id, ct).ConfigureAwait(false);
+                return;
+            }
+
+            await using var downloadLease = await _imageDownloadCoordinator.AcquireAsync(imageUrl, ct).ConfigureAwait(false);
+            byte[] bytes;
+            var cachedPath = await _imageCache.FindBySourceUrlAsync(imageUrl, ct).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(cachedPath) && File.Exists(cachedPath))
+            {
+                bytes = await File.ReadAllBytesAsync(cachedPath, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                using var client = _httpFactory.CreateClient("headshot_download");
+                using var response = await client.GetAsync(imageUrl, HttpCompletionOption.ResponseHeadersRead, ct)
+                    .ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+                bytes = await BoundedHttpContent.ReadImageAsync(response.Content, ct).ConfigureAwait(false);
+            }
+
+            if (bytes.Length == 0)
+            {
+                return;
+            }
+
+            var asset = existing ?? new EntityAsset
+            {
+                Id = Guid.NewGuid(),
+                EntityId = entityId.ToString("D"),
+                EntityType = "FictionalEntity",
+                AssetTypeValue = AssetType.CharacterPortrait.ToString(),
+                ImageUrl = imageUrl,
+                SourceProvider = "wikidata_reconciliation",
+                AssetClassValue = "Artwork",
+                StorageLocationValue = "Central",
+                OwnerScope = "FictionalEntity",
+                IsPreferred = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+            asset.LocalImagePath ??= _assetPathService.GetCentralAssetPath(
+                "FictionalEntity",
+                entityId,
+                AssetType.CharacterPortrait.ToString(),
+                asset.Id,
+                MediaMimeTypes.InferImageExtension(imageUrl) ?? ".jpg");
+            AssetPathService.EnsureDirectory(asset.LocalImagePath);
+            await BoundedHttpContent.WriteFileAtomicallyAsync(asset.LocalImagePath, bytes, ct).ConfigureAwait(false);
+            var hash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes));
+            await _imageCache.InsertAsync(hash, asset.LocalImagePath, imageUrl, ct).ConfigureAwait(false);
+            ArtworkVariantHelper.StampMetadataAndRenditions(asset, _assetPathService);
+            await _entityAssetRepo.UpsertAsync(asset, ct).ConfigureAwait(false);
+            await _entityAssetRepo.SetPreferredAsync(asset.Id, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Optional Wikidata artwork could not be persisted for fictional entity {EntityId}",
+                entityId);
+        }
+    }
 
     private async Task HandlePersonEnrichmentAsync(
         HarvestRequest request,

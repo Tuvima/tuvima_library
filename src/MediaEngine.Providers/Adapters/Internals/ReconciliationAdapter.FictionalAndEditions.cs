@@ -141,13 +141,15 @@ public sealed partial class ReconciliationAdapter
         }
 
         // Convert to provider claims using existing helper.
-        var claims = ExtensionToClaims(
+        var claims = ExtensionToClaimsCore(
             qid,
             entityProps,
             _config.DataExtension.PropertyLabels,
             isWork: false,
             castMemberLimit: 0,
-            metadataLanguage: language).ToList();
+            metadataLanguage: language,
+            editionScopedDates: false,
+            imageIsHeadshot: false).ToList();
 
         _logger.LogDebug("Fictional entity {Qid} ({SubType}): {Count} claims extracted", qid, entitySubType, claims.Count);
         return claims;

@@ -736,7 +736,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         public Task<FictionalEntitySearchPage> SearchVisibleByUniverseAsync(string universeQid, IReadOnlyCollection<string> visibleWorkQids, string? entitySubType, string? search, int offset, int limit, CancellationToken ct = default) => Task.FromResult(new FictionalEntitySearchPage([], 0));
         public Task<IReadOnlyList<FictionalEntity>> GetByWorkQidAsync(string workQid, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<FictionalEntity>>([]);
         public Task CreateAsync(FictionalEntity entity, CancellationToken ct = default) => Task.CompletedTask;
-        public Task UpdateEnrichmentAsync(Guid entityId, string? description, string? imageUrl, DateTimeOffset enrichedAt, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpdateEnrichmentAsync(Guid entityId, string? label, string? description, string? imageUrl, DateTimeOffset enrichedAt, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateUserDetailsAsync(Guid entityId, string label, string? description, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateUniverseAsync(Guid entityId, string universeQid, string? universeLabel, CancellationToken ct = default) => Task.CompletedTask;
         public Task LinkToWorkAsync(FictionalEntityWorkLink appearance, CancellationToken ct = default) => Task.CompletedTask;

@@ -165,7 +165,7 @@ public sealed class Stage2ConfigTests
         Assert.Contains("P1080", extension.CharacterProperties.Core);
         Assert.Contains("P1441", extension.LocationProperties.Core);
         Assert.Contains("P4584", extension.ObjectProperties.Core);
-        Assert.Contains("P793", extension.WorkProperties.Core);
+        Assert.DoesNotContain("P793", extension.WorkProperties.Core);
         Assert.Contains("P710", extension.EventProperties.Core);
         Assert.Contains("P828", extension.EventProperties.Core);
         Assert.Contains("P1542", extension.EventProperties.Core);

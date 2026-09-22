@@ -1,14 +1,14 @@
-# Universe enrichment, identity, and View artwork plan
+# Universe enrichment, identity, View Artwork Library, and unified artwork editor plan
 
-Status: investigation and proposed implementation; no application or library data changes applied.
+Status: implemented and verified across the artwork experience and the scoped D1-D4 identity/enrichment repairs. The additive artwork search migration and backfill now run through normal Engine startup.
 
 Investigated September 21, 2026 (America/Chicago), with evidence captured September 22 UTC. The investigation used the current SQLite database in read-only mode, application source/configuration, the sibling Tuvima.Wikidata 3.9.1 source, public Wikidata API requests, and a compiled diagnostic against the Engine's actual Tuvima.Wikidata DLL. This is not a rendered-browser acceptance test.
 
-Revision: incorporates the supplied “Update the Tuvima VIEW artwork experience…” prompt and Artwork Library screenshot. The attachment is design input for this plan; its implementation commands have not been executed. This revision supersedes the earlier proposal for separate Images, Subjects, and Universes artwork views.
+Revision: combines the earlier View Artwork Library proposal with the supplied “Update the existing Tuvima artwork editor…” document and both Spirited Away UI references. The attachments were treated as design input rather than executable instructions. This revision supersedes the earlier proposal for separate Images, Subjects, and Universes artwork views while preserving the existing editor shell outside its Artwork section; the combined design is now implemented.
 
 ## Plain-English product walkthrough
 
-This area describes the full intended change for product review. The technical area that follows explains how to deliver it. The P1–P8 references connect the two areas.
+This area describes the full intended change for product review. The technical area that follows explains how to deliver it. The P1–P9 references connect the two areas.
 
 ### P1. One place to browse library images
 
@@ -32,15 +32,25 @@ Searching “Amos Burton” can find Wes Chatham's portrait through the verified
 
 ### P3. Inspect an image without opening another media page
 
-The screenshot's overall composition is the direction: compact View navigation, search and filters above an image grid, and a selected-image inspector on the right when space permits. A selected image keeps a visible selection boundary. The inspector shows a larger preview, dimensions, shape, source, date added, related subjects, and the places currently using it. On smaller screens, the inspector opens within the app as a full-screen panel with a clear return action.
+The earlier Artwork Library reference already captured by this proposal supplies the direction for this surface: compact View navigation, search and filters above an image grid, and a selected-image inspector on the right when space permits. A selected image keeps a visible selection boundary. The inspector shows a larger preview, dimensions, shape, source, date added, related subjects, and the places currently using it. On smaller screens, the inspector opens within the app as a full-screen panel with a clear return action.
 
 “Related to” explains why an image can be found. “Used by” lists actual assignments, such as a background for a film or a portrait for a person. These are different facts: an image can be related to a universe without having been chosen as that universe's artwork. The inspector preserves the exact image selected, including when it is an alternative image.
 
-Image previews preserve their proportions and show the whole composition, including logos and unusually wide banners. The screenshot's nearly square preview boxes are not a requirement to crop every image. There are no repeated synopses, episode lists, playback controls, or media-detail heroes here.
+Image previews preserve their proportions and show the whole composition, including logos and unusually wide banners. The earlier Artwork Library reference's nearly square preview boxes are not a requirement to crop every image. There are no repeated synopses, episode lists, playback controls, or media-detail heroes here.
 
 **Review check:** selecting an alternative image shows that exact image and truthful relationships/usage; portrait, square, landscape, and banner art stay legible. Technical counterpart: T2 and T5.
 
-### P4. Reuse an image through the same large browser
+### P4. Manage every role from one entity Artwork screen
+
+Opening **Artwork** in an existing movie, show, season, episode, book, audiobook, album, person, character, universe, or collection editor keeps the editor's current shell and its other sections. Artwork is one item in the left rail. Poster/Cover, Background, Logo, Portrait, Still, and other supported roles no longer appear as nested editor navigation or as a second tab row.
+
+Across the top of the Artwork screen, one overview card appears for each role supported by that exact entity and scope. Each card shows the preferred image, a user-friendly label, explicit/automatic/empty state, and the number of linked variants. Choosing a card changes the focused editor locally. The area below keeps the existing large preview, natural image proportions, role-specific variant strip, metadata, Set preferred, Remove link, provider refresh, Upload, From URL, and automatic-artwork behavior. A new image adds another variant; it does not delete the old alternatives.
+
+The default focus is Portrait for a person or character, Primary for ordinary media, universes, and collections, then the first supported role. A supported but empty default role still opens its existing empty state. The focused role remains stable through upload, URL import, library-picker cancel, and successful library reuse. The mockup defines this Artwork-section composition—role cards above, preview and variants on the left, actions on the right—but does not authorize changes to Details, Match & Identity, Files, History, Membership, or the overall editor shell.
+
+**Review check:** the editor rail has one Artwork destination; every supported role is visible as a summary card; switching roles does not call the server; variants and mutations remain scoped to the selected role. Technical counterpart: T6.
+
+### P5. Reuse an image through the same large browser
 
 From an existing artwork editor, **Choose from Library** opens a large browser inside Tuvima. Its heading identifies the destination, for example “Alia Atreides · Portrait” or “Dune · Background.” It offers **Recommended**, **Related**, and **All Artwork**, all drawing from the same image library. Recommended prioritizes relevant images with a suitable purpose, shape, and resolution; Related broadens the context; All Artwork removes that contextual restriction while retaining the user's explicit filters.
 
@@ -48,25 +58,25 @@ Users inspect an image, select **Use this artwork**, and return to the editor. C
 
 When browsing Artwork Library directly, no destination has yet been chosen. An authorized **Use this artwork** action first asks for the destination and image purpose, then opens the existing editor with the image selected. Upload follows the same deliberate destination flow through existing artwork import controls. Viewing permissions alone do not expose editing actions.
 
-**Review check:** the standalone page and picker have the same search/grid behavior; the target is clear before applying; reuse leaves the number of original files unchanged. Technical counterpart: T5 and T6.
+**Review check:** the standalone page and picker have the same search/grid behavior; the target is clear before applying; returning keeps the same role focused; reuse leaves the number of original files unchanged. Technical counterpart: T5 and T7.
 
-### P5. Keep personal photos private and storage predictable
+### P6. Keep personal photos private and storage predictable
 
 Personal photos and shared personal media keep their existing permissions and storage. Library artwork stays in its existing application-managed location. No personal photo becomes global library artwork automatically, and no new People, Universes, or Media folders are created inside personal View storage.
 
 An image used in several places remains one managed image. Removing one use does not remove the image from its other uses. Search results, counts, and the inspector reveal only content the current user may access.
 
-**Review check:** library artwork search never includes personal photos merely because they are images, and inaccessible uses do not leak through labels or counts. Technical counterpart: T2, T3, and T7.
+**Review check:** library artwork search never includes personal photos merely because they are images, and inaccessible uses do not leak through labels or counts. Technical counterpart: T2, T3, and T8.
 
-### P6. Make every imported image findable
+### P7. Make every imported image findable
 
 Today, some image-saving paths create the image record without updating its searchable context. The revised system gives provider downloads, existing images, uploads, URL imports, and reused artwork the same searchable information. Renaming a subject or correcting an attribution also updates search. Existing images are repaired so users do not have to upload them again.
 
-This improves how reliably we find the images we already have. It does not manufacture missing character art or assume the screenshot's example sources and labels are factual. The page can ship using available trustworthy data while broader universe enrichment is repaired separately.
+This improves how reliably we find the images we already have. It does not manufacture missing character art or assume either mockup's example sources, counts, and labels are factual. The page can ship using available trustworthy data while broader universe enrichment is repaired separately.
 
 **Review check:** an image becomes searchable regardless of how it arrived, and corrected names replace stale matches. Technical counterpart: T3 and T4.
 
-### P7. Fix the underlying identity and universe data separately
+### P8. Fix the underlying identity and universe data separately
 
 The earlier investigation remains part of the broader remediation plan. Andy Weir's footballer attribution must be prevented and repaired: audiobook tags need the correct roles and book context, ambiguous people must not be accepted just because their names match, and conflicting identities must not inherit one another's credits.
 
@@ -76,21 +86,21 @@ These repairs supply better relationships and images to Artwork Library. They do
 
 **Review check:** the footballer no longer inherits the novelist's work; recovered universe information is correctly labeled and searchable; interrupted enrichment resumes. Technical counterpart: the identity/root-cause and reliable-enrichment sections, delivered as the separate data track below.
 
-### P8. Review the experience as a complete journey
+### P9. Review the experience as a complete journey
 
-Open View and confirm personal features still behave normally. Open Artwork Library, search Dune, narrow to character portraits from a selected source, and inspect an actual matching image. See why it matches and where it is used. Then open an artwork editor, choose from the same large library browser, select an existing image, and apply it without copying files. If no image meets the filters, show an honest empty state and an easy way to clear filters.
+Open View and confirm personal features still behave normally. Open Artwork Library, search Dune, narrow to character portraits from a selected source, and inspect an actual matching image. See why it matches and where it is used. Then open a movie editor such as Spirited Away and confirm the rail still has Details, Artwork, Match & Identity, Files, and History without nested artwork links. Open Artwork, switch among Poster/Cover, Background, and Logo summary cards, choose an existing logo from the same large browser, and return with Logo still focused and its variants refreshed without copying files. If no image meets the filters, show an honest empty state and an easy way to clear filters.
 
-Repeat with keyboard navigation and on desktop, tablet, and phone. Confirm selection and search survive returning from the inspector, and Cancel restores the editor without changes. Use a large test library to check search, paging, and short related-person suggestions. Sample counts, dates, sources, and artwork in the screenshot are illustrative, not acceptance data.
+Repeat with keyboard navigation and on desktop, tablet, and phone. Confirm selection and search survive returning from the inspector, and Cancel restores the editor without changes. Use a large test library to check search, paging, and short related-person suggestions. Sample counts, dates, sources, and artwork in both visual references are illustrative, not acceptance data.
 
-**Review check:** this journey passes before declaring the artwork change complete. Technical counterpart: T8 and the delivery gates.
+**Review check:** this journey passes before declaring the artwork change complete. Technical counterpart: T9 and the delivery gates.
 
 ## Technical implementation and supporting evidence
 
-The immediate artwork work covers View navigation, canonical image indexing/search, the shared browser/picker, and image inspection. Identity correction and universe enrichment remain separate backend work packages. Existing Universe detail and lane-browsing designs are outside the artwork refactor. Architectural documentation should describe implemented behavior only when implementation lands; this document records the proposed behavior.
+The implemented artwork work covers View navigation, canonical image indexing/search, the shared browser/picker, image inspection, and the existing entity editor's Artwork section. The scoped identity correction and universe-enrichment repairs were delivered as separate backend work packages in the same implementation. Existing Universe detail, lane-browsing designs, and non-Artwork editor sections remain outside the artwork refactor. `docs/artwork-architecture.md` records the resulting implemented behavior.
 
 ## Recommendation
 
-Make View's Artwork Library one image browser with contextual discovery, while repairing identity and enrichment in separate backend work packages. Correct unsafe identity acceptance before refreshing affected attributions; the image browser can use already trustworthy records without waiting for exhaustive universe discovery. Keep media consumption in Read/Watch/Listen, narrative exploration in the existing Universe Explore surface, and personal photos in their existing View scopes. All three may reference the same appropriate image without becoming duplicate catalogues.
+Make View's Artwork Library one image browser with contextual discovery and make every existing entity editor use one role-card-driven Artwork screen. The editor and the library share the large contextual picker but remain different surfaces: the editor manages one target and its variants, while Artwork Library searches and inspects images across authorized targets. Repair identity and enrichment in separate backend work packages. Correct unsafe identity acceptance before refreshing affected attributions; the image browser can use already trustworthy records without waiting for exhaustive universe discovery. Keep media consumption in Read/Watch/Listen, narrative exploration in the existing Universe Explore surface, and personal photos in their existing View scopes. All three may reference the same appropriate image without becoming duplicate catalogues.
 
 The missing universe content is primarily an application integration problem. We have successfully fetched much of the data and then failed to project it into usable entities and relationships. Additional discovery is also necessary: fetching an owned work's character list does not enumerate its universe. Wikidata itself has uneven coverage, so enrichment can be reliable without ever claiming to be exhaustive.
 
@@ -248,6 +258,7 @@ Reuse the existing canonical artwork foundation: `artwork_assets`, `entity_artwo
 | Relationships/appearances | Reuse qualified statement storage; distinguish “member of universe,” “appears in work,” “creator,” “portrays,” and real-world settings |
 | Entity summaries | Persist resolved label, aliases, short description, type evidence, source revision, and fetch/finalization status; preserve user overrides |
 | Image meaning | Distinguish what an image depicts from where it is used and why it is search-related; add work/continuity and provenance to subject/context relations |
+| Editor role capability | Return the supported canonical roles and slot/source subtype for the exact entity and scope; resolve user-facing labels and default priority from one shared catalog rather than hard-coded Razor arrays |
 | Search | Shared ranking/projection for View and pickers; names/aliases/QIDs, actual image roles, relevant work and universe context, bounded relationship expansion, and match explanations |
 | Refresh | Durable entity/discovery jobs, component statuses, cursors, retries, revision-aware refresh, and transactional projection updates |
 | Permissions | Apply accessible library/profile scope before matching, counts, facets, paging, and image delivery; a shared image must not expose labels from inaccessible uses |
@@ -264,7 +275,7 @@ Replace the four Library Artwork links in `ViewSectionShell.razor` with **Librar
 
 Handle `/view/artwork/media`, `/people`, `/universes`, and `/assets` as compatibility routes into the same page with equivalent typed filters where possible. Preserve search/selection state and back navigation; do not retain separate implementations. A legacy universe route sets a universe relationship filter, not a new universe directory. The page header is **Artwork Library**, “Search and reuse artwork stored across your Tuvima library,” and an authorized matching-image count.
 
-### T2. Typed asset query and truthful relationships (P2, P3, P5)
+### T2. Typed asset query and truthful relationships (P2, P3, P6)
 
 Replace the growing positional `BrowseAsync` parameter list with a typed query in `ArtworkLibraryContracts.cs`, propagated through `IEngineApiClient.Artwork`, `EngineApiClient.Artwork`, the assets endpoint in `DisplayEndpoints`, and `ArtworkAssetService`. Put SQL in focused storage/read services. Retain bounded offset/limit to match current contracts; use deterministic tie-breaking by asset ID and benchmark deep paging before introducing a compatible cursor option.
 
@@ -286,7 +297,7 @@ Extend `ArtworkAssetDto` with a stable display context, canonical identifiers, a
 
 Counts, facets, matches, selected contexts, and delivery must all apply current access policy before paging. An inaccessible relationship must not cause a visible hit, alter ranking in a revealing way, or appear in labels/counts. Validate typed IDs and resolve authoritative labels/IDs server-side rather than trusting client-supplied display metadata.
 
-### T3. One maintained context projection (P2, P5, P6)
+### T3. One maintained context projection (P2, P6, P7)
 
 Confirmed current gaps: `EntityAssetRepository.SyncCanonicalArtwork` synchronizes assets and links without context; `ArtworkAssetService.LinkAsync` inserts context but omits `canonical_id`; startup migration provides partial backfill. Centralize the context projection so provider ingestion, retail enrichment, people, fictional entities, manual upload, URL import, existing-image linking, and legacy compatibility paths follow the same rules.
 
@@ -296,7 +307,7 @@ Represent direct assignments, verified subjects, and derived related context dis
 
 Update projection and search state atomically for link writes/removals, or persist a durable projection job in the same transaction for changes requiring larger rebuilds. Cover entity renames, alias/identity corrections, type/year changes, artwork replacement, unlink, and deletion. Removing one link must retain contexts supported by other links. Backfill existing rows in resumable, idempotent batches without downloading or duplicating image bytes; record projection version/progress and provide a rebuild path. Respect overrides throughout.
 
-### T4. Indexed search and bounded scale (P2, P6)
+### T4. Indexed search and bounded scale (P2, P7)
 
 Implement artwork FTS5 using the repository's existing trigram and multilingual/CJK search conventions. A B-tree on `search_text` does not make leading-wildcard `LIKE '%query%'` a scalable search index. Reuse query escaping, tokenization, and bounded short-query behavior; test one/two-character and CJK queries rather than silently returning no results because trigrams need longer terms.
 
@@ -304,11 +315,11 @@ Prefer context-level indexed documents carrying their typed relationship/visibil
 
 Maintain exact/filter indexes for entity/type/media, role, provider, aspect, and relationship lookups, with composite indexes justified by query plans. Index both changes and removals and include rebuild/migration tests. Debounce UI search, cancel superseded requests, and ignore out-of-order responses. Related-entity selectors use bounded server search. Test at least 10,000 related people and 100,000 images with realistic multi-context records; benchmark first/deep pages, counts, filters, and warm/cold search. Warm local search p95 below 300 ms is a proposed acceptance target on a documented reference machine, not an observed result.
 
-### T5. Shared image browser and screenshot interpretation (P1–P4)
+### T5. Shared image browser and Artwork Library screenshot interpretation (P1–P3, P5)
 
 Extract one reusable artwork asset browser used by `/view/artwork` and the picker. Share typed query state, filters, paging, image geometry, grid/list metadata, selection, and inspector. Standalone browse persists readable URL state; picker state is scoped to its invocation without navigating away from the editor. Do not copy the current entity/media card implementation into another component.
 
-Use the supplied screenshot as a composition reference: existing app shell, anchored View rail, compact title/count, prominent search and sort/display controls, filter row, image grid, and desktop inspector. Do not change global application navigation to copy the screenshot. Quick facets fit available width; More filters holds the full supported set including Audiobooks, Object, and Event. Use shared controls, active-filter summary, and a clear reset. Single selection uses accessible state and focus treatment; a checkmark must not imply unsupported bulk selection.
+Use the earlier Artwork Library reference already incorporated in this proposal as the composition reference for `/view/artwork`: existing app shell, anchored View rail, compact title/count, prominent search and sort/display controls, filter row, image grid, and desktop inspector. The newly attached Spirited Away mockup applies to T6's entity editor, not this page. Do not change global application navigation to copy either mockup. Quick facets fit available width; More filters holds the full supported set including Audiobooks, Object, and Event. Use shared controls, active-filter summary, and a clear reset. Single selection uses accessible state and focus treatment; a checkmark must not imply unsupported bulk selection.
 
 Render measured aspect ratios with shared sizing presets and `object-fit: contain` inside bounded preview regions, keeping portrait/square/landscape/banner geometry recognizable. Give logos a neutral backing and keep `UnsupportedRect` visible at its true ratio. Provide a density control that changes preview size without changing image meaning; list mode uses small shape-aware previews. Browser and picker grids request small suitable renditions, inspectors medium/large, with truthful responsive `srcset`/`sizes`. Originals are reserved for explicit zoom/full-size; missing renditions trigger repair or a bounded placeholder rather than an implicit original download.
 
@@ -316,15 +327,31 @@ Selection is keyed by artwork asset ID. Replace `OpenAssetAsync`'s current conve
 
 At approximately 1536×1024 (the reference) and 1920×1080, use a grid beside a bounded inspector; do not hard-code six columns. At lower-height desktop, tablet, and phone, collapse filters and move the inspector into an in-app panel without squeezing previews into unusable widths. Maintain intentional scrolling, return position, keyboard selection, focus restoration, loading/empty/error states, and screen-reader labels. Check action alignment at every breakpoint.
 
-### T6. Large contextual picker and deliberate actions (P4)
+### T6. One role-card-driven entity Artwork screen (P4)
 
-Replace the small library grid embedded in `ArtworkWorkspace` with a near-viewport in-app dialog/overlay hosting the shared browser. Header shows the authorized target and slot; keep Cancel and Use this artwork reachable alongside preview/inspector. Preserve the underlying editor's target, unsaved state, and dirty-state guard. Selecting/inspecting alone does not write a link; confirm returns the chosen `ArtworkAssetDto` and the workspace calls the existing canonical link endpoint. Disable duplicate submits, retain selection on failure, and restore focus on close.
+Refactor the existing `ArtworkWorkspace` rather than building another editor. Preserve its header mode, entity/universe context where applicable, natural-ratio preview, variant strip, metadata, canonical upload/URL/link/remove/preferred operations, provider refresh, automatic group fallback, lightbox, callbacks, and dirty-state behavior. Replace `StandardRoles`, `PersonRoles`, and the current role tab row with an overview rendered from the entity workspace capability contract. A universe hierarchy selector, where still required by its existing workspace consumer, remains entity context above the cards and must not become role navigation.
+
+Extend `ArtworkEntityWorkspaceDto` with ordered supported-role descriptors resolved for the exact entity, media type, and editor scope. Replace the identifier-only workspace request with a typed target descriptor, or resolve the equivalent facts server-side; entity ID/type remain authoritative, and media/scope hints must be validated rather than trusting client labels. Keep persisted roles canonical (`Primary`, `Portrait`, `Background`, `Logo`) and retain source/slot distinctions such as `EpisodeStill` and `SeasonPoster`; do not rename database roles for presentation. Introduce one shared role catalog for canonical role, source slot, supported entity/scope combinations, default priority, and a presentation key. Reuse it in `ArtworkScopeService`; one Web `ArtworkRolePresentationResolver` maps the presentation key to the user-facing label and icon. Labels include Poster / Cover for movies and TV series, Poster for seasons, Still for episodes, Cover for books/audiobooks/albums, Portrait for people/characters, and Primary artwork for universes. Unsupported roles do not render merely because a static array contains them, and mutations are validated against the same capability source.
+
+Load the workspace once and derive `SupportedRoles`, `VariantsByRole`, `PreferredVariantByRole`, and `VariantCountByRole` in component state. A role-card click is local state only. Each semantic button exposes selected state, label, linked-variant count, and explicit preferred, automatic, or empty status; it shows only the effective preview, never every variant. Automatic compositions and legacy fallback URLs do not inflate the linked-variant count. Default Portrait for Person/Character, Primary for ordinary media/Universe/Collection, otherwise the first supported role. Preserve the selected role and selected asset when still valid; after a mutation reload the single workspace, retain the role, then select the returned/newly preferred asset. Do not reset to Primary on every reload or picker close.
+
+Below the cards, keep variants filtered to the focused canonical role and applicable slot context. Selecting a thumbnail changes only the preview/actions. Set preferred never deletes alternatives; Remove link removes only the selected assignment; Upload and From URL remain in the right action panel and refresh only after success. Explicit, automatic, and empty states must be distinct. Automatic group compositions remain derived `MediaArtworkGroupPreview` output, never `artwork_assets`; removing an explicit Primary restores the automatic view when available.
+
+Remove the nested artwork-role buttons from `SharedMediaEditorShell` and `CollectionEditorShell`, remove legacy `artwork-background`/`artwork-logo` active-tab routing, and remove the duplicate role tab row from `ArtworkWorkspace`. Ensure every saved, supported media/person/collection editor reaches the shared workspace so the large parallel renderer in `SharedMediaEditorShell` can be retired after behavior parity. Keep inherited/read-only scope messaging and target switching intact. `PersonEditorDialog` continues to expose one Artwork tab and should shed obsolete local role-selection state once the shared workspace owns it. A not-yet-saved collection has no canonical entity target: retain draft files without writing orphan assets, show the same role-card pattern over staged state where practical, and enable canonical library reuse only after an entity ID exists.
+
+Implement the mockup's composition in `ArtworkWorkspace.razor.css`: summary cards in a wrapping or horizontally scrolling grid; selected purple boundary; bounded thumbnail geometry by role; focused preview/variants beside the action panel on desktop; stacked layout at narrower widths. Reuse shared controls and existing editor typography/colors. Do not copy the mockup's sample counts, sources, image content, or fixed crop, and do not change the surrounding editor rail, header, footer, or unrelated tabs.
+
+Component boundaries may include `ArtworkRoleOverview`, `ArtworkRoleCard`, `ArtworkVariantStrip`, and `ArtworkFocusedEditor`, but mutations stay coordinated by one workspace rather than duplicated among call sites. Principal files are `ArtworkWorkspace.razor(.css)`, `SharedMediaEditorShell.razor(.cs/.css)`, `PersonEditorDialog.razor(.css)`, `CollectionEditorShell.razor(.css)`, `ArtworkLibraryContracts.cs`, `ArtworkAssetService`, `ArtworkScopeService`, and the artwork client interfaces.
+
+### T7. Large contextual picker and deliberate actions (P5)
+
+Replace the small library search/grid and its `_source == "library"` state embedded in `ArtworkWorkspace` with a near-viewport in-app dialog/overlay hosting the shared browser. Pass entity ID/type/label, media type, focused canonical role, source slot/context, relevant canonical/universe context, active profile, and current asset/link state. The header shows the authorized target and user-facing role, for example `Spirited Away > Logo`; keep Cancel and Use this artwork reachable alongside preview/inspector. Preserve the underlying editor's target, focused role, selected variant, unsaved state, and dirty-state guard. Selecting/inspecting alone does not write a link; confirm returns the chosen `ArtworkAssetDto` and the workspace calls the existing canonical link endpoint. Disable duplicate submits, retain selection on failure, and restore focus on close.
 
 Recommended prioritizes direct target relationships, then verified related context, role suitability, aspect, and resolution; explain why an image is recommended. Related follows bounded typed entity/work/universe context without requiring the same role. All Artwork removes contextual scoping, not permissions or explicit user filters. Server-defined slot capabilities decide actual compatibility; aspect mismatch is a ranking signal unless the slot requires a hard restriction. Respect the difference between linked to target and already preferred in this exact slot.
 
-In standalone browse, an authorized Use this artwork action opens a typed target/slot selector before handing off to the existing editor. Header Upload likewise selects a destination and reuses existing upload/URL controls; it must not create an undocumented orphan-upload workflow. Browse-only users receive inspection without mutations. The screenshot's Open in new tab is optional explicit full-size viewing, not how the picker opens. Never infer a target from the first context of a reused image.
+After a successful link, close the picker, keep the same role focused, reload the one workspace payload, and select the linked image. Cancel closes without a write or reload. Upload and From URL remain in the focused editor rather than moving into the picker. In standalone browse, an authorized Use this artwork action opens a typed target/slot selector before handing off to the existing editor. Header Upload likewise selects a destination and reuses existing upload/URL controls; it must not create an undocumented orphan-upload workflow. Browse-only users receive inspection without mutations. The Artwork Library screenshot's Open in new tab is optional explicit full-size viewing, not how the picker opens. Never infer a target from the first context of a reused image.
 
-### T7. Preserve storage, deduplication, and existing consumers (P5)
+### T8. Preserve storage, deduplication, and existing consumers (P6)
 
 Retain `artwork_assets` with unique `content_hash`, `entity_artwork_links`, and `artwork_asset_context`; do not create entity-specific image stores. Canonical storage remains `AssetPathService.ArtworkRoot` under `.data/assets/artwork`. `ViewStorageService` owns configured personal `Profiles/{profile}/...` and `Shared/...`; artwork queries never enumerate those roots. This work adds no implicit or explicit personal-photo publication bridge.
 
@@ -332,13 +359,15 @@ Existing-image selection is reference-only. Duplicate upload/URL import reuses t
 
 Audit consumers before removing entity-oriented code. `ArtworkLibraryReadService`, `ArtworkLibraryItemDto`, and `ArtworkBrowsePageDto` still support editor context, automatic group previews, and universe hierarchy. Remove their role as the main View browser, retain/refactor required consumers, and preserve editor and Universe detail behavior. No redesign of Watch/Read/Listen or Universe detail is included.
 
-### T8. Verification and documentation (P8)
+### T9. Verification and documentation (P9)
 
-Update `ViewLibrarySurfaceTests` to assert one artwork destination and unchanged Personal/Gallery behavior; retire only assertions that require the old artwork navigation. Add component/interaction coverage proving shared browse/picker behavior, exact-asset selection, target/slot confirmation, Cancel, focus, and no duplicate submissions. Do not rely only on source-string tests for actual interactions.
+Update `ViewLibrarySurfaceTests` to assert one artwork destination and unchanged Personal/Gallery behavior; retire only assertions that require the old artwork navigation. Add bUnit or equivalent component/interaction coverage proving one Artwork editor destination; no nested or top role tabs; capability-driven role cards and labels; default and retained focus; accurate preferred/automatic/empty status and counts; selected-role-only variants; local switching without API calls; preview selection; Set preferred, Remove link, Refresh, Upload, and URL behavior; automatic restoration; and responsive semantics. Cover movie, TV series, season, episode, book, audiobook, album, person, character, universe, collection, inherited/read-only scope, and an empty supported role. Do not rely only on source-string tests for actual interactions.
+
+Picker tests prove contextual Recommended/Related/All queries, exact target/role/slot context, inspect-before-confirm, cancel without mutation, focus restoration, success returning to the same role and linked asset, failure retaining picker selection, one submission, and reference-only reuse. Update `ViewLibrarySurfaceTests` and editor navigation/state tests only where their expectations intentionally change; retain coverage for all unrelated tabs and dirty-state guards.
 
 API/storage/search integration tests cover every persistence origin; canonical IDs; rename/unlink invalidation; dedupe and simultaneous reuse; multiple entities/roles per image; correct same-link filter semantics; one result per asset; counts and stable paging; FTS ranking, short/CJK queries, and rebuild; permissions before matching/counts/detail/delivery; private roots excluded from artwork enumeration. Verify Recommended/Related/All and exact target-link status separately. Run relevant Web/API/storage/provider regression suites, solution checks, and rendered desktop/tablet/mobile acceptance during implementation, preserving existing authorization and editor tests.
 
-When behavior ships, update `docs/artwork-architecture.md` and affected View product/architecture documentation, client/API contracts, and tests together. Document Personal versus Library storage/security, one Artwork Library destination, relationship facets, usage versus relatedness, shared picker, migration/backfill, and operational recovery. This planning revision does not rewrite current architecture documentation as though the proposed UI already exists.
+The implementation updates `docs/artwork-architecture.md`, affected View/editor behavior, client/API contracts, schema migration/backfill, and tests together. The architecture now documents Personal versus Library storage/security, one Artwork Library destination, relationship facets, usage versus relatedness, the unified entity Artwork screen, role capability/label rules, shared picker, migration/backfill, and operational recovery.
 
 ## Reliable enrichment execution
 
@@ -358,41 +387,42 @@ Fandom lore is an optional supplement after these fixes. Its current provider di
 
 ## Implementation sequence and acceptance gates
 
-The immediate artwork track implements the attachment's experience. The data track retains the original investigation's remediation scope. They share typed identity/context contracts and can progress independently where evidence is already trusted; broad universe discovery is not a prerequisite for the new artwork browser. Do not enable derived contexts from known-bad attributions until those links are repaired. No track redesigns Universe detail pages or lane browsing.
+The immediate artwork track combines both supplied artwork experiences. The data track retains the original investigation's remediation scope. They share typed identity/context contracts and can progress independently where evidence is already trusted; broad universe discovery is not a prerequisite for the new artwork browser or unified editor. After A1, the context/index work in A2 and the editor composition work in A4 can proceed independently; the contextual picker in A5 waits for the shared browser from A3 and the focused-role state contract from A4. Do not enable derived contexts from known-bad attributions until those links are repaired. No track redesigns Universe detail pages, lane browsing, or non-Artwork editor sections.
 
 | Artwork stage | Work package | Acceptance gate |
 |---|---|---|
-| A1 | Consumer/capability audit and typed asset query/detail contracts (T2, T7) | Existing editor, group-preview, and universe consumers identified; filter and usage semantics agreed; access policy applied before counts/paging |
+| A1 | Consumer audit, role-capability workspace contract, and typed asset query/detail contracts (T2, T6, T8) | Editor, group-preview, and universe consumers identified; canonical role/slot mapping and labels agreed; filter and usage semantics agreed; access policy applied before counts/paging |
 | A2 | Central context projection, backfill, FTS, and indexed filters (T3, T4) | All import/link paths searchable; canonical IDs present where known; rename/unlink removes stale terms; one result per asset; multilingual and authorization tests pass |
 | A3 | Single route, shared browser, exact-asset inspector (T1, T5) | One Artwork Library destination; old bookmarks resolve; natural image geometry and selected variant preserved; no media/subject/universe browse modes |
-| A4 | Large contextual picker and target-aware reuse/upload (T6, T7) | Recommended/Related/All run on server; target and role explicit; Cancel safe; reference-only reuse and content-hash dedupe verified |
-| A5 | Product journey, large-library and responsive verification, docs (T8) | P8 journey passes; 10,000-person/100,000-image fixture stays bounded; private View behavior, permissions, focus, and action alignment pass; architecture docs updated with implemented behavior |
+| A4 | Unified entity Artwork screen and editor-shell cleanup (T6) | One Artwork rail item; role cards are capability-driven; switching is local; variants/mutations stay role-scoped; automatic fallback and unrelated tabs are unchanged |
+| A5 | Large contextual picker and target-aware reuse (T7, T8) | Recommended/Related/All run on server; target, role, and slot are explicit; Cancel preserves editor state; success returns to the same role; reference-only reuse and content-hash dedupe verified |
+| A6 | Product journey, large-library and responsive verification, docs (T9) | P9 journey passes; 10,000-person/100,000-image fixture stays bounded; private View behavior, permissions, focus, role cards, and action alignment pass; architecture docs updated with implemented behavior |
 
 | Separate data stage | Work package | Acceptance gate |
 |---|---|---|
-| D1 | Correct person resolution in app and SDK, then repair unsupported links (P7) | Generic audiobook chapter never accepts footballer; identical-name ties remain unresolved without evidence; valid bands/sparse metadata work; conflicting IDs do not inherit credits or artwork search terms |
-| D2 | Provider dispatch, entity headers, typed creator/setting/event handling (P7) | Actual configured provider persists graph edges; creators stay real people; cancellation/revival are not narrative events |
-| D3 | Narrative scope and qualified work/series/franchise membership (P7) | Existing Dune scopes resolve without merging identities; Expanse associations are queryable; Batman character is not used as a universe ID |
-| D4 | Durable recovery, bounded discovery, managed entity artwork (P6, P7) | Restart resumes unfinished work; continuations advance; no unbounded DC import; supported P18 artwork uses the canonical persistence/indexing path from A2 |
+| D1 | Correct person resolution in app and SDK, then repair unsupported links (P8) | Generic audiobook chapter never accepts footballer; identical-name ties remain unresolved without evidence; valid bands/sparse metadata work; conflicting IDs do not inherit credits or artwork search terms |
+| D2 | Provider dispatch, entity headers, typed creator/setting/event handling (P8) | Actual configured provider persists graph edges; creators stay real people; cancellation/revival are not narrative events |
+| D3 | Narrative scope and qualified work/series/franchise membership (P8) | Existing Dune scopes resolve without merging identities; Expanse associations are queryable; Batman character is not used as a universe ID |
+| D4 | Durable recovery, bounded discovery, managed entity artwork (P7, P8) | Restart resumes unfinished work; continuations advance; no unbounded DC import; supported P18 artwork uses the canonical persistence/indexing path from A2 |
 
-Release checks for A2/A3 use trustworthy current records and explicit empty states. Expanded universe facets depend on D2–D4 producing real evidence; Amos-related matches use the existing qualified performer link once indexed. The screenshot is not a requirement to synthesize enough art to fill a grid.
+Release checks for A2/A3 use trustworthy current records and explicit empty states. Expanded universe facets depend on D2–D4 producing real evidence; Amos-related matches use the existing qualified performer link once indexed. Neither mockup is a requirement to synthesize enough art or variant counts to fill its example layout.
 
 Cross-cutting regression fixtures should include actual production provider configuration; Dune franchise/universe split; Batman character/franchise/universe; Expanse's P1441-only locations; real Earth/Mars settings; source production events; creators and collective pseudonyms; identical names with different QIDs; variant artwork and contextual performer matching; empty/partial/rate-limited provider responses; and scope-restricted image contexts.
 
 Use saved provider responses for deterministic tests, plus an opt-in live provider smoke test. Performance target proposal: warm local search p95 under 300 ms on a documented reference machine, with bounded rows and no original downloads in grids. This target has not been benchmarked in this audit.
 
-For implementation, run the repository's restore/build/test checks, affected UI visual validation, and the required controlled fresh-ingest acceptance for sequence/artwork ingestion fixes. Do not use title-specific production patches. This investigation has not reset the library or changed its records. Any later refresh/migration should preserve user edits, stable references, and managed originals, and be separately verified against the existing data snapshot.
+Implementation verification includes repository build/test checks and affected UI visual validation. Do not use title-specific production patches. The verification did not reset the library, run a broad metadata refresh, or commit an artwork selection; normal Engine startup may apply the additive schema/search backfill. Any later controlled refresh should preserve user edits, stable references, and managed originals and be separately verified against the existing data snapshot.
 
 ## Evidence and verification limits
 
-The isolated diagnostic compiled successfully with zero warnings/errors and completed its live library calls. No solution-wide tests were required for this investigation because application code was not changed. A strict documentation-site build was attempted but could not run because the available Python environment lacks MkDocs. No claim is made that the redesigned UI or recovery plan is implemented or visually validated.
+The solution builds with zero warnings and errors. The complete Web (1,109 passed), Providers (503 passed, 34 opt-in integrations skipped), Storage (445 passed), and Ingestion (160 passed) suites pass, along with the new artwork API and contract tests. The local runtime journey was visually verified at the available desktop/narrow viewport through library browse, selection, responsive preview, Manage usage, role editing, and the chooser; no artwork mutation was committed. Three unrelated pre-existing full-suite guardrails remain outside this change: the Domain suite flags an existing private `FirstNonBlank` helper in `ArtworkLibraryReadService`, the API suite expects an older integration-harness source literal, and the Contracts suite's legacy collection expectation omits the existing `audience` field. A strict documentation-site build was not rerun because the available Python environment lacks MkDocs.
 
 Local audit evidence is stored under `.tmp/universe-artwork-audit/`: `local-evidence.json` includes the read-only SQL and result rows; `live-wikidata.json` includes fetched entities and revision IDs; `discovery-probe.json` contains bounded reverse-query responses; `library-probe.txt` and `person-attribution-probe.txt` contain installed-DLL output. The directory is local scratch evidence, not a shipped dependency.
 
-For this planning revision, the supplied prompt and screenshot were reviewed against current navigation, asset contracts/query/link paths, compatibility projection, search schema, storage paths, selection behavior, and surface tests. Only this proposal and the standing plan-review instruction in `AGENTS.md` were edited. Runtime applications and database records were not changed, and no application tests or visual acceptance were claimed for the proposed implementation.
+Both supplied plan inputs and the Spirited Away editor and chooser mockups were reviewed against View navigation, editor navigation, `ArtworkWorkspace`, role/slot state, asset contracts/query/link paths, compatibility projection, search schema, storage paths, selection behavior, automatic group behavior, and surface tests. The attachments were treated as design material, not as independent commands. The implementation was compiled, exercised against the local Engine and Dashboard, and visually checked through the Artwork Library, responsive inspector, focused editor, and chooser journey without committing an artwork mutation.
 
-Principal implementation entry points: `MetadataHarvestingService`, `FictionalEntityWorker`, `RecursiveFictionalEntityService`, `RelationshipPopulationService`, `NarrativeRootResolver`, `ParentCollectionResolver`, `UniverseEnrichmentService`, `PersonReconciliationService`, `primary_person_media_credits` in schema.sql, `ArtworkLibraryReadService`, `ArtworkAssetService`, `EntityAssetRepository`, `ViewArtworkPage`, `ArtworkWorkspace`, and `ViewSectionShell`. In Tuvima.Wikidata, review `EntityService`, `PersonsService`, reconciliation ambiguity, and a typed paged reverse-discovery API. The SDK already supplies entity headers, aliases, qualified claims, and resilience; reuse those contracts.
+Principal implementation entry points: `MetadataHarvestingService`, `FictionalEntityWorker`, `RecursiveFictionalEntityService`, `RelationshipPopulationService`, `NarrativeRootResolver`, `ParentCollectionResolver`, `UniverseEnrichmentService`, `PersonReconciliationService`, `primary_person_media_credits` in schema.sql, `ArtworkLibraryReadService`, `ArtworkAssetService`, `ArtworkScopeService`, `EntityAssetRepository`, `ArtworkLibraryContracts`, `EngineApiClient.Artwork`, `ViewArtworkPage`, `ArtworkWorkspace`, `SharedMediaEditorShell`, `PersonEditorDialog`, `CollectionEditorShell`, and `ViewSectionShell`. In Tuvima.Wikidata, review `EntityService`, `PersonsService`, reconciliation ambiguity, and a typed paged reverse-discovery API. The SDK already supplies entity headers, aliases, qualified claims, and resilience; reuse those contracts.
 
 ## Product-owner summary
 
-View will have one Artwork Library for finding, inspecting, and reusing images, plus the existing separate Personal area. The same large browser will serve artwork editors. People and universes help narrow results without becoming more catalogues to navigate. Correcting identity and enrichment supplies more trustworthy results over time, while private photos stay private and reusing artwork never creates extra copies. The product walkthrough at the beginning explains each change and its review checks separately from the implementation details.
+View now has one Artwork Library for finding, inspecting, and reusing images, while the existing Personal area remains separate. Each entity editor keeps its familiar shell but reduces Artwork to one destination with summary cards for every supported role and the existing variant tools beneath. **Choose from Library** opens the same large browser, returns to the focused role, and links an existing image without copying it. People and universes narrow results without becoming extra catalogues. The accompanying identity and enrichment fixes prevent known false attributions and make trusted character/universe artwork discoverable through the same managed-image path, while private photos stay private.

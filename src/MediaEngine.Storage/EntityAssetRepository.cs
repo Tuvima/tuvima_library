@@ -1,4 +1,5 @@
 using Dapper;
+using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 using MediaEngine.Domain.Contracts;
@@ -288,10 +289,18 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
         {
             "SeasonPoster" => "Season",
             "EpisodeStill" => "Episode",
+            "NetworkLogo" => "Network",
+            "StudioLogo" => "Studio",
             _ => string.Empty,
         };
         conn.Execute("""
-            DELETE FROM entity_artwork_links WHERE id=@Id;
+            DELETE FROM entity_artwork_links
+            WHERE id=@Id
+               OR (entity_id=@EntityId
+                   AND entity_type=@EntityType
+                   AND artwork_asset_id=@CanonicalId
+                   AND role=@Role
+                   AND context=@Context);
             INSERT INTO entity_artwork_links (
                 id, entity_id, entity_type, artwork_asset_id, role, context,
                 source_asset_type, is_preferred, is_user_override, created_at, updated_at)
@@ -312,6 +321,117 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
             CreatedAt = asset.CreatedAt.ToString("O"),
             UpdatedAt = asset.UpdatedAt?.ToString("O"),
         });
+
+        SyncCanonicalArtworkContext(
+            conn,
+            canonicalId,
+            ToEntityIdParameter(asset.EntityId),
+            asset.EntityType,
+            role,
+            asset.SourceProvider,
+            asset.CreatedAt);
+    }
+
+    private static void SyncCanonicalArtworkContext(
+        IDbConnection conn,
+        Guid artworkAssetId,
+        object entityId,
+        string entityType,
+        string role,
+        string? provider,
+        DateTimeOffset createdAt)
+    {
+        const string upsertSuffix = """
+            ON CONFLICT(artwork_asset_id, entity_id, entity_type, role) DO UPDATE SET
+                entity_label=excluded.entity_label,
+                media_type=excluded.media_type,
+                year=excluded.year,
+                provider=excluded.provider,
+                canonical_id=excluded.canonical_id,
+                search_text=excluded.search_text,
+                updated_at=excluded.created_at;
+            """;
+        var parameters = new
+        {
+            artworkAssetId,
+            entityId,
+            entityType,
+            role,
+            provider,
+            createdAt = createdAt.ToString("O"),
+        };
+
+        if (entityType.Equals("Work", StringComparison.OrdinalIgnoreCase))
+        {
+            conn.Execute($"""
+                INSERT INTO artwork_asset_context (
+                    artwork_asset_id, entity_id, entity_type, entity_label, media_type,
+                    year, role, provider, canonical_id, search_text, created_at)
+                SELECT @artworkAssetId, work.id, 'Work',
+                       COALESCE((SELECT value FROM canonical_values WHERE entity_id=work.id AND key='title'), 'Untitled media'),
+                       work.media_type,
+                       (SELECT value FROM canonical_values WHERE entity_id=work.id AND key IN ('release_year','year') ORDER BY CASE key WHEN 'release_year' THEN 0 ELSE 1 END LIMIT 1),
+                       @role, @provider,
+                       (SELECT value FROM canonical_values WHERE entity_id=work.id AND key='wikidata_qid' LIMIT 1),
+                       trim(COALESCE((SELECT value FROM canonical_values WHERE entity_id=work.id AND key='title'), 'Untitled media') || ' ' ||
+                            COALESCE((SELECT group_concat(value, ' ') FROM canonical_value_arrays WHERE entity_id=work.id AND key IN ('title_alias','alternate_title','author','creator')), '') || ' ' ||
+                            work.media_type || ' ' || @role || ' ' || COALESCE(@provider, '')),
+                       @createdAt
+                FROM works work WHERE work.id=@entityId
+                {upsertSuffix}
+                """, parameters);
+            return;
+        }
+
+        if (entityType.Equals("Person", StringComparison.OrdinalIgnoreCase))
+        {
+            conn.Execute($"""
+                INSERT INTO artwork_asset_context (
+                    artwork_asset_id, entity_id, entity_type, entity_label, role, provider, canonical_id, search_text, created_at)
+                SELECT @artworkAssetId, person.id, 'Person', person.name, @role, @provider,
+                       person.wikidata_qid,
+                       trim(person.name || ' ' || COALESCE(person.occupation, '') || ' ' ||
+                            COALESCE(person.wikidata_qid, '') || ' ' || @role || ' ' || COALESCE(@provider, '')),
+                       @createdAt
+                FROM persons person WHERE person.id=@entityId
+                {upsertSuffix}
+                """, parameters);
+            return;
+        }
+
+        if (entityType.Equals("Collection", StringComparison.OrdinalIgnoreCase)
+            || entityType.Equals("Universe", StringComparison.OrdinalIgnoreCase))
+        {
+            conn.Execute($"""
+                INSERT INTO artwork_asset_context (
+                    artwork_asset_id, entity_id, entity_type, entity_label, media_type,
+                    role, provider, canonical_id, search_text, created_at)
+                SELECT @artworkAssetId, collection.id, @entityType, collection.display_name,
+                       collection.primary_area, @role, @provider, collection.wikidata_qid,
+                       trim(collection.display_name || ' ' || collection.collection_type || ' ' ||
+                            COALESCE(collection.primary_area, '') || ' ' || @role || ' ' ||
+                            COALESCE(collection.wikidata_qid, '') || ' ' || COALESCE(@provider, '')),
+                       @createdAt
+                FROM collections collection WHERE collection.id=@entityId
+                {upsertSuffix}
+                """, parameters);
+            return;
+        }
+
+        if (entityType.Equals("FictionalEntity", StringComparison.OrdinalIgnoreCase))
+        {
+            conn.Execute($"""
+                INSERT INTO artwork_asset_context (
+                    artwork_asset_id, entity_id, entity_type, entity_label, role, provider, canonical_id, search_text, created_at)
+                SELECT @artworkAssetId, entity.id, 'FictionalEntity', entity.label, @role, @provider, entity.wikidata_qid,
+                       trim(entity.label || ' ' || COALESCE(entity.entity_sub_type, '') || ' ' ||
+                            COALESCE(entity.fictional_universe_label, '') || ' ' || @role || ' ' ||
+                            COALESCE(entity.wikidata_qid, '') || ' ' || COALESCE(@provider, '')),
+                       @createdAt
+                FROM fictional_entities entity WHERE entity.id=@entityId
+                {upsertSuffix}
+                """, parameters);
+        }
     }
 
     private static string ComputeArtworkIdentity(EntityAsset asset)

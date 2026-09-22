@@ -440,7 +440,7 @@ public sealed class PersonEnrichmentWorker
             : null;
     }
 
-    private static string? ResolvePersonWorkTitleHint(
+    internal static string? ResolvePersonWorkTitleHint(
         IReadOnlyList<CanonicalValue> canonicals,
         MediaType mediaType)
     {
@@ -456,6 +456,11 @@ public sealed class PersonEnrichmentWorker
                 Value(MetadataFieldConstants.Title))?.Trim(),
             MediaType.Music => StringHelpers.FirstNonBlank(
                 Value(MetadataFieldConstants.Album),
+                Value(MetadataFieldConstants.Title))?.Trim(),
+            MediaType.Audiobooks => StringHelpers.FirstNonBlank(
+                Value("book_title"),
+                Value(MetadataFieldConstants.Album),
+                Value(MetadataFieldConstants.Series),
                 Value(MetadataFieldConstants.Title))?.Trim(),
             _ => StringHelpers.FirstNonBlank(Value(MetadataFieldConstants.Title), Value(MetadataFieldConstants.Series))?.Trim(),
         };

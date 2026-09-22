@@ -1,0 +1,22 @@
+@namespace MediaEngine.Web.Components.Artwork
+@using MediaEngine.Contracts.Artwork
+
+<AppDialogShell Title="Choose artwork" Subtitle="@TargetSummary" Size="FullscreenEditor" OnClose="Cancel">
+    <ChildContent>
+        <ArtworkAssetBrowser InitialQuery="@Query" PickerMode="true" SelectionChanged="SelectionChangedAsync" />
+    </ChildContent>
+    <FooterContent>
+        <AppButton Label="Cancel" ButtonStyle="AppButtonStyle.Text" OnClick="Cancel" />
+        <AppButton Label="Use this artwork" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" StartIcon="@Icons.Material.Outlined.Check" Disabled="@(_selected is null)" OnClick="Choose" />
+    </FooterContent>
+</AppDialogShell>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter, EditorRequired] public ArtworkAssetQuery Query { get; set; } = new();
+    [Parameter, EditorRequired] public string TargetSummary { get; set; } = string.Empty;
+    private ArtworkAssetDto? _selected;
+    private Task SelectionChangedAsync(ArtworkAssetDto? asset) { _selected = asset; return Task.CompletedTask; }
+    private void Choose() { if (_selected is not null) Dialog.Close(DialogResult.Ok(_selected)); }
+    private void Cancel() => Dialog.Cancel();
+}

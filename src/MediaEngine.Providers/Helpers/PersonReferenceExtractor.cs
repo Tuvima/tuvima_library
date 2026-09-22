@@ -24,7 +24,11 @@ public static class PersonReferenceExtractor
         MediaType mediaType = MediaType.Unknown)
     {
         var byKey = AccumulateByKey(rawClaims);
-        var splitMusicCredit = mediaType == MediaType.Music || byKey.ContainsKey("album_artist");
+        // Album-artist tags are also common in audiobook containers where they
+        // identify the narrator. They must not switch an audiobook into the
+        // music/Performer path or create a second unsupported contributor role.
+        var splitMusicCredit = mediaType == MediaType.Music
+            || (mediaType == MediaType.Unknown && byKey.ContainsKey("album_artist"));
         var performerRole = splitMusicCredit ? "Performer" : ResolvePerformerRole(mediaType);
 
         var refs = new List<PersonReference>();
@@ -70,7 +74,8 @@ public static class PersonReferenceExtractor
         MediaType mediaType = MediaType.Unknown)
     {
         var byKey = AccumulateByKey(rawClaims);
-        var splitMusicCredit = mediaType == MediaType.Music || byKey.ContainsKey("album_artist");
+        var splitMusicCredit = mediaType == MediaType.Music
+            || (mediaType == MediaType.Unknown && byKey.ContainsKey("album_artist"));
         var performerRole = splitMusicCredit ? "Performer" : ResolvePerformerRole(mediaType);
 
         var refs = new List<PersonReference>();
@@ -111,7 +116,8 @@ public static class PersonReferenceExtractor
         IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>> arrays,
         MediaType mediaType = MediaType.Unknown)
     {
-        var splitMusicCredit = mediaType == MediaType.Music || arrays.ContainsKey("album_artist");
+        var splitMusicCredit = mediaType == MediaType.Music
+            || (mediaType == MediaType.Unknown && arrays.ContainsKey("album_artist"));
         var performerRole = splitMusicCredit ? "Performer" : ResolvePerformerRole(mediaType);
 
         var refs = new List<PersonReference>();

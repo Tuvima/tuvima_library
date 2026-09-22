@@ -240,23 +240,6 @@
                             <MudIcon Icon="@tab.Icon" Size="Size.Small" />
                             <span>@tab.Label</span>
                         </AppButton>
-                        @if (tab.Id == "artwork" && _activeTab == "artwork" && ArtworkSlots.Count > 0)
-                        {
-                            <div class="sme-section-nav__nested" role="tablist" aria-label="Artwork types">
-                                @foreach (var slotItem in ArtworkSlots)
-                                {
-                                    var isSelectedSlot = string.Equals(slotItem.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
-                                    <AppButton ButtonStyle="AppButtonStyle.Text"
-                                               Tone="AppUiTone.Neutral"
-                                               Class="@(isSelectedSlot ? "app-selection-nav__item sme-section-nav__nested-item is-active" : "app-selection-nav__item sme-section-nav__nested-item")"
-                                               aria-current="@(isSelectedSlot ? "page" : null)"
-                                               OnClick="@(() => SelectArtworkSlot(slotItem.AssetType))">
-                                        <MudIcon Icon="@slotItem.Icon" Size="Size.Small" />
-                                        <span>@slotItem.Label</span>
-                                    </AppButton>
-                                }
-                            </div>
-                        }
                     }
 
                     @if (IsSingleItem)

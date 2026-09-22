@@ -105,7 +105,26 @@ public sealed partial class ReconciliationAdapter
         bool isWork,
         int castMemberLimit = 20,
         string? metadataLanguage = null,
-        bool editionScopedDates = false)
+        bool editionScopedDates = false) =>
+        ExtensionToClaimsCore(
+            entityQid,
+            properties,
+            propertyLabels,
+            isWork,
+            castMemberLimit,
+            metadataLanguage,
+            editionScopedDates,
+            imageIsHeadshot: true);
+
+    private static IEnumerable<ProviderClaim> ExtensionToClaimsCore(
+        string entityQid,
+        IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>> properties,
+        Dictionary<string, string> propertyLabels,
+        bool isWork,
+        int castMemberLimit,
+        string? metadataLanguage,
+        bool editionScopedDates,
+        bool imageIsHeadshot)
     {
         foreach (var (pCode, rawClaims) in properties)
         {
@@ -238,7 +257,10 @@ public sealed partial class ReconciliationAdapter
                     if (!string.IsNullOrWhiteSpace(filename))
                     {
                         var commonsUrl = $"https://commons.wikimedia.org/wiki/Special:FilePath/{Uri.EscapeDataString(filename)}";
-                        yield return new ProviderClaim("headshot_url", commonsUrl, ClaimConfidence.HeadshotUrl);
+                        yield return new ProviderClaim(
+                            imageIsHeadshot ? "headshot_url" : "image_url",
+                            commonsUrl,
+                            ClaimConfidence.HeadshotUrl);
                     }
                     continue;
                 }

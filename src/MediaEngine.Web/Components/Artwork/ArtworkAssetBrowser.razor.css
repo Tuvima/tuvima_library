@@ -1,0 +1,326 @@
+.artwork-asset-browser {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 0;
+    color: #f8f8ff;
+}
+
+.artwork-asset-browser__toolbar {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 4rem;
+    padding: .7rem 1.1rem 0;
+    border-bottom: 1px solid rgba(145, 181, 217, .18);
+    background: rgba(5, 19, 31, .62);
+}
+
+.artwork-asset-browser__scope {
+    display: flex;
+    align-items: flex-end;
+    gap: .35rem;
+    overflow-x: auto;
+}
+
+.artwork-asset-browser__scope ::deep .artwork-asset-browser__scope-button {
+    align-self: stretch;
+    min-width: 9rem;
+    padding: .65rem 1rem;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    color: rgba(225, 234, 246, .72);
+    cursor: pointer;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.artwork-asset-browser__scope ::deep .artwork-asset-browser__scope-button:hover,
+.artwork-asset-browser__scope ::deep .artwork-asset-browser__scope-button:focus-visible,
+.artwork-asset-browser__scope ::deep .artwork-asset-browser__scope-button.is-active {
+    border-bottom-color: #a64dff;
+    background: linear-gradient(180deg, transparent, rgba(132, 51, 221, .24));
+    color: #fff;
+}
+
+.artwork-asset-browser__search {
+    display: flex;
+    align-items: center;
+    align-self: center;
+    gap: .55rem;
+    width: min(25rem, 38vw);
+    min-height: 2.75rem;
+    padding: 0 .8rem;
+    border: 1px solid rgba(145, 181, 217, .28);
+    border-radius: .55rem;
+    background: rgba(9, 29, 45, .76);
+}
+
+.artwork-asset-browser__search:focus-within {
+    border-color: #a566ff;
+    box-shadow: 0 0 0 3px rgba(133, 73, 225, .16);
+}
+
+.artwork-asset-browser__search ::deep input,
+.artwork-asset-browser__filter-rail ::deep input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #fff;
+}
+
+.artwork-asset-browser__body {
+    display: grid;
+    grid-template-columns: minmax(13.5rem, 15.5rem) minmax(0, 1fr) minmax(18rem, 21rem);
+    min-height: 0;
+}
+
+.artwork-asset-browser__filter-rail,
+.artwork-asset-browser__inspector {
+    min-width: 0;
+    background: linear-gradient(180deg, rgba(6, 24, 38, .86), rgba(5, 18, 30, .92));
+}
+
+.artwork-asset-browser__filter-rail {
+    display: grid;
+    align-content: start;
+    gap: .9rem;
+    padding: 1.1rem;
+    border-right: 1px solid rgba(145, 181, 217, .16);
+    overflow-y: auto;
+}
+
+.artwork-asset-browser__filter-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+}
+
+.artwork-asset-browser__filter-rail > label {
+    display: grid;
+    gap: .4rem;
+    color: rgba(225, 234, 246, .74);
+    font-size: .78rem;
+}
+
+.artwork-asset-browser__filter-rail ::deep select {
+    min-height: 2.55rem;
+    border: 1px solid rgba(145, 181, 217, .26);
+    border-radius: .5rem;
+    background: rgba(12, 37, 56, .74);
+    color: #fff;
+}
+
+.artwork-asset-browser__filter-rail > label:has(input[type="search"]) ::deep input {
+    min-height: 2.55rem;
+    padding: .55rem .7rem;
+    border: 1px solid rgba(145, 181, 217, .26);
+    border-radius: .5rem;
+    background: rgba(12, 37, 56, .74);
+}
+
+.artwork-asset-browser__filter-heading ::deep .artwork-asset-browser__clear {
+    border: 0;
+    background: transparent;
+    color: #bc78ff;
+    cursor: pointer;
+    font-size: .76rem;
+}
+
+.artwork-asset-browser__unused-toggle {
+    display: flex !important;
+    align-items: center;
+    gap: .55rem !important;
+    padding-top: .25rem;
+}
+
+.artwork-asset-browser__unused-toggle input { accent-color: #9e43ef; }
+
+.artwork-asset-browser__results {
+    min-width: 0;
+    padding: 1rem;
+    overflow-y: auto;
+    background: rgba(4, 16, 27, .68);
+}
+
+.artwork-asset-browser__results-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: .85rem;
+}
+
+.artwork-asset-browser__summary {
+    display: flex;
+    gap: .35rem;
+    align-items: baseline;
+    color: rgba(225, 234, 246, .64);
+    font-size: .82rem;
+}
+
+.artwork-asset-browser__summary strong { color: #fff; font-size: 1rem; }
+
+.artwork-asset-browser__sort {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    color: rgba(225, 234, 246, .7);
+    font-size: .8rem;
+}
+
+.artwork-asset-browser__sort ::deep select {
+    min-width: 10rem;
+    min-height: 2.5rem;
+    border: 1px solid rgba(145, 181, 217, .26);
+    border-radius: .5rem;
+    background: rgba(12, 37, 56, .74);
+    color: #fff;
+}
+
+.artwork-asset-browser__grid {
+    display: grid;
+    grid-template-columns:repeat(auto-fill, minmax(9.5rem, 1fr));
+    align-items: start;
+    gap: .85rem;
+}
+
+.artwork-asset-browser__grid ::deep .artwork-asset-browser__card {
+    display: grid;
+    grid-template-rows: auto auto;
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid rgba(145, 181, 217, .12);
+    border-radius: .65rem;
+    background: rgba(7, 18, 29, .86);
+    color: #fff;
+    text-align: left;
+    cursor: pointer;
+}
+
+.artwork-asset-browser__grid ::deep .artwork-asset-browser__card:hover,
+.artwork-asset-browser__grid ::deep .artwork-asset-browser__card:focus-visible,
+.artwork-asset-browser__grid ::deep .artwork-asset-browser__card.is-selected {
+    border-color: #aa64ff;
+    box-shadow: 0 0 0 2px rgba(153, 77, 255, .32), 0 10px 28px rgba(0, 0, 0, .3);
+}
+
+.artwork-asset-browser__image {
+    position: relative;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background: radial-gradient(circle at 45% 35%, rgba(107, 69, 171, .2), rgba(4, 7, 12, .96));
+}
+
+.artwork-asset-browser__card--portrait .artwork-asset-browser__image { aspect-ratio: 2 / 3; }
+.artwork-asset-browser__card--banner .artwork-asset-browser__image { aspect-ratio: 3 / 1; }
+.artwork-asset-browser__image img { width: 100%; height: 100%; object-fit:contain; }
+
+.artwork-asset-browser__preferred {
+    position: absolute;
+    left: .35rem;
+    bottom: .35rem;
+    display: flex;
+    align-items: center;
+    gap: .2rem;
+    padding: .2rem .35rem;
+    border-radius: .3rem;
+    background: rgba(71, 28, 125, .92);
+    font-size: .75rem;
+}
+
+.artwork-asset-browser__preferred ::deep .mud-icon-root { font-size: .8rem; }
+.artwork-asset-browser__caption { display: grid; gap: .15rem; padding: .55rem; }
+.artwork-asset-browser__caption strong,
+.artwork-asset-browser__caption small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.artwork-asset-browser__caption strong { font-size: .82rem; }
+.artwork-asset-browser__caption small { color: rgba(225, 234, 246, .5); font-size: .75rem; }
+.artwork-asset-browser__more { display: flex; justify-content: center; padding: 1rem; }
+
+.artwork-asset-browser__inspector {
+    position: relative;
+    padding: 1rem;
+    border-left: 1px solid rgba(145, 181, 217, .16);
+    overflow-y: auto;
+}
+
+.artwork-asset-browser__inspector-title { margin: 0 0 .75rem; font-size: 1rem; }
+
+.artwork-asset-browser ::deep .artwork-asset-browser__inspector-close {
+    display: none;
+    position: absolute;
+    top: .55rem;
+    right: .55rem;
+    z-index: 2;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: 50%;
+    background: rgba(4, 7, 12, .82);
+    color: #fff;
+    cursor: pointer;
+}
+
+.artwork-asset-browser__preview {
+    display: grid;
+    place-items: center;
+    min-height: 14rem;
+    max-height: 42vh;
+    border-radius: .55rem;
+    overflow: hidden;
+    background: radial-gradient(circle at 45% 35%, rgba(112, 72, 180, .2), rgba(4, 7, 12, .96));
+}
+
+.artwork-asset-browser__preview img { width: 100%; height: 100%; max-height: 42vh; object-fit: contain; }
+.artwork-asset-browser__inspector-copy { display: grid; gap: .7rem; padding: 1rem 0 0; }
+.artwork-asset-browser__eyebrow { color: #b47aff; font-size: .75rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.artwork-asset-browser__inspector h3 { margin: 0; font-size: 1.15rem; }
+.artwork-asset-browser__match { margin: 0; color: #d5c2ff; font-size: .82rem; }
+.artwork-asset-browser__inspector dl { display: grid; gap: .4rem; margin: 0; }
+.artwork-asset-browser__inspector dl > div { display: grid; grid-template-columns: 5.5rem 1fr; gap: .5rem; font-size: .78rem; }
+.artwork-asset-browser__inspector dt { color: rgba(225, 234, 246, .5); }
+.artwork-asset-browser__inspector dd { margin: 0; }
+.artwork-asset-browser__contexts { display: grid; gap: .35rem; padding-top: .7rem; border-top: 1px solid rgba(145, 181, 217, .14); }
+.artwork-asset-browser__contexts > span { display: flex; justify-content: space-between; gap: .5rem; font-size: .78rem; }
+.artwork-asset-browser__contexts small { color: rgba(225, 234, 246, .46); }
+
+.artwork-asset-browser__empty-inspector {
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: .5rem;
+    min-height: 24rem;
+    padding: 2rem;
+    color: rgba(225, 234, 246, .5);
+    text-align: center;
+}
+
+.artwork-asset-browser__empty-inspector ::deep .mud-icon-root { font-size: 3rem; color: rgba(174, 112, 255, .55); }
+
+@media (max-width: 1050px) {
+    .artwork-asset-browser__body { grid-template-columns: 13rem minmax(0, 1fr); }
+    .artwork-asset-browser__inspector { position: fixed; inset: 4rem .75rem .75rem; z-index: 1200; box-shadow: 0 20px 70px rgba(0, 0, 0, .7); }
+    .artwork-asset-browser ::deep .artwork-asset-browser__inspector-close { display: grid; place-items: center; }
+    .artwork-asset-browser__empty-inspector { display: none; }
+    .artwork-asset-browser__inspector:has(.artwork-asset-browser__empty-inspector) { display: none; }
+}
+
+@media (max-width: 720px) {
+    .artwork-asset-browser__toolbar { display: grid; padding: .6rem .8rem 0; }
+    .artwork-asset-browser__search { grid-row: 1; width: 100%; }
+    .artwork-asset-browser__scope { grid-row: 2; }
+    .artwork-asset-browser__scope ::deep .artwork-asset-browser__scope-button { min-width: auto; }
+    .artwork-asset-browser__body { grid-template-columns: 1fr; }
+    .artwork-asset-browser__filter-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); border-right: 0; border-bottom: 1px solid rgba(145, 181, 217, .16); overflow: visible; }
+    .artwork-asset-browser__filter-heading { grid-column: 1 / -1; }
+    .artwork-asset-browser__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .artwork-asset-browser__results-toolbar { align-items: flex-start; }
+    .artwork-asset-browser__sort { display: grid; gap: .25rem; }
+}

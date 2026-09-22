@@ -66,7 +66,10 @@ public sealed class RecursiveFictionalEntityService : IRecursiveFictionalEntityS
             "Processing {Count} fictional entity references for work {WorkQid} in universe {UniverseQid}",
             references.Count, workQid, narrativeRootQid);
 
-        foreach (var reference in references)
+        var failures = new List<Exception>();
+        foreach (var reference in references
+                     .DistinctBy(reference => reference.WikidataQid, StringComparer.OrdinalIgnoreCase)
+                     .Take(100))
         {
             ct.ThrowIfCancellationRequested();
 
@@ -90,7 +93,15 @@ public sealed class RecursiveFictionalEntityService : IRecursiveFictionalEntityS
                 _logger.LogWarning(ex,
                     "Failed to process fictional entity '{Label}' ({Qid}) for work {WorkQid}",
                     reference.Label, reference.WikidataQid, workQid);
+                failures.Add(ex);
             }
+        }
+
+        if (failures.Count > 0)
+        {
+            throw new AggregateException(
+                $"{failures.Count} fictional-entity enrichment operation(s) did not settle.",
+                failures);
         }
     }
 
@@ -150,7 +161,10 @@ public sealed class RecursiveFictionalEntityService : IRecursiveFictionalEntityS
                 _ => EntityType.Character,
             };
 
-            await _harvesting.EnqueueAsync(new HarvestRequest
+            // First-level owned-work entities are core ingestion evidence. Complete
+            // them in the caller's durable identity operation so a process restart
+            // cannot leave an in-memory queue item masquerading as settled work.
+            await _harvesting.ProcessSynchronousAsync(new HarvestRequest
             {
                 EntityId = entity.Id,
                 EntityType = entityType,

@@ -1,3 +1,4 @@
+using Dapper;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -77,7 +78,8 @@ public sealed class MetadataHarvestingScalarEvidencePersistenceTests : IDisposab
             new SystemActivityRepository(_database),
             new QidLabelRepository(_database),
             new AssetPathService(_tempRoot),
-            NullLogger<MetadataHarvestingService>.Instance);
+            NullLogger<MetadataHarvestingService>.Instance,
+            entityAssetRepo: new EntityAssetRepository(_database));
 
         await service.ProcessSynchronousAsync(new HarvestRequest
         {
@@ -105,11 +107,29 @@ public sealed class MetadataHarvestingScalarEvidencePersistenceTests : IDisposab
         Assert.Equal("+0018-01-01T00:00:00Z", persistedCanonicals["start_time"]);
         Assert.Equal("+0020-01-01T00:00:00Z", persistedCanonicals["end_time"]);
         Assert.Equal("battle-12", persistedCanonicals["time_index"]);
+
+        var enriched = await entities.FindByIdAsync(eventId);
+        Assert.NotNull(enriched);
+        Assert.Equal("Battle of the Red Dunes", enriched!.Label);
+        Assert.Equal("A decisive fictional battle.", enriched.Description);
+        Assert.Equal("https://commons.wikimedia.org/battle.jpg", enriched.ImageUrl);
+        Assert.NotNull(enriched.EnrichedAt);
+        var managedArtwork = await new EntityAssetRepository(_database).GetByEntityAsync(
+            eventId.ToString("D"), AssetType.CharacterPortrait.ToString());
+        var portrait = Assert.Single(managedArtwork);
+        Assert.True(File.Exists(portrait.LocalImagePath));
+        using var verify = _database.CreateConnection();
+        Assert.Equal(1, await verify.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM artwork_asset_context
+            WHERE entity_id=@eventId AND entity_type='FictionalEntity' AND role='Portrait';
+            """, new { eventId }));
     }
 
     private sealed class EventEvidenceProvider : IExternalMetadataProvider, IFictionalEntityGraphEvidenceProvider
     {
-        public string Name => "wikidata";
+        public string Name => "wikidata_reconciliation";
         public ProviderDomain Domain => ProviderDomain.Universal;
         public IReadOnlyList<string> CapabilityTags => [];
         public Guid ProviderId { get; } = WellKnownProviders.Wikidata;
@@ -118,7 +138,12 @@ public sealed class MetadataHarvestingScalarEvidencePersistenceTests : IDisposab
         public bool CanHandle(EntityType entityType) => entityType == EntityType.Event;
 
         public Task<IReadOnlyList<ProviderClaim>> FetchAsync(ProviderLookupRequest request, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<ProviderClaim>>([new("label", "Battle of the Red Dunes", 0.95)]);
+            Task.FromResult<IReadOnlyList<ProviderClaim>>(
+            [
+                new("name", "Battle of the Red Dunes", 0.95),
+                new(MetadataFieldConstants.ShortDescription, "A decisive fictional battle.", 0.9),
+                new("image_url", "https://commons.wikimedia.org/battle.jpg", 0.9),
+            ]);
 
         public Task<FictionalEntityGraphEvidence?> FetchFictionalEntityGraphEvidenceAsync(
             string qid,
@@ -189,7 +214,20 @@ public sealed class MetadataHarvestingScalarEvidencePersistenceTests : IDisposab
 
     private sealed class NoOpHttpClientFactory : IHttpClientFactory
     {
-        public HttpClient CreateClient(string name) => new();
+        public HttpClient CreateClient(string name) => new(new ImageHandler());
+
+        private sealed class ImageHandler : HttpMessageHandler
+        {
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                var bytes = Convert.FromBase64String(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(bytes),
+                });
+            }
+        }
     }
 
     private sealed class SingleProviderConfigurationLoader(string providerName) : IConfigurationLoader

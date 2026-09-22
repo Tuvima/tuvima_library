@@ -85,6 +85,34 @@ internal sealed class SchemaMigrator
                     ON entity_artwork_links(artwork_asset_id);
                 CREATE INDEX IF NOT EXISTS idx_artwork_asset_context_search
                     ON artwork_asset_context(search_text COLLATE NOCASE);
+                CREATE INDEX IF NOT EXISTS idx_artwork_asset_context_facets
+                    ON artwork_asset_context(entity_type, media_type, year, role, provider, entity_id);
+
+                CREATE VIRTUAL TABLE IF NOT EXISTS artwork_asset_search USING fts5(
+                    artwork_asset_id UNINDEXED,
+                    search_text,
+                    tokenize = 'trigram'
+                );
+
+                CREATE TRIGGER IF NOT EXISTS trg_artwork_asset_context_search_insert
+                AFTER INSERT ON artwork_asset_context BEGIN
+                    INSERT INTO artwork_asset_search(artwork_asset_id, search_text)
+                    VALUES (new.artwork_asset_id, new.search_text);
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS trg_artwork_asset_context_search_update
+                AFTER UPDATE OF search_text, artwork_asset_id ON artwork_asset_context BEGIN
+                    DELETE FROM artwork_asset_search
+                    WHERE artwork_asset_id = old.artwork_asset_id AND search_text = old.search_text;
+                    INSERT INTO artwork_asset_search(artwork_asset_id, search_text)
+                    VALUES (new.artwork_asset_id, new.search_text);
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS trg_artwork_asset_context_search_delete
+                AFTER DELETE ON artwork_asset_context BEGIN
+                    DELETE FROM artwork_asset_search
+                    WHERE artwork_asset_id = old.artwork_asset_id AND search_text = old.search_text;
+                END;
 
                 INSERT OR IGNORE INTO artwork_assets (
                     id, content_hash, original_path, small_path, medium_path, large_path,
@@ -175,6 +203,14 @@ internal sealed class SchemaMigrator
                 JOIN fictional_entities entity ON entity.id = link.entity_id
                 JOIN artwork_assets asset ON asset.id = link.artwork_asset_id
                 WHERE link.entity_type = 'FictionalEntity';
+
+                INSERT INTO artwork_asset_search(artwork_asset_id, search_text)
+                SELECT context.artwork_asset_id, context.search_text
+                FROM artwork_asset_context context
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM artwork_asset_search indexed_search
+                    WHERE indexed_search.artwork_asset_id = context.artwork_asset_id
+                      AND indexed_search.search_text = context.search_text);
 
                 INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
                 VALUES ('007_canonical_artwork_assets', strftime('%Y-%m-%dT%H:%M:%fZ','now'));

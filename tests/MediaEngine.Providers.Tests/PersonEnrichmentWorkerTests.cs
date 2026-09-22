@@ -1,5 +1,8 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
@@ -56,6 +59,21 @@ public sealed class PersonEnrichmentWorkerTests : IDisposable
         var third = hints[$"Director::{RetailHints.NormalizePersonNameKey("Third Director")}"];
         Assert.Null(third.PersonId);
         Assert.Equal("https://images.example/third.jpg", third.ProfileUrl);
+    }
+
+    [Fact]
+    public void ResolvePersonWorkTitleHint_AudiobookPrefersBookIdentityOverSegmentTitle()
+    {
+        var values = new List<CanonicalValue>
+        {
+            new() { Key = MetadataFieldConstants.Title, Value = "Part 01" },
+            new() { Key = "book_title", Value = "Project Hail Mary" },
+            new() { Key = MetadataFieldConstants.Album, Value = "Project Hail Mary" },
+        };
+
+        var title = PersonEnrichmentWorker.ResolvePersonWorkTitleHint(values, MediaType.Audiobooks);
+
+        Assert.Equal("Project Hail Mary", title);
     }
 
     [Fact]

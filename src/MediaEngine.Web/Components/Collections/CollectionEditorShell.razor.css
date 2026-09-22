@@ -1,3 +1,4 @@
+.collection-editor-draft-role-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin-bottom:1rem}.collection-editor-draft-role-overview ::deep button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.7rem;padding:.8rem;border:1px solid rgba(255,255,255,.1);border-radius:.7rem;background:rgba(8,13,23,.7);color:#fff;text-align:left}.collection-editor-draft-role-overview ::deep button.is-active{border-color:#ad62ff;box-shadow:0 0 0 2px rgba(155,77,237,.2)}.collection-editor-draft-role-overview span{display:grid;gap:.2rem}.collection-editor-draft-role-overview small{color:rgba(255,255,255,.55)}@media(max-width:800px){.collection-editor-draft-role-overview{grid-template-columns:1fr;}}
 .collection-editor-workspace {
     display: flex;
     flex-direction: column;

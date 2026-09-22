@@ -54,7 +54,6 @@ public static class WikidataPropertyDefaults
         // Stage 1: Story & Narrative
         new("P674",  "characters",         "Stage 1: Story & Narrative", "Work", 0.8, false, true),
         new("P840",  "narrative_location",  "Stage 1: Story & Narrative", "Work", 0.8, false, true),
-        new("P793",  "narrative_event",     "Stage 1: Story & Narrative", "Work", 0.8, false, true),
         new("P921",  "main_subject",        "Stage 1: Story & Narrative", "Work", 0.8, false, true),
         new("P1434", "fictional_universe",  "Stage 1: Story & Narrative", "Work", 0.8, false, true),
         new("P144",  "based_on",            "Stage 1: Story & Narrative", "Work", 0.8, false, true),

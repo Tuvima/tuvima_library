@@ -136,17 +136,48 @@ public static class DisplayEndpoints
 
         group.MapGet("/artwork/assets", async (
             string? search,
-            string? role,
-            string? aspect,
+            string[]? role,
+            string[]? aspect,
+            string[]? mediaType,
+            string[]? source,
+            string[]? year,
+            string? relatedEntityType,
+            Guid? relatedEntityId,
+            string? targetEntityType,
             Guid? targetEntityId,
+            string? targetRole,
+            string? targetSourceAssetType,
+            ArtworkPickerScope? pickerScope,
+            ArtworkUsageFilter? usage,
+            ArtworkAssetSort? sort,
+            int? minimumWidth,
+            int? minimumHeight,
             int? offset,
             int? limit,
             ArtworkAssetService assets,
             CancellationToken ct) =>
         {
             var paged = PagedRequest.From(offset, limit, defaultLimit: 48);
-            return Results.Ok(await assets.BrowseAsync(
-                search, role, aspect, targetEntityId, paged.Offset, paged.Limit, ct));
+            return Results.Ok(await assets.BrowseAsync(new ArtworkAssetQuery(
+                Search: search,
+                Roles: role,
+                Aspects: aspect,
+                MediaTypes: mediaType,
+                SourceProviders: source,
+                Years: year,
+                RelatedEntityType: relatedEntityType,
+                RelatedEntityId: relatedEntityId,
+                TargetEntityType: targetEntityType,
+                TargetEntityId: targetEntityId,
+                TargetRole: targetRole,
+                TargetSourceAssetType: targetSourceAssetType,
+                PickerScope: pickerScope ?? ArtworkPickerScope.All,
+                Usage: usage ?? ArtworkUsageFilter.All,
+                Sort: sort ?? ArtworkAssetSort.Relevance,
+                MinimumWidth: minimumWidth,
+                MinimumHeight: minimumHeight,
+                Offset: paged.Offset,
+                Limit: paged.Limit), ct));
         })
             .WithName("GetArtworkAssets")
             .WithSummary("Searches the bounded canonical artwork asset library for galleries and pickers.")
@@ -166,9 +197,12 @@ public static class DisplayEndpoints
         group.MapGet("/artwork/entities/{entityType}/{entityId:guid}", async (
             string entityType,
             Guid entityId,
+            string? mediaType,
+            string? groupKind,
+            string[]? assetType,
             ArtworkAssetService assets,
             CancellationToken ct) =>
-            Results.Ok(await assets.GetEntityAsync(entityType, entityId, ct)))
+            Results.Ok(await assets.GetEntityAsync(entityType, entityId, mediaType, groupKind, assetType, ct)))
             .WithName("GetEntityArtworkWorkspace")
             .WithSummary("Returns lazy-loaded artwork variants for one entity workspace.")
             .Produces<ArtworkEntityWorkspaceDto>(StatusCodes.Status200OK)
@@ -273,7 +307,8 @@ public static class DisplayEndpoints
                         true,
                         form["entityLabel"].FirstOrDefault(),
                         form["mediaType"].FirstOrDefault(),
-                        form["year"].FirstOrDefault()),
+                        form["year"].FirstOrDefault(),
+                        form["sourceAssetType"].FirstOrDefault()),
                     "user_upload", null, ct);
                 return Results.Ok(linked);
             }

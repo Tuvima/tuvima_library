@@ -1,0 +1,233 @@
+@namespace MediaEngine.Web.Components.Artwork
+@using MediaEngine.Contracts.Artwork
+@inject IEngineApiClient ApiClient
+@implements IDisposable
+
+<div class="artwork-asset-browser @(PickerMode ? "is-picker" : "is-library")">
+    <header class="artwork-asset-browser__toolbar">
+        @if (PickerMode)
+        {
+            <div class="artwork-asset-browser__scope" role="tablist" aria-label="Artwork suggestions">
+                @foreach (var option in PickerScopes)
+                {
+                    <AppNativeButton Type="button" role="tab" aria-selected="@(option.Value == _scope)" Class="@ScopeClass(option.Value)" OnClick="@(() => SetScopeAsync(option.Value))">@option.Label</AppNativeButton>
+                }
+            </div>
+        }
+        <label class="artwork-asset-browser__search">
+            <MudIcon Icon="@Icons.Material.Outlined.Search" />
+            <AppNativeInput Type="search" Value="@_search" OnInput="SearchChanged" Placeholder="Search titles, people, characters, universes, and IDs" AriaLabel="Search artwork library" />
+        </label>
+    </header>
+
+    <div class="artwork-asset-browser__body">
+        <aside class="artwork-asset-browser__filter-rail" aria-label="Artwork filters">
+            <div class="artwork-asset-browser__filter-heading">
+                <strong>Filters</strong>
+                @if (HasActiveFilters)
+                {
+                    <AppNativeButton Type="button" Class="artwork-asset-browser__clear" OnClick="ClearFiltersAsync">Clear all</AppNativeButton>
+                }
+            </div>
+            <label><span>Media type</span><AppNativeSelect Value="@_mediaType" OnChange="MediaTypeChangedAsync" aria-label="Filter by media type">@foreach (var option in MediaTypeOptions) { <option value="@option.Value">@option.Label</option> }</AppNativeSelect></label>
+            <label><span>Artwork role</span><AppNativeSelect Value="@_role" OnChange="RoleChangedAsync" aria-label="Filter by artwork role">@foreach (var option in RoleOptions) { <option value="@option.Value">@option.Label</option> }</AppNativeSelect></label>
+            <label><span>Orientation</span><AppNativeSelect Value="@_aspect" OnChange="AspectChangedAsync" aria-label="Filter by image orientation">@foreach (var option in AspectOptions) { <option value="@option.Value">@option.Label</option> }</AppNativeSelect></label>
+            <label><span>Source / provider</span><AppNativeSelect Value="@_source" OnChange="SourceChangedAsync" aria-label="Filter by source provider">@foreach (var option in SourceOptions) { <option value="@option.Value">@option.Label</option> }</AppNativeSelect></label>
+            <label><span>Year</span><AppNativeInput Type="search" Value="@_year" OnInput="YearChanged" Placeholder="Any" AriaLabel="Filter artwork by year" /></label>
+            <label><span>Usage</span><AppNativeSelect Value="@_usage.ToString()" OnChange="UsageChangedAsync" aria-label="Filter by artwork usage">@foreach (var option in UsageOptions) { <option value="@option.Value">@option.Label</option> }</AppNativeSelect></label>
+            <AppSwitchRow Class="artwork-asset-browser__unused-toggle" Label="Show only unused" Value="@(_usage == ArtworkUsageFilter.Unlinked)" ValueChanged="UnusedChangedAsync" />
+        </aside>
+
+        <div class="artwork-asset-browser__results">
+            <div class="artwork-asset-browser__results-toolbar">
+                <div class="artwork-asset-browser__summary"><strong>@((_page?.Total ?? 0).ToString("N0"))</strong><span>result@((_page?.Total ?? 0) == 1 ? string.Empty : "s")</span></div>
+                <label class="artwork-asset-browser__sort"><span>Sort by</span><AppNativeSelect Value="@_sort.ToString()" OnChange="SortChangedAsync" aria-label="Sort artwork">@foreach (var option in SortOptions) { <option value="@option.Value">@option.Label</option> }</AppNativeSelect></label>
+            </div>
+            @if (_loading && _page is null)
+            {
+                <AppPageState Kind="AppPageStateKind.Loading" Title="Searching artwork" />
+            }
+            else if (_page is null)
+            {
+                <AppErrorState Title="Artwork could not be loaded" Message="The Engine did not return the artwork library." Retry="LoadAsync" />
+            }
+            else if (_page.Items.Count == 0)
+            {
+                <AppPageState Kind="AppPageStateKind.Empty" Title="No images match" Message="Try clearing a filter or choosing All Artwork." />
+            }
+            else
+            {
+                <div class="artwork-asset-browser__grid" aria-label="Artwork images">
+                    @foreach (var asset in _page.Items)
+                    {
+                        <AppNativeButton Type="button" Class="@AssetClass(asset)" aria-pressed="@(asset.Id == _selectedAssetId)" OnClick="@(() => SelectAssetAsync(asset))" AriaLabel="@($"Select {AssetTitle(asset)}")">
+                            <span class="artwork-asset-browser__image"><img src="@asset.ThumbnailUrl" alt="" loading="lazy" decoding="async" sizes="(max-width: 720px) 42vw, 180px" data-image-display="artwork-asset-browser-card" />@if (asset.IsPreferredForTarget) { <span class="artwork-asset-browser__preferred"><MudIcon Icon="@Icons.Material.Outlined.Star" /> Preferred</span> }</span>
+                            <span class="artwork-asset-browser__caption"><strong>@AssetTitle(asset)</strong><small>@AssetFacts(asset)</small></span>
+                        </AppNativeButton>
+                    }
+                </div>
+                @if (_page.HasMore)
+                {
+                    <div class="artwork-asset-browser__more"><AppButton ButtonStyle="AppButtonStyle.Outlined" Disabled="@_loadingMore" OnClick="LoadMoreAsync">@(_loadingMore ? "Loading…" : "Load more")</AppButton></div>
+                }
+            }
+        </div>
+
+        <aside class="artwork-asset-browser__inspector" aria-live="polite">
+            <h2 class="artwork-asset-browser__inspector-title">Preview</h2>
+            @if (SelectedAsset is null)
+            {
+                <div class="artwork-asset-browser__empty-inspector"><MudIcon Icon="@Icons.Material.Outlined.ImageSearch" /><strong>Select an image</strong><span>Preview its source, dimensions, relationships, and current uses.</span></div>
+            }
+            else
+            {
+                <AppNativeButton Type="button" Class="artwork-asset-browser__inspector-close" OnClick="ClearSelectionAsync" AriaLabel="Close artwork details"><MudIcon Icon="@Icons.Material.Outlined.Close" /></AppNativeButton>
+                <div class="artwork-asset-browser__preview artwork-asset-browser__preview--@Shape(SelectedAsset)"><img src="@SelectedAsset.ContentUrl" alt="@AssetTitle(SelectedAsset)" data-image-display="artwork-asset-browser-inspector" /></div>
+                <div class="artwork-asset-browser__inspector-copy">
+                    <span class="artwork-asset-browser__eyebrow">Selected artwork</span>
+                    <h3>@AssetTitle(SelectedAsset)</h3>
+                    @if (!string.IsNullOrWhiteSpace(SelectedAsset.MatchExplanation)) { <p class="artwork-asset-browser__match">@SelectedAsset.MatchExplanation</p> }
+                    <dl>
+                        <div><dt>Dimensions</dt><dd>@Dimensions(SelectedAsset)</dd></div>
+                        <div><dt>Shape</dt><dd>@SelectedAsset.Aspect</dd></div>
+                        <div><dt>Source</dt><dd>@(SelectedAsset.SourceProvider ?? "Library")</dd></div>
+                        <div><dt>Added</dt><dd>@(SelectedAsset.CreatedAt?.LocalDateTime.ToString("d") ?? "Not recorded")</dd></div>
+                        <div><dt>Used by</dt><dd>@SelectedAsset.LinkCount assignment@(SelectedAsset.LinkCount == 1 ? string.Empty : "s")</dd></div>
+                    </dl>
+                    @if (SelectedAsset.Contexts.Count > 0)
+                    {
+                        <div class="artwork-asset-browser__contexts"><strong>Related to</strong>@foreach (var context in SelectedAsset.Contexts.Take(8)) { <span>@context.EntityLabel@if (!string.IsNullOrWhiteSpace(context.Role)) { <small>@context.Role</small> }</span> }</div>
+                    }
+                    @if (ManageRequested.HasDelegate)
+                    {
+                        <AppButton Label="Manage usage" ButtonStyle="AppButtonStyle.Outlined" StartIcon="@Icons.Material.Outlined.Edit" OnClick="@(() => ManageRequested.InvokeAsync(SelectedAsset))" />
+                    }
+                </div>
+            }
+        </aside>
+    </div>
+</div>
+
+@code {
+    private static readonly (string Label, ArtworkPickerScope Value)[] PickerScopes = [("Recommended", ArtworkPickerScope.Recommended), ("Related", ArtworkPickerScope.Related), ("All Artwork", ArtworkPickerScope.All)];
+    private static readonly (string Label, string Value)[] RoleOptions = [("All roles", ""), ("Primary", "Primary"), ("Background", "Background"), ("Portrait", "Portrait"), ("Logo", "Logo")];
+    private static readonly (string Label, string Value)[] AspectOptions = [("All shapes", ""), ("Portrait", "Portrait"), ("Square", "Square"), ("Landscape", "Landscape"), ("Banner", "Banner"), ("Other", "UnsupportedRect")];
+    private static readonly (string Label, string Value)[] MediaTypeOptions = [("Any", ""), ("Movie", "Movie"), ("TV", "TV"), ("Book", "Book"), ("Comic", "Comic"), ("Music", "Music"), ("Audiobook", "Audiobook")];
+    private static readonly (string Label, string Value)[] SourceOptions = [("All sources", ""), ("TMDB", "tmdb"), ("Fanart.tv", "fanart_tv"), ("Wikidata", "wikidata"), ("Uploads", "user_upload"), ("URL imports", "url")];
+    private static readonly (string Label, ArtworkUsageFilter Value)[] UsageOptions = [("Any", ArtworkUsageFilter.All), ("In use", ArtworkUsageFilter.Linked), ("Preferred", ArtworkUsageFilter.Selected), ("Unused", ArtworkUsageFilter.Unlinked)];
+    private static readonly (string Label, ArtworkAssetSort Value)[] SortOptions = [("Relevance", ArtworkAssetSort.Relevance), ("Newest added", ArtworkAssetSort.Newest), ("Recently updated", ArtworkAssetSort.RecentlyUpdated), ("Resolution", ArtworkAssetSort.Resolution)];
+
+    [Parameter] public ArtworkAssetQuery InitialQuery { get; set; } = new();
+    [Parameter] public bool PickerMode { get; set; }
+    [Parameter] public EventCallback<ArtworkAssetDto?> SelectionChanged { get; set; }
+    [Parameter] public EventCallback<int> ResultsChanged { get; set; }
+    [Parameter] public EventCallback<ArtworkAssetDto> ManageRequested { get; set; }
+
+    private ArtworkAssetPageDto? _page;
+    private Guid? _selectedAssetId;
+    private string _search = string.Empty;
+    private string _role = string.Empty;
+    private string _aspect = string.Empty;
+    private string _mediaType = string.Empty;
+    private string _source = string.Empty;
+    private string _year = string.Empty;
+    private ArtworkPickerScope _scope;
+    private ArtworkUsageFilter _usage;
+    private ArtworkAssetSort _sort;
+    private bool _initialized;
+    private bool _loading;
+    private bool _loadingMore;
+    private int _generation;
+    private CancellationTokenSource? _searchCts;
+
+    public ArtworkAssetDto? SelectedAsset => _page?.Items.FirstOrDefault(asset => asset.Id == _selectedAssetId);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_initialized) return;
+        _initialized = true;
+        _search = InitialQuery.Search ?? string.Empty;
+        _role = InitialQuery.Roles?.FirstOrDefault() ?? string.Empty;
+        _aspect = InitialQuery.Aspects?.FirstOrDefault() ?? string.Empty;
+        _mediaType = InitialQuery.MediaTypes?.FirstOrDefault() ?? string.Empty;
+        _source = InitialQuery.SourceProviders?.FirstOrDefault() ?? string.Empty;
+        _year = InitialQuery.Years?.FirstOrDefault() ?? string.Empty;
+        _scope = InitialQuery.PickerScope;
+        _usage = InitialQuery.Usage;
+        _sort = InitialQuery.Sort;
+        await LoadAsync();
+    }
+
+    private ArtworkAssetQuery CurrentQuery(int offset = 0) => InitialQuery with
+    {
+        Search = string.IsNullOrWhiteSpace(_search) ? null : _search,
+        Roles = string.IsNullOrWhiteSpace(_role) ? null : [_role],
+        Aspects = string.IsNullOrWhiteSpace(_aspect) ? null : [_aspect],
+        MediaTypes = string.IsNullOrWhiteSpace(_mediaType) ? null : [_mediaType],
+        SourceProviders = string.IsNullOrWhiteSpace(_source) ? null : [_source],
+        Years = string.IsNullOrWhiteSpace(_year) ? null : [_year.Trim()],
+        PickerScope = _scope,
+        Usage = _usage,
+        Sort = _sort,
+        Offset = offset,
+    };
+
+    private async Task LoadAsync()
+    {
+        var generation = ++_generation;
+        _loading = true;
+        var page = await ApiClient.GetArtworkAssetsAsync(CurrentQuery());
+        if (generation != _generation) return;
+        _page = page;
+        _loading = false;
+        await ResultsChanged.InvokeAsync(_page?.Total ?? 0);
+        if (_selectedAssetId.HasValue && _page?.Items.All(asset => asset.Id != _selectedAssetId) == true)
+        {
+            _selectedAssetId = null;
+            await SelectionChanged.InvokeAsync(null);
+        }
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        if (_page is null || !_page.HasMore || _loadingMore) return;
+        _loadingMore = true;
+        var current = _page;
+        var next = await ApiClient.GetArtworkAssetsAsync(CurrentQuery(current.Items.Count));
+        if (next is not null) _page = next with { Items = [.. current.Items, .. next.Items], Offset = 0 };
+        _loadingMore = false;
+    }
+
+    private async Task SelectAssetAsync(ArtworkAssetDto asset)
+    {
+        _selectedAssetId = asset.Id;
+        await SelectionChanged.InvokeAsync(asset);
+    }
+
+    private async Task ClearSelectionAsync()
+    {
+        _selectedAssetId = null;
+        await SelectionChanged.InvokeAsync(null);
+    }
+
+    private async Task SetScopeAsync(ArtworkPickerScope value) { if (_scope == value) return; _scope = value; await LoadAsync(); }
+    private async Task RoleChangedAsync(object? value) { _role = value?.ToString() ?? string.Empty; await LoadAsync(); }
+    private async Task AspectChangedAsync(object? value) { _aspect = value?.ToString() ?? string.Empty; await LoadAsync(); }
+    private async Task MediaTypeChangedAsync(object? value) { _mediaType = value?.ToString() ?? string.Empty; await LoadAsync(); }
+    private async Task SourceChangedAsync(object? value) { _source = value?.ToString() ?? string.Empty; await LoadAsync(); }
+    private async Task UsageChangedAsync(object? value) { if (Enum.TryParse<ArtworkUsageFilter>(value?.ToString(), out var usage)) _usage = usage; await LoadAsync(); }
+    private async Task UnusedChangedAsync(bool value) { _usage = value ? ArtworkUsageFilter.Unlinked : ArtworkUsageFilter.All; await LoadAsync(); }
+    private async Task SortChangedAsync(object? value) { if (Enum.TryParse<ArtworkAssetSort>(value?.ToString(), out var sort)) _sort = sort; await LoadAsync(); }
+    private void SearchChanged(ChangeEventArgs args) { _search = args.Value?.ToString() ?? string.Empty; _searchCts?.Cancel(); _searchCts?.Dispose(); _searchCts = new CancellationTokenSource(); _ = DebouncedSearchAsync(_searchCts.Token); }
+    private void YearChanged(ChangeEventArgs args) { _year = args.Value?.ToString() ?? string.Empty; _searchCts?.Cancel(); _searchCts?.Dispose(); _searchCts = new CancellationTokenSource(); _ = DebouncedSearchAsync(_searchCts.Token); }
+    private bool HasActiveFilters => !string.IsNullOrWhiteSpace(_role) || !string.IsNullOrWhiteSpace(_aspect) || !string.IsNullOrWhiteSpace(_mediaType) || !string.IsNullOrWhiteSpace(_source) || !string.IsNullOrWhiteSpace(_year) || _usage != ArtworkUsageFilter.All;
+    private async Task ClearFiltersAsync() { _role = string.Empty; _aspect = string.Empty; _mediaType = string.Empty; _source = string.Empty; _year = string.Empty; _usage = ArtworkUsageFilter.All; await LoadAsync(); }
+    private async Task DebouncedSearchAsync(CancellationToken ct) { try { await Task.Delay(250, ct); await InvokeAsync(LoadAsync); } catch (OperationCanceledException) { } }
+    private string ScopeClass(ArtworkPickerScope value) => $"artwork-asset-browser__scope-button{(_scope == value ? " is-active" : string.Empty)}";
+    private string AssetClass(ArtworkAssetDto asset) => $"artwork-asset-browser__card artwork-asset-browser__card--{Shape(asset)}{(asset.Id == _selectedAssetId ? " is-selected" : string.Empty)}";
+    private static string Shape(ArtworkAssetDto asset) => asset.Aspect.ToLowerInvariant() switch { "portrait" => "portrait", "square" => "square", "banner" => "banner", "unsupportedrect" => "other", _ => "landscape" };
+    private static string AssetTitle(ArtworkAssetDto asset) => asset.DisplayContext?.EntityLabel ?? asset.Contexts.FirstOrDefault()?.EntityLabel ?? "Library artwork";
+    private static string AssetFacts(ArtworkAssetDto asset) { var context = asset.DisplayContext ?? asset.Contexts.FirstOrDefault(); return string.Join(" · ", new[] { context?.Role, context?.MediaType, context?.Year, asset.SourceProvider }.Where(value => !string.IsNullOrWhiteSpace(value))); }
+    private static string Dimensions(ArtworkAssetDto asset) => asset.Width.HasValue && asset.Height.HasValue ? $"{asset.Width} × {asset.Height}" : "Not recorded";
+    public void Dispose() { _searchCts?.Cancel(); _searchCts?.Dispose(); }
+}

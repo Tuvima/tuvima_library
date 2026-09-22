@@ -51,18 +51,41 @@ public sealed partial class EngineApiClient
     public async Task<ArtworkAssetPageDto?> GetArtworkAssetsAsync(
         string? search = null, string? role = null, string? aspect = null,
         Guid? targetEntityId = null, int offset = 0, int limit = 48, CancellationToken ct = default)
+        => await GetArtworkAssetsAsync(new ArtworkAssetQuery(
+            Search: search,
+            Roles: string.IsNullOrWhiteSpace(role) ? null : [role],
+            Aspects: string.IsNullOrWhiteSpace(aspect) ? null : [aspect],
+            TargetEntityId: targetEntityId,
+            Offset: offset,
+            Limit: limit), ct);
+
+    public async Task<ArtworkAssetPageDto?> GetArtworkAssetsAsync(
+        ArtworkAssetQuery request,
+        CancellationToken ct = default)
     {
-        var query = new Dictionary<string, string?>
-        {
-            ["search"] = search,
-            ["role"] = role,
-            ["aspect"] = aspect,
-            ["targetEntityId"] = targetEntityId?.ToString("D"),
-            ["offset"] = offset.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ["limit"] = limit.ToString(System.Globalization.CultureInfo.InvariantCulture),
-        };
+        var query = new List<string>();
+        AddQuery(query, "search", request.Search);
+        AddQuery(query, "role", request.Roles);
+        AddQuery(query, "aspect", request.Aspects);
+        AddQuery(query, "mediaType", request.MediaTypes);
+        AddQuery(query, "source", request.SourceProviders);
+        AddQuery(query, "year", request.Years);
+        AddQuery(query, "relatedEntityType", request.RelatedEntityType);
+        AddQuery(query, "relatedEntityId", request.RelatedEntityId?.ToString("D"));
+        AddQuery(query, "targetEntityType", request.TargetEntityType);
+        AddQuery(query, "targetEntityId", request.TargetEntityId?.ToString("D"));
+        AddQuery(query, "targetRole", request.TargetRole);
+        AddQuery(query, "targetSourceAssetType", request.TargetSourceAssetType);
+        AddQuery(query, "pickerScope", request.PickerScope.ToString());
+        AddQuery(query, "usage", request.Usage.ToString());
+        AddQuery(query, "sort", request.Sort.ToString());
+        AddQuery(query, "minimumWidth", request.MinimumWidth?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        AddQuery(query, "minimumHeight", request.MinimumHeight?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        AddQuery(query, "offset", request.Offset.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        AddQuery(query, "limit", request.Limit.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        var path = $"/api/v1/display/artwork/assets?{string.Join('&', query)}";
         var page = await GetAsync<ArtworkAssetPageDto>(
-            "GET /api/v1/display/artwork/assets", "/api/v1/display/artwork/assets", query, ct: ct);
+            "GET /api/v1/display/artwork/assets", path, ct: ct);
         return page is null ? null : page with { Items = page.Items.Select(NormalizeAsset).ToList() };
     }
 
@@ -81,11 +104,17 @@ public sealed partial class EngineApiClient
     }
 
     public async Task<ArtworkEntityWorkspaceDto?> GetEntityArtworkAsync(
-        string entityType, Guid entityId, CancellationToken ct = default)
+        string entityType, Guid entityId, string? mediaType = null, string? groupKind = null,
+        IReadOnlyList<string>? assetTypes = null, CancellationToken ct = default)
     {
+        var query = new List<string>();
+        AddQuery(query, "mediaType", mediaType);
+        AddQuery(query, "groupKind", groupKind);
+        AddQuery(query, "assetType", assetTypes);
+        var suffix = query.Count == 0 ? string.Empty : $"?{string.Join('&', query)}";
         var result = await GetAsync<ArtworkEntityWorkspaceDto>(
             "GET /api/v1/display/artwork/entities/{entityType}/{entityId}",
-            $"/api/v1/display/artwork/entities/{Uri.EscapeDataString(entityType)}/{entityId:D}", ct: ct);
+            $"/api/v1/display/artwork/entities/{Uri.EscapeDataString(entityType)}/{entityId:D}{suffix}", ct: ct);
         return result is null ? null : NormalizeWorkspace(result);
     }
 
@@ -112,6 +141,7 @@ public sealed partial class EngineApiClient
     public async Task<ArtworkAssetDto?> UploadCanonicalArtworkAsync(
         string entityType, Guid entityId, string role, Stream stream, string fileName,
         string? entityLabel = null, string? mediaType = null, string? year = null,
+        string? sourceAssetType = null,
         CancellationToken ct = default)
     {
         using var content = new MultipartFormDataContent();
@@ -122,6 +152,7 @@ public sealed partial class EngineApiClient
         if (!string.IsNullOrWhiteSpace(entityLabel)) content.Add(new StringContent(entityLabel), "entityLabel");
         if (!string.IsNullOrWhiteSpace(mediaType)) content.Add(new StringContent(mediaType), "mediaType");
         if (!string.IsNullOrWhiteSpace(year)) content.Add(new StringContent(year), "year");
+        if (!string.IsNullOrWhiteSpace(sourceAssetType)) content.Add(new StringContent(sourceAssetType), "sourceAssetType");
         var response = await _http.PostAsync(
             $"/api/v1/display/artwork/entities/{Uri.EscapeDataString(entityType)}/{entityId:D}/upload", content, ct);
         if (!response.IsSuccessStatusCode) return null;
@@ -149,4 +180,17 @@ public sealed partial class EngineApiClient
             ThumbnailUrl = AbsoluteUrl(variant.ThumbnailUrl),
         }).ToList(),
     };
+
+    private static void AddQuery(List<string> query, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            query.Add($"{Uri.EscapeDataString(key)}={Uri.EscapeDataString(value)}");
+    }
+
+    private static void AddQuery(List<string> query, string key, IEnumerable<string>? values)
+    {
+        if (values is null) return;
+        foreach (var value in values)
+            AddQuery(query, key, value);
+    }
 }

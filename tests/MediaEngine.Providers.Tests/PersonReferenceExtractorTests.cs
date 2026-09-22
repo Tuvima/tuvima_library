@@ -168,6 +168,24 @@ public sealed class PersonReferenceExtractorTests
     }
 
     [Fact]
+    public void FromRawClaimsUnlinked_AudiobookAlbumArtist_DoesNotCreatePerformerRole()
+    {
+        var claims = new List<ProviderClaim>
+        {
+            new(MetadataFieldConstants.Author, "Andy Weir", 0.90),
+            new(MetadataFieldConstants.Artist, "Andy Weir", 0.70),
+            new("narrator", "Ray Porter", 0.90),
+            new("album_artist", "Ray Porter", 0.80),
+        };
+
+        var refs = PersonReferenceExtractor.FromRawClaimsUnlinked(claims, MediaType.Audiobooks);
+
+        Assert.DoesNotContain(refs, reference => reference.Role == "Performer");
+        Assert.Contains(refs, reference => reference.Name == "Andy Weir" && reference.Role == "Author");
+        Assert.Contains(refs, reference => reference.Name == "Ray Porter" && reference.Role == "Narrator");
+    }
+
+    [Fact]
     public void FromRawClaims_MoviePerformer_GetsActorRole()
     {
         var claims = new List<ProviderClaim>
