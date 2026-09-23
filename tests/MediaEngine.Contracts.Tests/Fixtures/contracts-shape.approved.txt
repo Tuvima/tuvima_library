@@ -338,6 +338,7 @@ MediaEngine.Contracts.Artwork.MediaEngine.Contracts.Artwork.ArtworkAssetQuery
   MediaTypes: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
   SourceProviders: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
   Years: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
+  EntityTypes: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
   RelatedEntityType: System.String | nullability=nullable | accessors=get,init
   RelatedEntityId: System.Guid? | nullability=nullable | accessors=get,init
   TargetEntityType: System.String | nullability=nullable | accessors=get,init
@@ -3315,6 +3316,17 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.CreateViewSo
   IncludeSubdirectories: System.Boolean | nullability=not-null | accessors=get,init
   IncludeInTimeline: System.Boolean | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.LibraryCapacityDto
+  Area: System.String | nullability=not-null | accessors=get,init
+  Locations: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.LibraryCapacityLocationDto> | nullability=not-null | accessors=get,init
+  CapturedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.LibraryCapacityLocationDto
+  Label: System.String | nullability=not-null | accessors=get,init
+  TotalBytes: System.Int64? | nullability=nullable | accessors=get,init
+  AvailableBytes: System.Int64? | nullability=nullable | accessors=get,init
+  IsAvailable: System.Boolean | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.LocalAssetDto
   Id: System.Guid | nullability=not-null | accessors=get,init
   LibraryId: System.Guid | nullability=not-null | accessors=get,init
@@ -3361,6 +3373,9 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.LocalAssetDt
   LocationUserOverride: System.Boolean | nullability=not-null | accessors=get,init
   EmbeddedLatitude: System.Double? | nullability=nullable | accessors=get,init
   EmbeddedLongitude: System.Double? | nullability=nullable | accessors=get,init
+  EmbeddedCapturedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  CapturedAtUserOverride: System.Boolean | nullability=not-null | accessors=get,init
+  People: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.LocalAssetFileDto
   Id: System.Guid | nullability=not-null | accessors=get,init
@@ -3369,6 +3384,7 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.LocalAssetFi
   MimeType: System.String | nullability=not-null | accessors=get,init
   ByteSize: System.Int64 | nullability=not-null | accessors=get,init
   SourceCount: System.Int32 | nullability=not-null | accessors=get,init
+  FileName: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.LocalAssetPageDto
   Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.LocalAssetDto> | nullability=not-null | accessors=get,init
@@ -3389,6 +3405,10 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.LocalAssetSc
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.SetLocalAssetFlagRequest
   Value: System.Boolean | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.UpdateLocalAssetCapturedAtRequest
+  CapturedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  ResetToEmbedded: System.Boolean | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.UpdateLocalAssetDescriptionRequest
   Description: System.String | nullability=nullable | accessors=get,init
 
@@ -3401,6 +3421,9 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.UpdateLocalA
   Country: System.String | nullability=nullable | accessors=get,init
   CountryCode: System.String | nullability=nullable | accessors=get,init
   ResetToEmbedded: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.UpdateLocalAssetPeopleRequest
+  People: System.Collections.Generic.IReadOnlyCollection<System.String> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.UpdateLocalAssetTagsRequest
   Tags: System.Collections.Generic.IReadOnlyCollection<System.String> | nullability=not-null | accessors=get,init
@@ -3607,12 +3630,14 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPreferen
   Scope: MediaEngine.Domain.PersonalMedia.ViewScopeKind? | nullability=nullable | accessors=get,init
   ScopeProfileId: System.Guid? | nullability=nullable | accessors=get,init
   TimelineDensity: MediaEngine.Domain.PersonalMedia.ViewTimelineDensity | nullability=not-null | accessors=get,init
+  ViewerInfoOpen: System.Boolean | nullability=not-null | accessors=get,init
   UpdatedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPreferencesRequest
   Scope: System.String | nullability=nullable | accessors=get,init
   ScopeProfileId: System.Guid? | nullability=nullable | accessors=get,init
   TimelineDensity: MediaEngine.Domain.PersonalMedia.ViewTimelineDensity | nullability=not-null | accessors=get,init
+  ViewerInfoOpen: System.Boolean | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewResolvedScopeDto
   Kind: MediaEngine.Domain.PersonalMedia.ViewScopeKind | nullability=not-null | accessors=get,init

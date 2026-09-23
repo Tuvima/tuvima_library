@@ -17,6 +17,7 @@ public sealed class ViewWorkspaceService(IEngineApiClient api)
         ? Scopes?.Scope.ProfileId ?? Preferences?.ScopeProfileId
         : null;
     public ViewTimelineDensity Density => Preferences?.TimelineDensity ?? ViewTimelineDensity.Comfortable;
+    public bool ViewerInfoOpen => Preferences?.ViewerInfoOpen ?? true;
     public IReadOnlyList<ViewGalleryDto> OwnedGalleries { get; private set; } = [];
     public IReadOnlyList<ViewGalleryDto> SharedGalleries { get; private set; } = [];
     public IReadOnlyList<Guid> PendingNewGalleryItems { get; private set; } = [];
@@ -50,7 +51,7 @@ public sealed class ViewWorkspaceService(IEngineApiClient api)
     public async Task<bool> SelectScopeAsync(ViewScopeKind kind, Guid? profileId, CancellationToken ct = default)
     {
         profileId = kind == ViewScopeKind.Profile ? profileId : null;
-        var saved = await api.UpdateViewPreferencesAsync(kind, profileId, Density, ct);
+        var saved = await api.UpdateViewPreferencesAsync(kind, profileId, Density, ViewerInfoOpen, ct);
         if (saved is null)
         {
             return false;
@@ -63,12 +64,22 @@ public sealed class ViewWorkspaceService(IEngineApiClient api)
 
     public async Task<bool> SetDensityAsync(ViewTimelineDensity density, CancellationToken ct = default)
     {
-        var saved = await api.UpdateViewPreferencesAsync(ScopeKind, ScopeProfileId, density, ct);
+        var saved = await api.UpdateViewPreferencesAsync(ScopeKind, ScopeProfileId, density, ViewerInfoOpen, ct);
         if (saved is null)
         {
             return false;
         }
 
+        Preferences = saved;
+        return true;
+    }
+
+    public async Task<bool> SetViewerInfoOpenAsync(bool open, CancellationToken ct = default)
+    {
+        if (Preferences is not null)
+            Preferences = Preferences with { ViewerInfoOpen = open };
+        var saved = await api.UpdateViewPreferencesAsync(ScopeKind, ScopeProfileId, Density, open, ct);
+        if (saved is null) return false;
         Preferences = saved;
         return true;
     }

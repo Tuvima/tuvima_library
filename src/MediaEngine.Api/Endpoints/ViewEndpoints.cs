@@ -21,6 +21,35 @@ public static class ViewEndpoints
         var group = app.MapGroup("/view").WithTags("View")
             .RequireAuthorization(AuthPolicies.Authenticated);
 
+        group.MapGet("/library-capacity", (string? area, IConfigurationLoader configuration) =>
+        {
+            var normalizedArea = string.IsNullOrWhiteSpace(area) ? "view" : area.Trim().ToLowerInvariant();
+            var config = configuration.LoadLibraries();
+            var candidates = new List<(string Label, string Path)>();
+            if (normalizedArea == "view")
+            {
+                var location = config.StorageLocations.FirstOrDefault(value =>
+                    string.Equals(value.Id, config.ViewStorage.StorageLocationId, StringComparison.OrdinalIgnoreCase));
+                if (location is not null)
+                    candidates.Add(("View", Path.Combine(location.Path, config.ViewStorage.RelativeRoot)));
+            }
+            else
+            {
+                var libraries = normalizedArea == "collections"
+                    ? config.Libraries
+                    : config.Libraries.Where(library => string.Equals(library.Area, normalizedArea, StringComparison.OrdinalIgnoreCase));
+                candidates.AddRange(libraries.SelectMany(library => library.Sources
+                    .Where(source => !string.IsNullOrWhiteSpace(source.Path))
+                    .Select(source => (library.Name, source.Path))));
+            }
+
+            var locations = candidates.GroupBy(candidate => CapacityRoot(candidate.Path), StringComparer.OrdinalIgnoreCase)
+                .Where(grouping => !string.IsNullOrWhiteSpace(grouping.Key))
+                .Select(grouping => Capacity(grouping.Select(value => value.Label).Distinct().ToArray(), grouping.Key!))
+                .ToList();
+            return Results.Ok(new LibraryCapacityDto(normalizedArea, locations, DateTimeOffset.UtcNow));
+        }).WithName("GetLibraryCapacity").Produces<LibraryCapacityDto>();
+
         group.MapGet("/scopes", async (string? scope, Guid? scopeProfileId,
             IViewRequestProfileContext identity, IViewProfileRepository preferences,
             IViewScopeResolver resolver, IViewResourceAuthorizationService authorization,
@@ -108,7 +137,7 @@ public static class ViewEndpoints
                 var value = new ViewProfilePreferences(profileId,
                     resolution.Scope.Kind,
                     PreferenceScopeProfileId(resolution.Scope.Kind, resolution.Scope.ProfileId),
-                    request.TimelineDensity, DateTimeOffset.UtcNow);
+                    request.TimelineDensity, DateTimeOffset.UtcNow, request.ViewerInfoOpen);
                 await repository.SavePreferencesAsync(value, ct);
                 return Results.Ok(ToContract(value));
             }
@@ -425,6 +454,20 @@ public static class ViewEndpoints
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
         }).WithName("UpdateViewItemDescription").Produces<LocalAssetDto>();
 
+        group.MapPut("/items/{id:guid}/captured-at", async (Guid id,
+            UpdateLocalAssetCapturedAtRequest request, IViewRequestProfileContext identity,
+            IViewResourceAuthorizationService authorization, ILocalAssetRepository assets, CancellationToken ct) =>
+        {
+            var decision = await AuthorizeOwnedItemAsync(id, identity, authorization, ct);
+            if (!decision.IsAllowed) return Access(decision.Outcome);
+            try
+            {
+                if (!await assets.UpdateCapturedAtAsync(id, request.CapturedAt, request.ResetToEmbedded, ct)) return Missing();
+                return Results.Ok(assets.Find(id, ct));
+            }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+        }).WithName("UpdateViewItemCapturedAt").Produces<LocalAssetDto>();
+
         group.MapPut("/items/{id:guid}/tags", async (Guid id,
             UpdateLocalAssetTagsRequest request, IViewRequestProfileContext identity,
             IViewResourceAuthorizationService authorization, ILocalAssetRepository assets, CancellationToken ct) =>
@@ -439,6 +482,41 @@ public static class ViewEndpoints
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
             catch (InvalidOperationException) { return Missing(); }
         }).WithName("UpdateViewItemTags").Produces<LocalAssetDto>();
+
+        group.MapGet("/tag-suggestions", async (string? q, int? limit,
+            IViewRequestProfileContext identity, ILocalAssetRepository assets, CancellationToken ct) =>
+        {
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is not { } profileId) return Unauthenticated();
+            var take = PagedRequest.From(null, limit, defaultLimit: 20, maxLimit: 100).Limit;
+            return Results.Ok(assets.GetTagSuggestions(profileId, q, take, ct));
+        }).WithName("GetViewTagSuggestions").Produces<IReadOnlyList<string>>();
+
+        group.MapPut("/items/{id:guid}/people", async (Guid id,
+            UpdateLocalAssetPeopleRequest request, IViewRequestProfileContext identity,
+            IViewResourceAuthorizationService authorization, ILocalAssetRepository assets,
+            ViewDiscoveryService discovery, CancellationToken ct) =>
+        {
+            var decision = await AuthorizeOwnedItemAsync(id, identity, authorization, ct);
+            if (!decision.IsAllowed) return Access(decision.Outcome);
+            try
+            {
+                var selected = (request.People ?? []).Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Select(value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                foreach (var person in selected)
+                {
+                    var candidates = await discovery.GetPeopleAsync(
+                        new ViewDiscoveryRequest(ViewScopeRequest.Mine, 100, person), ct);
+                    if (candidates.Page?.Items.Any(candidate =>
+                            string.Equals(candidate.DisplayName, person, StringComparison.OrdinalIgnoreCase)) != true)
+                        return ApiErrors.BadRequest($"'{person}' is not an identified person in this View library.");
+                }
+                await assets.ReplacePeopleAsync(id, selected, ct);
+                return Results.Ok(assets.Find(id, ct));
+            }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+            catch (InvalidOperationException) { return Missing(); }
+        }).WithName("UpdateViewItemPeople").Produces<LocalAssetDto>();
 
         group.MapPut("/items/{id:guid}/location", async (Guid id,
             UpdateLocalAssetLocationRequest request, IViewRequestProfileContext identity,
@@ -889,6 +967,28 @@ public static class ViewEndpoints
         return app;
     }
 
+    private static string? CapacityRoot(string path)
+    {
+        try { return Path.GetPathRoot(Path.GetFullPath(path)); }
+        catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    private static LibraryCapacityLocationDto Capacity(IReadOnlyList<string> labels, string root)
+    {
+        var label = string.Join(" + ", labels);
+        try
+        {
+            var drive = new DriveInfo(root);
+            return drive.IsReady
+                ? new(label, drive.TotalSize, drive.AvailableFreeSpace, true)
+                : new(label, null, null, false);
+        }
+        catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException)
+        {
+            return new(label, null, null, false);
+        }
+    }
+
     private static void MapGalleries(RouteGroupBuilder group)
     {
         group.MapGet("/galleries", async (IViewRequestProfileContext identity,
@@ -1270,6 +1370,7 @@ public static class ViewEndpoints
             value.LastScopeKind,
             value.LastScopeProfileId,
             value.TimelineDensity,
+            value.ViewerInfoOpen,
             value.UpdatedAt);
 
     private static ViewGalleryDto ToContract(ViewGallery value) =>

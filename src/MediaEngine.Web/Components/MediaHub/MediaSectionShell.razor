@@ -368,6 +368,7 @@
                 }
             </section>
         }
+        <LibraryStorageSummary Area="@CapacityArea" />
     </aside>
 
     <main @ref="_content" class="media-section-shell__content" data-detail-origin-scroll="@Title">
@@ -388,6 +389,15 @@
     [Parameter] public Func<MediaSectionNavigationManageEvent, Task<bool>>? OnNavigationItemDelete { get; set; }
     [Parameter] public Func<MediaSectionNavigationReorderEvent, Task<bool>>? OnNavigationItemReorder { get; set; }
     [Parameter] public bool ShowMobileNavigation { get; set; } = true;
+    private string CapacityArea => Title.Trim().ToLowerInvariant() switch
+    {
+        "photos" or "view" => "view",
+        "read" => "read",
+        "watch" => "watch",
+        "listen" => "listen",
+        "collections" => "collections",
+        _ => Title.Trim().ToLowerInvariant(),
+    };
 
     private string MobileActiveLabel => NavigationGroups
         .SelectMany(group => group.Items)

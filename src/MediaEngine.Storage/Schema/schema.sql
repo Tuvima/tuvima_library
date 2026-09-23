@@ -791,6 +791,8 @@ CREATE TABLE IF NOT EXISTS local_items (
     primary_file_name   TEXT NOT NULL,
     primary_mime_type   TEXT NOT NULL,
     captured_at         TEXT,
+    embedded_captured_at TEXT,
+    captured_at_user_override INTEGER NOT NULL DEFAULT 0 CHECK (captured_at_user_override IN (0, 1)),
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL,
     favorite            INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
@@ -1803,6 +1805,7 @@ CREATE TABLE IF NOT EXISTS profile_view_preferences (
     last_scope_profile_id   BLOB REFERENCES profiles(id) ON DELETE SET NULL,
     timeline_density        TEXT NOT NULL DEFAULT 'comfortable'
                                  CHECK (timeline_density IN ('compact', 'comfortable', 'relaxed')),
+    viewer_info_open        INTEGER NOT NULL DEFAULT 1 CHECK (viewer_info_open IN (0, 1)),
     updated_at              TEXT NOT NULL,
     CHECK ((last_scope_kind = 'profile' AND last_scope_profile_id IS NOT NULL)
         OR (last_scope_kind IS NULL OR last_scope_kind IN ('shared', 'mine'))

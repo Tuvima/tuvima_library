@@ -32,10 +32,11 @@ public sealed record ViewProfilePreferences(
     ViewScopeKind? LastScopeKind,
     Guid? LastScopeProfileId,
     ViewTimelineDensity TimelineDensity,
-    DateTimeOffset? UpdatedAt)
+    DateTimeOffset? UpdatedAt,
+    bool ViewerInfoOpen = true)
 {
     public static ViewProfilePreferences Default(Guid profileId) =>
-        new(profileId, null, null, ViewTimelineDensity.Comfortable, null);
+        new(profileId, null, null, ViewTimelineDensity.Comfortable, null, true);
 }
 
 public sealed record ViewPersonalSpace(

@@ -35,7 +35,10 @@ public interface ILocalAssetRepository
         Guid itemId,
         IReadOnlyCollection<string> tags,
         CancellationToken ct = default);
+    IReadOnlyList<string> GetTagSuggestions(Guid profileId, string? search, int limit, CancellationToken ct = default);
+    Task ReplacePeopleAsync(Guid itemId, IReadOnlyCollection<string> people, CancellationToken ct = default);
     Task<bool> UpdateDescriptionAsync(Guid itemId, string? description, CancellationToken ct = default);
+    Task<bool> UpdateCapturedAtAsync(Guid itemId, DateTimeOffset? capturedAt, bool resetToEmbedded, CancellationToken ct = default);
     Task<bool> UpdateLocationAsync(Guid itemId, LocalAssetLocationUpdate update, CancellationToken ct = default);
     Task<Guid> AddAnnotationAsync(
         Guid itemId,

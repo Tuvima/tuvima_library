@@ -60,9 +60,10 @@ public sealed class ArtworkAssetService(
         var where = new StringBuilder("WHERE NULLIF(asset.original_path, '') IS NOT NULL");
         if (search is not null)
         {
-            where.Append(search.Length < 3
-                ? " AND EXISTS (SELECT 1 FROM artwork_asset_context context WHERE context.artwork_asset_id = asset.id AND context.search_text LIKE @likeSearch COLLATE NOCASE)"
-                : " AND asset.id IN (SELECT artwork_asset_id FROM artwork_asset_search WHERE artwork_asset_search MATCH @ftsSearch)");
+            var direct = search.Length < 3
+                ? "EXISTS (SELECT 1 FROM artwork_asset_context context WHERE context.artwork_asset_id = asset.id AND context.search_text LIKE @likeSearch COLLATE NOCASE)"
+                : "asset.id IN (SELECT artwork_asset_id FROM artwork_asset_search WHERE artwork_asset_search MATCH @ftsSearch)";
+            where.Append($" AND ({direct} OR {RelatedSearchPredicate})");
         }
         if (normalizedRoles.Length > 0)
             where.Append(" AND EXISTS (SELECT 1 FROM entity_artwork_links role_link WHERE role_link.artwork_asset_id = asset.id AND role_link.role IN @roles)");
@@ -115,7 +116,19 @@ public sealed class ArtworkAssetService(
             ArtworkAssetSort.Resolution => "COALESCE(asset.width_px, 0) * COALESCE(asset.height_px, 0) DESC, asset.id",
             ArtworkAssetSort.Newest => "asset.created_at DESC, asset.id",
             ArtworkAssetSort.RecentlyUpdated => "COALESCE(asset.updated_at, asset.created_at) DESC, asset.id",
-            _ when search is not null && search.Length >= 3 => "asset.created_at DESC, asset.id",
+            _ when search is not null => $"""
+                CASE
+                    WHEN EXISTS (SELECT 1 FROM artwork_asset_context rank_context
+                                 WHERE rank_context.artwork_asset_id=asset.id
+                                   AND LOWER(rank_context.entity_label)=LOWER(@search)) THEN 0
+                    WHEN EXISTS (SELECT 1 FROM artwork_asset_context rank_context
+                                 WHERE rank_context.artwork_asset_id=asset.id
+                                   AND rank_context.search_text LIKE @likeSearch COLLATE NOCASE) THEN 1
+                    WHEN {CharacterSearchPredicate} THEN 2
+                    WHEN {RelatedSearchPredicate} THEN 3
+                    ELSE 4
+                END, COALESCE(asset.updated_at, asset.created_at) DESC, asset.id
+                """,
             _ => "COALESCE(asset.updated_at, asset.created_at) DESC, asset.id",
         };
         var orderBy = query.PickerScope == ArtworkPickerScope.Recommended && query.TargetEntityId.HasValue
@@ -139,6 +152,7 @@ public sealed class ArtworkAssetService(
         using var connection = database.CreateConnection();
         var parameters = new DynamicParameters();
         parameters.Add("likeSearch", search is null ? null : $"%{search}%");
+        parameters.Add("search", search);
         parameters.Add("ftsSearch", search is null || search.Length < 3 ? null : $"\"{search.Replace("\"", "\"\"")}\"");
         parameters.Add("roles", normalizedRoles);
         parameters.Add("aspects", aspects);
@@ -517,12 +531,24 @@ public sealed class ArtworkAssetService(
         {
             token.ThrowIfCancellationRequested();
             var removed = connection.QuerySingleOrDefault<RemovedLinkRow>("""
-                SELECT entity_id AS EntityId, entity_type AS EntityType, role AS Role,
+                SELECT artwork_asset_id AS ArtworkAssetId, entity_id AS EntityId, entity_type AS EntityType, role AS Role,
                        is_preferred AS IsPreferred
                 FROM entity_artwork_links WHERE id = @linkId;
                 """, new { linkId }, transaction);
             connection.Execute("DELETE FROM entity_artwork_links WHERE id = @linkId;", new { linkId }, transaction);
             connection.Execute("DELETE FROM entity_assets WHERE id = @linkId AND is_user_override = 1;", new { linkId }, transaction);
+            if (removed is not null)
+            {
+                connection.Execute("""
+                    DELETE FROM artwork_asset_context
+                     WHERE artwork_asset_id=@ArtworkAssetId AND entity_id=@EntityId
+                       AND entity_type=@EntityType AND role=@Role
+                       AND NOT EXISTS (
+                           SELECT 1 FROM entity_artwork_links link
+                            WHERE link.artwork_asset_id=@ArtworkAssetId AND link.entity_id=@EntityId
+                              AND link.entity_type=@EntityType AND link.role=@Role);
+                    """, removed, transaction);
+            }
             if (removed is { IsPreferred: true }
                 && string.Equals(removed.EntityType, "Collection", StringComparison.OrdinalIgnoreCase))
             {
@@ -632,6 +658,43 @@ public sealed class ArtworkAssetService(
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+    private const string CharacterSearchPredicate = """
+        EXISTS (
+            SELECT 1 FROM artwork_asset_context relation_context
+            JOIN character_performer_links portrayal
+              ON relation_context.entity_type='Person' AND portrayal.person_id=relation_context.entity_id
+            JOIN fictional_entities character ON character.id=portrayal.fictional_entity_id
+            LEFT JOIN fictional_entity_user_overrides character_user ON character_user.entity_id=character.id
+            WHERE relation_context.artwork_asset_id=asset.id
+              AND COALESCE(NULLIF(character_user.label,''), character.label) LIKE @likeSearch COLLATE NOCASE)
+        """;
+
+    private const string RelatedSearchPredicate = """
+        EXISTS (
+            SELECT 1 FROM artwork_asset_context relation_context
+            WHERE relation_context.artwork_asset_id=asset.id AND (
+                (relation_context.entity_type='Person' AND EXISTS (
+                    SELECT 1 FROM primary_person_media_credits credit
+                    JOIN media_assets media ON media.id=credit.media_asset_id
+                    JOIN editions edition ON edition.id=media.edition_id
+                    JOIN canonical_values title ON title.entity_id=edition.work_id AND title.key='title'
+                    WHERE credit.person_id=relation_context.entity_id
+                      AND title.value LIKE @likeSearch COLLATE NOCASE))
+                OR (relation_context.entity_type='Work' AND EXISTS (
+                    SELECT 1 FROM editions edition
+                    JOIN media_assets media ON media.edition_id=edition.id
+                    JOIN primary_person_media_credits credit ON credit.media_asset_id=media.id
+                    WHERE edition.work_id=relation_context.entity_id
+                      AND credit.person_name LIKE @likeSearch COLLATE NOCASE))
+                OR (relation_context.entity_type='Person' AND EXISTS (
+                    SELECT 1 FROM character_performer_links portrayal
+                    JOIN fictional_entities character ON character.id=portrayal.fictional_entity_id
+                    LEFT JOIN fictional_entity_user_overrides character_user ON character_user.entity_id=character.id
+                    WHERE portrayal.person_id=relation_context.entity_id
+                      AND COALESCE(NULLIF(character_user.label,''), character.label) LIKE @likeSearch COLLATE NOCASE))
+            ))
+        """;
+
     private static DynamicParameters BuildLinkParameters(
         Guid linkId,
         Guid entityId,
@@ -737,6 +800,7 @@ public sealed class ArtworkAssetService(
 
     private sealed class RemovedLinkRow
     {
+        public Guid ArtworkAssetId { get; init; }
         public Guid EntityId { get; init; }
         public string EntityType { get; init; } = string.Empty;
         public string Role { get; init; } = string.Empty;

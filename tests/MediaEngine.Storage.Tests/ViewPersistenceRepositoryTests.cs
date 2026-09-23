@@ -57,6 +57,10 @@ public sealed class ViewPersistenceRepositoryTests : IDisposable
         Assert.Equal(ViewScopeKind.Profile, preferences.LastScopeKind);
         Assert.Equal(visibleProfileId, preferences.LastScopeProfileId);
         Assert.Equal(ViewTimelineDensity.Compact, preferences.TimelineDensity);
+        Assert.True(preferences.ViewerInfoOpen);
+
+        Assert.True(await _profiles.SavePreferencesAsync(preferences with { ViewerInfoOpen = false }));
+        Assert.False((await _profiles.GetPreferencesAsync(ownerId)).ViewerInfoOpen);
 
         await Assert.ThrowsAsync<ArgumentException>(() => _profiles.SavePreferencesAsync(
             preferences with { LastScopeKind = ViewScopeKind.Mine }));

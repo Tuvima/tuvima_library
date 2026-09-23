@@ -7,7 +7,8 @@ public partial interface IEngineApiClient
 {
     Task<ViewScopeResolutionDto?> GetViewScopesAsync(ViewScopeKind? scope = null, Guid? scopeProfileId = null, CancellationToken ct = default);
     Task<ViewPreferencesDto?> GetViewPreferencesAsync(CancellationToken ct = default);
-    Task<ViewPreferencesDto?> UpdateViewPreferencesAsync(ViewScopeKind scope, Guid? scopeProfileId, ViewTimelineDensity timelineDensity, CancellationToken ct = default);
+    Task<LibraryCapacityDto?> GetLibraryCapacityAsync(string area, CancellationToken ct = default);
+    Task<ViewPreferencesDto?> UpdateViewPreferencesAsync(ViewScopeKind scope, Guid? scopeProfileId, ViewTimelineDensity timelineDensity, bool viewerInfoOpen = true, CancellationToken ct = default);
     Task<ViewAssetTimelinePageDto?> GetViewAssetsAsync(ViewAssetQueryOptions options, CancellationToken ct = default);
     Task<ViewTimelineIndexDto?> GetViewTimelineIndexAsync(ViewAssetQueryOptions options, CancellationToken ct = default);
     Task<LocalAssetDto?> GetViewItemAsync(Guid itemId, ViewScopeKind scope, Guid? scopeProfileId = null, CancellationToken ct = default);
@@ -16,6 +17,7 @@ public partial interface IEngineApiClient
     Task<bool> SetViewFolderTimelinePolicyAsync(ViewFolderTimelinePolicyRequest request, CancellationToken ct = default);
     Task<ViewPeoplePageDto?> GetViewPeopleAsync(ViewDiscoveryQueryOptions options, CancellationToken ct = default);
     Task<ViewPlacesPageDto?> GetViewPlacesAsync(ViewDiscoveryQueryOptions options, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetViewTagSuggestionsAsync(string? search = null, int limit = 20, CancellationToken ct = default);
     Task<ViewUploadResult> UploadViewMediaAsync(Stream fileStream, string fileName, string? contentType = null, CancellationToken ct = default);
     Task<bool> SetViewItemFavoriteAsync(Guid itemId, bool value, CancellationToken ct = default);
     Task<bool> SetViewItemHiddenAsync(Guid itemId, bool value, CancellationToken ct = default);
@@ -23,7 +25,9 @@ public partial interface IEngineApiClient
     Task<bool> TrashViewItemAsync(Guid itemId, CancellationToken ct = default);
     Task<bool> RestoreViewItemAsync(Guid itemId, CancellationToken ct = default);
     Task<LocalAssetDto?> UpdateViewItemDescriptionAsync(Guid itemId, string? description, CancellationToken ct = default);
+    Task<LocalAssetDto?> UpdateViewItemCapturedAtAsync(Guid itemId, UpdateLocalAssetCapturedAtRequest request, CancellationToken ct = default);
     Task<LocalAssetDto?> UpdateViewItemTagsAsync(Guid itemId, IReadOnlyCollection<string> tags, CancellationToken ct = default);
+    Task<LocalAssetDto?> UpdateViewItemPeopleAsync(Guid itemId, IReadOnlyCollection<string> people, CancellationToken ct = default);
     Task<LocalAssetDto?> UpdateViewItemLocationAsync(Guid itemId, UpdateLocalAssetLocationRequest request, CancellationToken ct = default);
     Task<ViewSharedContributionPreviewDto?> PreviewViewSharedContributionAsync(ViewSharedContributionPreviewRequest request, CancellationToken ct = default);
     Task<ViewSharedContributionDto?> SubmitViewSharedContributionAsync(ViewSharedContributionSubmitRequest request, CancellationToken ct = default);

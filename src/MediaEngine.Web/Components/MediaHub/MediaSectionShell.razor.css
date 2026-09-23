@@ -18,6 +18,8 @@
 }
 
 .media-section-shell__rail {
+    display: flex;
+    flex-direction: column;
     position: relative;
     align-self: start;
     height: 100%;

@@ -223,6 +223,35 @@ public sealed class LocalAssetRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ManualCapturedDateAndPeople_SurviveRefreshAndRemainSearchable()
+    {
+        var libraryId = Guid.NewGuid();
+        var owner = await CreateOwnership(libraryId);
+        var embedded = new DateTimeOffset(2025, 1, 2, 10, 0, 0, TimeSpan.Zero);
+        var corrected = new DateTimeOffset(2024, 12, 25, 18, 30, 0, TimeSpan.Zero);
+        var registration = new LocalAssetRegistration(libraryId, owner.SpaceId, owner.ProfileId,
+            LocalAssetMediaKinds.Image, "Dinner", embedded,
+            [File(@"C:\photos\dinner.jpg", Hash('9'), "dinner.jpg", "image/jpeg")]);
+        var result = await _repository.UpsertAsync(registration);
+
+        Assert.True(await _repository.UpdateCapturedAtAsync(result.ItemId, corrected, false));
+        await _repository.ReplacePeopleAsync(result.ItemId, ["Naomi Nagata"]);
+        await _repository.UpsertAsync(registration with { CapturedAt = embedded.AddDays(2) });
+
+        var edited = _repository.Find(result.ItemId)!;
+        Assert.Equal(corrected, edited.CapturedAt);
+        Assert.Equal(embedded.AddDays(2), edited.EmbeddedCapturedAt);
+        Assert.True(edited.CapturedAtUserOverride);
+        Assert.Equal(["Naomi Nagata"], edited.People);
+        Assert.Single(_repository.Query(new LocalAssetQuery(libraryId, Search: "Naomi")).Items);
+
+        Assert.True(await _repository.UpdateCapturedAtAsync(result.ItemId, null, true));
+        var reset = _repository.Find(result.ItemId)!;
+        Assert.False(reset.CapturedAtUserOverride);
+        Assert.Equal(embedded.AddDays(2), reset.CapturedAt);
+    }
+
+    [Fact]
     public async Task FlagsCollectionsAndAnnotations_PreserveLibraryIsolationAndProvenance()
     {
         var libraryId = Guid.NewGuid();

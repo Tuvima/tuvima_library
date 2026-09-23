@@ -1,5 +1,6 @@
 using MediaEngine.Domain;
 using Microsoft.Data.Sqlite;
+using Dapper;
 
 namespace MediaEngine.Storage;
 
@@ -627,6 +628,11 @@ internal sealed class SchemaMigrator
         AddColumnIfMissing(conn, "local_item_metadata", "focal_length_mm", "ALTER TABLE local_item_metadata ADD COLUMN focal_length_mm REAL;");
         AddColumnIfMissing(conn, "local_item_metadata", "video_codec", "ALTER TABLE local_item_metadata ADD COLUMN video_codec TEXT;");
         AddColumnIfMissing(conn, "local_item_metadata", "frame_rate", "ALTER TABLE local_item_metadata ADD COLUMN frame_rate REAL;");
+        AddColumnIfMissing(conn, "profile_view_preferences", "viewer_info_open", "ALTER TABLE profile_view_preferences ADD COLUMN viewer_info_open INTEGER NOT NULL DEFAULT 1;");
+        var addedEmbeddedCapturedAt = AddColumnIfMissing(conn, "local_items", "embedded_captured_at", "ALTER TABLE local_items ADD COLUMN embedded_captured_at TEXT;");
+        AddColumnIfMissing(conn, "local_items", "captured_at_user_override", "ALTER TABLE local_items ADD COLUMN captured_at_user_override INTEGER NOT NULL DEFAULT 0;");
+        if (addedEmbeddedCapturedAt)
+            conn.Execute("UPDATE local_items SET embedded_captured_at = captured_at WHERE captured_at IS NOT NULL;");
         if (addedLocationOverride || addedEmbeddedLatitude || addedEmbeddedLongitude)
         {
             using var localLocationBackfill = conn.CreateCommand();

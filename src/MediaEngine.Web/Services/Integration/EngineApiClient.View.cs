@@ -18,7 +18,13 @@ public sealed partial class EngineApiClient
     public Task<ViewPreferencesDto?> GetViewPreferencesAsync(CancellationToken ct = default) =>
         GetAsync<ViewPreferencesDto>("GET /view/preferences", "/view/preferences", ct: ct);
 
-    public async Task<ViewPreferencesDto?> UpdateViewPreferencesAsync(ViewScopeKind scope, Guid? scopeProfileId, ViewTimelineDensity timelineDensity, CancellationToken ct = default)
+    public Task<LibraryCapacityDto?> GetLibraryCapacityAsync(string area, CancellationToken ct = default) =>
+        GetAsync<LibraryCapacityDto>("GET /view/library-capacity", "/view/library-capacity", new Dictionary<string, string?>
+        {
+            ["area"] = area,
+        }, ct: ct);
+
+    public async Task<ViewPreferencesDto?> UpdateViewPreferencesAsync(ViewScopeKind scope, Guid? scopeProfileId, ViewTimelineDensity timelineDensity, bool viewerInfoOpen = true, CancellationToken ct = default)
     {
         const string endpoint = "PUT /view/preferences";
         try
@@ -28,7 +34,8 @@ public sealed partial class EngineApiClient
                 Content = JsonContent.Create(new ViewPreferencesRequest(
                     ScopeValue(scope),
                     scope == ViewScopeKind.Profile ? scopeProfileId : null,
-                    timelineDensity)),
+                    timelineDensity,
+                    viewerInfoOpen)),
             };
             using var response = await _http.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode) { await RecordHttpFailureAsync(endpoint, response, ct); return null; }
@@ -109,6 +116,13 @@ public sealed partial class EngineApiClient
     public Task<ViewPlacesPageDto?> GetViewPlacesAsync(ViewDiscoveryQueryOptions options, CancellationToken ct = default) =>
         GetViewDiscoveryAsync<ViewPlacesPageDto>("places", options, ct);
 
+    public async Task<IReadOnlyList<string>> GetViewTagSuggestionsAsync(string? search = null, int limit = 20, CancellationToken ct = default) =>
+        await GetAsync<List<string>>("GET /view/tag-suggestions", "/view/tag-suggestions", new Dictionary<string, string?>
+        {
+            ["q"] = search,
+            ["limit"] = Math.Clamp(limit, 1, 100).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        }, ct: ct) ?? [];
+
     public async Task<ViewUploadResult> UploadViewMediaAsync(Stream fileStream, string fileName, string? contentType = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(fileStream);
@@ -145,8 +159,12 @@ public sealed partial class EngineApiClient
     public Task<bool> RestoreViewItemAsync(Guid itemId, CancellationToken ct = default) => LifecycleAsync(itemId, "restore", ct);
     public Task<LocalAssetDto?> UpdateViewItemDescriptionAsync(Guid itemId, string? description, CancellationToken ct = default) =>
         PutViewItemAsync(itemId, "description", new UpdateLocalAssetDescriptionRequest(description), ct);
+    public Task<LocalAssetDto?> UpdateViewItemCapturedAtAsync(Guid itemId, UpdateLocalAssetCapturedAtRequest request, CancellationToken ct = default) =>
+        PutViewItemAsync(itemId, "captured-at", request, ct);
     public Task<LocalAssetDto?> UpdateViewItemTagsAsync(Guid itemId, IReadOnlyCollection<string> tags, CancellationToken ct = default) =>
         PutViewItemAsync(itemId, "tags", new UpdateLocalAssetTagsRequest(tags), ct);
+    public Task<LocalAssetDto?> UpdateViewItemPeopleAsync(Guid itemId, IReadOnlyCollection<string> people, CancellationToken ct = default) =>
+        PutViewItemAsync(itemId, "people", new UpdateLocalAssetPeopleRequest(people), ct);
     public Task<LocalAssetDto?> UpdateViewItemLocationAsync(Guid itemId, UpdateLocalAssetLocationRequest request, CancellationToken ct = default) =>
         PutViewItemAsync(itemId, "location", request, ct);
     public Task<ViewSharedContributionPreviewDto?> PreviewViewSharedContributionAsync(ViewSharedContributionPreviewRequest request, CancellationToken ct = default) =>

@@ -502,6 +502,8 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("args.Key is \"+\" or \"=\"", viewer, StringComparison.Ordinal);
         Assert.Contains("args.Key == \"0\"", viewer, StringComparison.Ordinal);
         Assert.Contains("touch-action:none", styles, StringComparison.Ordinal);
+        Assert.Contains(".media-viewer__stage img,.media-viewer__stage video{position:absolute;inset:0;display:block;width:100%;height:100%", styles, StringComparison.Ordinal);
+        Assert.Contains("object-fit:contain", styles, StringComparison.Ordinal);
         Assert.Contains("pointermove", script, StringComparison.Ordinal);
         Assert.Contains("pinchDistance", script, StringComparison.Ordinal);
     }

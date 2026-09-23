@@ -73,7 +73,8 @@ public sealed class ViewProfileRepository(IDatabaseConnection database) : IViewP
         var row = connection.QuerySingleOrDefault<PreferencesRow>(new CommandDefinition("""
             SELECT profile_id AS ProfileId, last_scope_kind AS LastScopeKind,
                    last_scope_profile_id AS LastScopeProfileId,
-                   timeline_density AS TimelineDensity, updated_at AS UpdatedAt
+                   timeline_density AS TimelineDensity, viewer_info_open AS ViewerInfoOpen,
+                   updated_at AS UpdatedAt
               FROM profile_view_preferences
              WHERE profile_id = @profileId;
             """, new { profileId }, cancellationToken: ct));
@@ -109,12 +110,13 @@ public sealed class ViewProfileRepository(IDatabaseConnection database) : IViewP
             var now = DateTimeOffset.UtcNow;
             connection.Execute(new CommandDefinition("""
                 INSERT INTO profile_view_preferences
-                    (profile_id, last_scope_kind, last_scope_profile_id, timeline_density, updated_at)
-                VALUES (@ProfileId, @ScopeKind, @LastScopeProfileId, @Density, @now)
+                    (profile_id, last_scope_kind, last_scope_profile_id, timeline_density, viewer_info_open, updated_at)
+                VALUES (@ProfileId, @ScopeKind, @LastScopeProfileId, @Density, @ViewerInfoOpen, @now)
                 ON CONFLICT(profile_id) DO UPDATE SET
                     last_scope_kind = excluded.last_scope_kind,
                     last_scope_profile_id = excluded.last_scope_profile_id,
                     timeline_density = excluded.timeline_density,
+                    viewer_info_open = excluded.viewer_info_open,
                     updated_at = excluded.updated_at;
                 """, new
             {
@@ -122,6 +124,7 @@ public sealed class ViewProfileRepository(IDatabaseConnection database) : IViewP
                 ScopeKind = preferences.LastScopeKind is null ? null : ToStorage(preferences.LastScopeKind.Value),
                 preferences.LastScopeProfileId,
                 Density = ToStorage(preferences.TimelineDensity),
+                ViewerInfoOpen = preferences.ViewerInfoOpen ? 1 : 0,
                 now,
             }, transaction, cancellationToken: token));
             return true;
@@ -147,7 +150,8 @@ public sealed class ViewProfileRepository(IDatabaseConnection database) : IViewP
         row.LastScopeKind is null ? null : ParseScope(row.LastScopeKind),
         row.LastScopeProfileId,
         ParseDensity(row.TimelineDensity),
-        ParseDate(row.UpdatedAt));
+        ParseDate(row.UpdatedAt),
+        row.ViewerInfoOpen != 0);
 
     private static string ToStorage(ViewScopeKind value) => value switch
     {
@@ -209,6 +213,7 @@ public sealed class ViewProfileRepository(IDatabaseConnection database) : IViewP
         public string? LastScopeKind { get; init; }
         public Guid? LastScopeProfileId { get; init; }
         public string TimelineDensity { get; init; } = "comfortable";
+        public long ViewerInfoOpen { get; init; } = 1;
         public string? UpdatedAt { get; init; }
     }
 }

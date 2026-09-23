@@ -26,6 +26,8 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         public string FileName { get; init; } = string.Empty;
         public string MimeType { get; init; } = string.Empty;
         public DateTimeOffset? CapturedAt { get; init; }
+        public DateTimeOffset? EmbeddedCapturedAt { get; init; }
+        public long CapturedAtUserOverride { get; init; }
         public DateTimeOffset CreatedAt { get; init; }
         public int? Width { get; init; }
         public int? Height { get; init; }
@@ -69,6 +71,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         public string MimeType { get; init; } = string.Empty;
         public long ByteSize { get; init; }
         public long SourceCount { get; init; }
+        public string? FileName { get; init; }
     }
 
     private sealed class ItemFileRow
@@ -80,6 +83,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         public string MimeType { get; init; } = string.Empty;
         public long ByteSize { get; init; }
         public long SourceCount { get; init; }
+        public string? FileName { get; init; }
     }
 
     private sealed class ItemTagRow
@@ -115,6 +119,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         public string? Location { get; init; }
         public string? DocumentText { get; init; }
         public string? Tags { get; init; }
+        public string? People { get; init; }
     }
 
     public LocalAssetPageDto Query(LocalAssetQuery query, CancellationToken ct = default)
@@ -141,6 +146,8 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                    li.primary_file_name AS FileName,
                    li.primary_mime_type AS MimeType,
                    li.captured_at AS CapturedAt,
+                   li.embedded_captured_at AS EmbeddedCapturedAt,
+                   li.captured_at_user_override AS CapturedAtUserOverride,
                    li.created_at AS CreatedAt,
                    lm.width AS Width,
                    lm.height AS Height,
@@ -292,7 +299,8 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                    li.personal_space_id AS PersonalSpaceId, li.owner_profile_id AS OwnerProfileId,
                    li.media_kind AS MediaKind, li.title AS Title,
                    li.primary_file_name AS FileName, li.primary_mime_type AS MimeType,
-                   li.captured_at AS CapturedAt, li.created_at AS CreatedAt,
+                   li.captured_at AS CapturedAt, li.embedded_captured_at AS EmbeddedCapturedAt,
+                   li.captured_at_user_override AS CapturedAtUserOverride, li.created_at AS CreatedAt,
                    lm.width AS Width, lm.height AS Height,
                    lm.duration_seconds AS DurationSeconds, lm.page_count AS PageCount,
                    lm.device_make AS DeviceMake, lm.device_model AS DeviceModel,
@@ -373,6 +381,12 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             items,
             hasMore && last is not null ? new LocalAssetTimelineCursor(last.EffectiveAt, last.Id) : null,
             hasMore);
+    }
+
+    private sealed class ItemPersonRow
+    {
+        public Guid ItemId { get; init; }
+        public string Person { get; init; } = string.Empty;
     }
 
     private sealed class TimelineBucketRow
@@ -506,6 +520,8 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                    li.personal_space_id AS PersonalSpaceId, li.owner_profile_id AS OwnerProfileId,
                    li.title AS Title, li.primary_file_name AS FileName,
                    li.primary_mime_type AS MimeType, li.captured_at AS CapturedAt,
+                   li.embedded_captured_at AS EmbeddedCapturedAt,
+                   li.captured_at_user_override AS CapturedAtUserOverride,
                    li.created_at AS CreatedAt, lm.width AS Width, lm.height AS Height,
                    lm.duration_seconds AS DurationSeconds, lm.page_count AS PageCount,
                    lm.device_make AS DeviceMake, lm.device_model AS DeviceModel,
@@ -664,10 +680,11 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                 connection.Execute("""
                     INSERT INTO local_items
                         (id, scope_kind, personal_space_id, owner_profile_id, library_id, media_kind, title, primary_file_name,
-                         primary_mime_type, captured_at, created_at, updated_at, favorite, hidden)
+                         primary_mime_type, captured_at, embedded_captured_at, captured_at_user_override,
+                         created_at, updated_at, favorite, hidden)
                     VALUES
                         (@itemId, @scopeKind, @PersonalSpaceId, @OwnerProfileId, @LibraryId, @MediaKind, @Title, @FileName,
-                         @MimeType, @CapturedAt, @now, @now, 0, 0);
+                         @MimeType, @CapturedAt, @CapturedAt, 0, @now, @now, 0, 0);
                     """, new
                 {
                     itemId,
@@ -688,7 +705,9 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                 connection.Execute("""
                     UPDATE local_items
                        SET title = COALESCE(@Title, title),
-                           captured_at = COALESCE(@CapturedAt, captured_at),
+                           embedded_captured_at = COALESCE(@CapturedAt, embedded_captured_at),
+                           captured_at = CASE WHEN captured_at_user_override = 1
+                               THEN captured_at ELSE COALESCE(@CapturedAt, captured_at) END,
                            updated_at = @now
                      WHERE id = @itemId;
                     """, new { itemId, registration.Title, registration.CapturedAt, now }, transaction);
@@ -933,6 +952,65 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         }, ct);
     }
 
+    public Task ReplacePeopleAsync(Guid itemId, IReadOnlyCollection<string> people, CancellationToken ct = default)
+    {
+        if (itemId == Guid.Empty) throw new ArgumentException("Item ID is required.", nameof(itemId));
+        ArgumentNullException.ThrowIfNull(people);
+        return database.ExecuteWriteAsync((connection, transaction, token) =>
+        {
+            token.ThrowIfCancellationRequested();
+            if (connection.ExecuteScalar<long>("SELECT COUNT(*) FROM local_items WHERE id=@itemId;", new { itemId }, transaction) == 0)
+                throw new InvalidOperationException($"Local item '{itemId:D}' does not exist.");
+            connection.Execute("""
+                DELETE FROM local_item_annotations
+                 WHERE item_id=@itemId AND annotation_kind='person_name' AND source='user_assignment';
+                """, new { itemId }, transaction);
+            var now = DateTimeOffset.UtcNow;
+            foreach (var person in people.Where(value => !string.IsNullOrWhiteSpace(value))
+                         .Select(value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                connection.Execute("""
+                    INSERT INTO local_item_annotations
+                        (id, item_id, annotation_kind, annotation_value, source, created_at, reviewed_at)
+                    VALUES (@id, @itemId, 'person_name', @person, 'user_assignment', @now, @now);
+                    """, new { id = Guid.NewGuid(), itemId, person, now }, transaction);
+            }
+            RebuildSearchDocument(connection, transaction, itemId);
+        }, ct);
+    }
+
+    public IReadOnlyList<string> GetTagSuggestions(
+        Guid profileId,
+        string? search,
+        int limit,
+        CancellationToken ct = default)
+    {
+        if (profileId == Guid.Empty) throw new ArgumentException("Profile ID is required.", nameof(profileId));
+        var take = Math.Clamp(limit, 1, 100);
+        var searchPattern = string.IsNullOrWhiteSpace(search) ? null : $"%{search.Trim()}%";
+        using var connection = database.CreateConnection();
+        return connection.Query<string>(new CommandDefinition("""
+            WITH terms(value) AS (
+                SELECT lit.tag
+                  FROM local_item_tags lit
+                  JOIN local_items li ON li.id=lit.item_id
+                 WHERE li.owner_profile_id=@profileId
+                UNION ALL
+                SELECT json.value FROM profile_work_preferences pref, json_each(pref.local_tags_json) json
+                 WHERE pref.profile_id=@profileId AND json_valid(pref.local_tags_json)
+                UNION ALL
+                SELECT json.value FROM profile_person_preferences pref, json_each(pref.local_tags_json) json
+                 WHERE pref.profile_id=@profileId AND json_valid(pref.local_tags_json)
+            )
+            SELECT TRIM(value)
+              FROM terms
+             WHERE TRIM(value) <> '' AND (@searchPattern IS NULL OR value LIKE @searchPattern COLLATE NOCASE)
+             GROUP BY LOWER(TRIM(value))
+             ORDER BY COUNT(*) DESC, value COLLATE NOCASE
+             LIMIT @take;
+            """, new { profileId, searchPattern, take }, cancellationToken: ct)).ToList();
+    }
+
     public Task<bool> UpdateDescriptionAsync(Guid itemId, string? description, CancellationToken ct = default)
     {
         if (itemId == Guid.Empty) throw new ArgumentException("Item ID is required.", nameof(itemId));
@@ -946,6 +1024,36 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                    SET description = @normalized, updated_at = @now
                  WHERE item_id = @itemId;
                 """, new { itemId, normalized, now = DateTimeOffset.UtcNow }, transaction) > 0;
+            if (changed) RebuildSearchDocument(connection, transaction, itemId);
+            return changed;
+        }, ct);
+    }
+
+    public Task<bool> UpdateCapturedAtAsync(
+        Guid itemId,
+        DateTimeOffset? capturedAt,
+        bool resetToEmbedded,
+        CancellationToken ct = default)
+    {
+        if (itemId == Guid.Empty) throw new ArgumentException("Item ID is required.", nameof(itemId));
+        if (!resetToEmbedded && capturedAt is null)
+            throw new ArgumentException("A captured date is required unless the embedded date is being restored.", nameof(capturedAt));
+        return database.ExecuteWriteAsync((connection, transaction, token) =>
+        {
+            token.ThrowIfCancellationRequested();
+            var changed = connection.Execute("""
+                UPDATE local_items SET
+                    captured_at = CASE WHEN @ResetToEmbedded = 1 THEN embedded_captured_at ELSE @CapturedAt END,
+                    captured_at_user_override = CASE WHEN @ResetToEmbedded = 1 THEN 0 ELSE 1 END,
+                    updated_at = @now
+                 WHERE id = @ItemId;
+                """, new
+            {
+                ItemId = itemId,
+                CapturedAt = capturedAt,
+                ResetToEmbedded = resetToEmbedded ? 1 : 0,
+                now = DateTimeOffset.UtcNow,
+            }, transaction) > 0;
             if (changed) RebuildSearchDocument(connection, transaction, itemId);
             return changed;
         }, ct);
@@ -1046,7 +1154,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         var files = connection.Query<FileRow>("""
             SELECT lf.id AS Id, lif.role AS Role, lif.derivative_kind AS DerivativeKind,
                    lf.mime_type AS MimeType, lf.byte_size AS ByteSize,
-                   COUNT(lfs.id) AS SourceCount
+                   COUNT(lfs.id) AS SourceCount, MIN(lfs.file_path) AS FileName
               FROM local_item_files lif
               JOIN local_files lf ON lf.id = lif.file_id
               LEFT JOIN local_file_sources lfs
@@ -1061,14 +1169,23 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                 file.DerivativeKind,
                 file.MimeType,
                 file.ByteSize,
-                checked((int)file.SourceCount)))
+                checked((int)file.SourceCount),
+                string.IsNullOrWhiteSpace(file.FileName) ? null : Path.GetFileName(file.FileName)))
             .ToList();
         var tags = connection.Query<string>("""
             SELECT tag FROM local_item_tags
              WHERE item_id = @itemId
              ORDER BY tag COLLATE NOCASE;
             """, new { itemId = row.Id }).ToList();
-        return MapItem(row, files, tags);
+        var people = connection.Query<string>("""
+            SELECT DISTINCT TRIM(annotation_value)
+              FROM local_item_annotations
+             WHERE item_id=@itemId AND TRIM(annotation_value) <> ''
+               AND (annotation_kind IN ('person_name','named_person','face_name')
+                    OR (annotation_kind IN ('person_identity','face_identity') AND reviewed_at IS NOT NULL))
+             ORDER BY annotation_value COLLATE NOCASE;
+            """, new { itemId = row.Id }).ToList();
+        return MapItem(row, files, tags, people);
     }
 
     private static List<LocalAssetDto> MapItems(SqliteConnection connection, IReadOnlyList<ItemRow> rows)
@@ -1087,7 +1204,8 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         var files = connection.Query<ItemFileRow>($$"""
             SELECT lif.item_id AS ItemId, lf.id AS Id, lif.role AS Role,
                    lif.derivative_kind AS DerivativeKind, lf.mime_type AS MimeType,
-                   lf.byte_size AS ByteSize, COUNT(lfs.id) AS SourceCount
+                   lf.byte_size AS ByteSize, COUNT(lfs.id) AS SourceCount,
+                   MIN(lfs.file_path) AS FileName
               FROM local_item_files lif
               JOIN local_items li ON li.id = lif.item_id
               JOIN local_files lf ON lf.id = lif.file_id
@@ -1104,19 +1222,32 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
              WHERE ({{tagPredicate}})
              ORDER BY lit.item_id, lit.tag COLLATE NOCASE;
             """, parameters).ToLookup(tag => tag.ItemId);
+        var personPredicate = itemPredicate.Replace("lif.item_id", "lia.item_id", StringComparison.Ordinal);
+        var people = connection.Query<ItemPersonRow>($$"""
+            SELECT lia.item_id AS ItemId, TRIM(lia.annotation_value) AS Person
+              FROM local_item_annotations lia
+             WHERE ({{personPredicate}}) AND TRIM(lia.annotation_value) <> ''
+               AND (lia.annotation_kind IN ('person_name','named_person','face_name')
+                    OR (lia.annotation_kind IN ('person_identity','face_identity') AND lia.reviewed_at IS NOT NULL))
+             GROUP BY lia.item_id, LOWER(TRIM(lia.annotation_value))
+             ORDER BY lia.item_id, lia.annotation_value COLLATE NOCASE;
+            """, parameters).ToLookup(person => person.ItemId);
 
         return rows.Select(row => MapItem(
             row,
             files[row.Id].Select(file => new LocalAssetFileDto(
                 file.Id, file.Role, file.DerivativeKind, file.MimeType,
-                file.ByteSize, checked((int)file.SourceCount))).ToList(),
-            tags[row.Id].Select(tag => tag.Tag).ToList())).ToList();
+                file.ByteSize, checked((int)file.SourceCount),
+                string.IsNullOrWhiteSpace(file.FileName) ? null : Path.GetFileName(file.FileName))).ToList(),
+            tags[row.Id].Select(tag => tag.Tag).ToList(),
+            people[row.Id].Select(person => person.Person).ToList())).ToList();
     }
 
     private static LocalAssetDto MapItem(
         ItemRow row,
         IReadOnlyList<LocalAssetFileDto> files,
-        IReadOnlyList<string> tags) => new(
+        IReadOnlyList<string> tags,
+        IReadOnlyList<string>? people = null) => new(
             row.Id,
             row.LibraryId,
             row.PersonalSpaceId,
@@ -1161,7 +1292,10 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             row.LocationSource,
             row.LocationUserOverride != 0,
             row.EmbeddedLatitude,
-            row.EmbeddedLongitude);
+            row.EmbeddedLongitude,
+            row.EmbeddedCapturedAt,
+            row.CapturedAtUserOverride != 0,
+            people ?? []);
 
     private static void ReplaceTags(
         SqliteConnection connection,
@@ -1199,7 +1333,11 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                         || COALESCE(lm.location_region, '') || ' ' || COALESCE(lm.location_country, '') || ' '
                         || COALESCE(lm.location_country_code, '')) AS Location,
                    trim(COALESCE(lm.description, '') || ' ' || COALESCE(lm.document_text, '')) AS DocumentText,
-                   (SELECT group_concat(tag, ' ') FROM local_item_tags WHERE item_id = li.id) AS Tags
+                   (SELECT group_concat(tag, ' ') FROM local_item_tags WHERE item_id = li.id) AS Tags,
+                   (SELECT group_concat(annotation_value, ' ') FROM local_item_annotations
+                     WHERE item_id=li.id AND TRIM(annotation_value) <> ''
+                       AND (annotation_kind IN ('person_name','named_person','face_name')
+                            OR (annotation_kind IN ('person_identity','face_identity') AND reviewed_at IS NOT NULL))) AS People
               FROM local_items li
               LEFT JOIN local_item_metadata lm ON lm.item_id = li.id
              WHERE li.id = @itemId;
@@ -1233,7 +1371,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             row.Device,
             row.Location,
             row.DocumentText,
-            row.Tags,
+            Tags = string.Join(' ', new[] { row.Tags, row.People }.Where(value => !string.IsNullOrWhiteSpace(value))),
         }, transaction);
     }
 

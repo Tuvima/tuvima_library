@@ -93,6 +93,23 @@ public sealed class ArtworkAssetServiceTests : IDisposable
         Assert.Equal(unusedAssetId, Assert.Single(unused.Items).Id);
     }
 
+    [Fact]
+    public async Task RemoveLink_RemovesOrphanedSearchContext()
+    {
+        var entityId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        SeedAsset(assetId, "orphan", "Orphaned artwork marker", entityId);
+        var workspace = await _service.GetEntityAsync("Work", entityId, "Movies", null, null, CancellationToken.None);
+
+        await _service.RemoveLinkAsync(Assert.Single(workspace.Variants).LinkId, CancellationToken.None);
+
+        var result = await _service.BrowseAsync(new ArtworkAssetQuery(Search: "Orphaned"), CancellationToken.None);
+        Assert.DoesNotContain(result.Items, item => item.Id == assetId);
+        using var connection = _database.CreateConnection();
+        Assert.Equal(0, connection.QuerySingle<int>(
+            "SELECT COUNT(*) FROM artwork_asset_context WHERE artwork_asset_id=@assetId;", new { assetId }));
+    }
+
     private void SeedAsset(
         Guid assetId,
         string hashSuffix,

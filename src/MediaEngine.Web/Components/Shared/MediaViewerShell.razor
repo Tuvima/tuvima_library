@@ -63,6 +63,7 @@
     [Parameter] public bool HasPrevious { get; set; }
     [Parameter] public bool HasNext { get; set; }
     [Parameter] public bool InfoInitiallyOpen { get; set; }
+    [Parameter] public EventCallback<bool> InfoOpenChanged { get; set; }
     [Parameter] public IReadOnlyList<ViewGalleryDto> Galleries { get; set; } = [];
     [Parameter] public RenderFragment? InfoContent { get; set; }
     [Parameter] public RenderFragment? ContextActions { get; set; }
@@ -90,7 +91,12 @@
         _zoom = 1;
         if (_module is not null) await _module.InvokeVoidAsync("fit", _stage);
     }
-    private void ToggleInfo() => _showInfo = !_showInfo;
+    private async Task ToggleInfo()
+    {
+        _showInfo = !_showInfo;
+        if (InfoOpenChanged.HasDelegate)
+            await InfoOpenChanged.InvokeAsync(_showInfo);
+    }
     private Task GalleryChanged(ChangeEventArgs args) => Guid.TryParse(args.Value?.ToString(), out var id) ? OnAddToGallery.InvokeAsync(id) : Task.CompletedTask;
     private async Task PreviousAsync() { await FitAsync(); await OnPrevious.InvokeAsync(); }
     private async Task NextAsync() { await FitAsync(); await OnNext.InvokeAsync(); }

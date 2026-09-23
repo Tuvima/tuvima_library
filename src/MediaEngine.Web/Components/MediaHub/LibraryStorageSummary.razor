@@ -1,0 +1,46 @@
+@using MediaEngine.Contracts.LocalAssets
+@inject IEngineApiClient ApiClient
+@namespace MediaEngine.Web.Components.MediaHub
+
+@if (_capacity is { Locations.Count: > 0 })
+{
+    <section class="library-storage" aria-label="@($"{Area} library storage")">
+        @foreach (var location in _capacity.Locations)
+        {
+            <div class="library-storage__location">
+                <span><strong>@location.Label</strong><small>@CapacityText(location)</small></span>
+                @if (location.TotalBytes is > 0 && location.AvailableBytes.HasValue)
+                {
+                    <progress max="@location.TotalBytes.Value" value="@(location.TotalBytes.Value - location.AvailableBytes.Value)"></progress>
+                }
+            </div>
+        }
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Area { get; set; } = "view";
+    private LibraryCapacityDto? _capacity;
+    private string? _loadedArea;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var normalized = Area.Trim().ToLowerInvariant();
+        if (_loadedArea == normalized) return;
+        _loadedArea = normalized;
+        _capacity = await ApiClient.GetLibraryCapacityAsync(normalized);
+    }
+
+    private static string CapacityText(LibraryCapacityLocationDto location) =>
+        location.IsAvailable && location.AvailableBytes.HasValue
+            ? $"{FormatBytes(location.AvailableBytes.Value)} free{(location.TotalBytes.HasValue ? $" of {FormatBytes(location.TotalBytes.Value)}" : string.Empty)}"
+            : "Storage unavailable";
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
+        var value = (double)bytes; var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1) { value /= 1024; unit++; }
+        return $"{value:0.#} {units[unit]}";
+    }
+}
