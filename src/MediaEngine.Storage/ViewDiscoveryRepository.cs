@@ -13,7 +13,7 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
 {
     private const int MaximumLimit = 100;
 
-    private sealed class PlaceRow
+    private class PlaceRow
     {
         public string Key { get; init; } = string.Empty;
         public string Name { get; init; } = string.Empty;
@@ -22,6 +22,27 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
         public long AssetCount { get; init; }
         public Guid RepresentativeLibraryId { get; init; }
         public Guid RepresentativeAssetId { get; init; }
+    }
+
+    private sealed class AtlasRow : PlaceRow
+    {
+        public long ImageCount { get; init; }
+        public long VideoCount { get; init; }
+        public DateTimeOffset EarliestAt { get; init; }
+        public DateTimeOffset LatestAt { get; init; }
+    }
+
+    private sealed class PlaceAssetRow
+    {
+        public Guid AssetId { get; init; }
+        public string PlaceName { get; init; } = string.Empty;
+        public long TotalCount { get; init; }
+    }
+
+    private sealed class AtlasTotalsRow
+    {
+        public long Mapped { get; init; }
+        public long Unmapped { get; init; }
     }
 
     private sealed class PersonRow
@@ -136,6 +157,161 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
             hasMore && last is not null ? new ViewDiscoveryCursor(last.AssetCount, last.Key) : null,
             hasMore,
             hasEligibleData);
+    }
+
+    public ViewAtlasDiscoveryPage QueryAtlas(
+        ViewAtlasDiscoveryQuery query,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        var libraries = ValidateAtlas(query.AuthorizedLibraryIds, query.Limit, query.Search, query.Year, query.MediaKind);
+        if (libraries.Length == 0 && !query.IncludeSharedLibraryAssets)
+        {
+            return new ViewAtlasDiscoveryPage([], [], 0, 0, false);
+        }
+
+        ct.ThrowIfCancellationRequested();
+        var parameters = new DynamicParameters(new
+        {
+            Take = query.Limit,
+            SearchPattern = SearchPattern(query.Search),
+            Year = query.Year,
+            MediaKind = string.IsNullOrWhiteSpace(query.MediaKind) ? null : query.MediaKind.Trim().ToLowerInvariant(),
+        });
+        AddLibraries(parameters, libraries);
+        var libraryPredicate = query.IncludeSharedLibraryAssets
+            ? "EXISTS (SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = li.id)"
+            : LibraryPredicate("li", libraries.Length);
+        var commonPredicate = $$"""
+            ({{libraryPredicate}})
+            AND li.hidden = 0
+            AND li.archived_at IS NULL
+            AND li.trashed_at IS NULL
+            AND (@Year IS NULL OR CAST(strftime('%Y', COALESCE(li.captured_at, li.created_at)) AS INTEGER) = @Year)
+            AND (@MediaKind IS NULL OR LOWER(li.media_kind) = @MediaKind)
+            """;
+
+        using var connection = database.CreateConnection();
+        var rows = connection.Query<AtlasRow>(new CommandDefinition($$"""
+            WITH eligible AS (
+                SELECT li.id AS ItemId, li.library_id AS LibraryId, li.media_kind AS MediaKind,
+                       COALESCE(li.captured_at, li.created_at) AS EffectiveAt,
+                       LOWER(COALESCE(NULLIF(TRIM(lm.location_name), ''), 'location')) || '@' ||
+                           printf('%.1f,%.1f', ROUND(lm.latitude, 1), ROUND(lm.longitude, 1)) AS PlaceKey,
+                       COALESCE(NULLIF(TRIM(lm.location_name), ''),
+                           printf('%.3f, %.3f', ROUND(lm.latitude, 3), ROUND(lm.longitude, 3))) AS PlaceName,
+                       lm.latitude AS Latitude, lm.longitude AS Longitude
+                  FROM local_items li
+                  JOIN local_item_metadata lm ON lm.item_id = li.id
+                 WHERE {{commonPredicate}}
+                   AND lm.latitude IS NOT NULL
+                   AND lm.longitude IS NOT NULL
+                   AND (@SearchPattern IS NULL
+                        OR lm.location_name LIKE @SearchPattern ESCAPE '\'
+                        OR printf('%.3f,%.3f', ROUND(lm.latitude, 3), ROUND(lm.longitude, 3)) LIKE @SearchPattern ESCAPE '\')
+            ), ranked AS (
+                SELECT *, ROW_NUMBER() OVER (
+                    PARTITION BY PlaceKey ORDER BY EffectiveAt DESC, ItemId DESC) AS RepresentativeRank
+                  FROM eligible
+            )
+            SELECT PlaceKey AS Key, MAX(PlaceName) AS Name,
+                   ROUND(AVG(Latitude), 5) AS Latitude, ROUND(AVG(Longitude), 5) AS Longitude,
+                   COUNT(DISTINCT ItemId) AS AssetCount,
+                   COUNT(DISTINCT CASE WHEN LOWER(MediaKind) = 'image' THEN ItemId END) AS ImageCount,
+                   COUNT(DISTINCT CASE WHEN LOWER(MediaKind) = 'video' THEN ItemId END) AS VideoCount,
+                   MIN(EffectiveAt) AS EarliestAt, MAX(EffectiveAt) AS LatestAt,
+                   MAX(CASE WHEN RepresentativeRank = 1 THEN LibraryId END) AS RepresentativeLibraryId,
+                   MAX(CASE WHEN RepresentativeRank = 1 THEN ItemId END) AS RepresentativeAssetId
+              FROM ranked
+             GROUP BY PlaceKey
+             ORDER BY AssetCount DESC, Key
+             LIMIT @Take;
+            """, parameters, cancellationToken: ct)).ToList();
+
+        var totals = connection.QuerySingle<AtlasTotalsRow>(new CommandDefinition($$"""
+            SELECT COUNT(DISTINCT CASE WHEN lm.latitude IS NOT NULL AND lm.longitude IS NOT NULL THEN li.id END) AS Mapped,
+                   COUNT(DISTINCT CASE WHEN lm.latitude IS NULL OR lm.longitude IS NULL THEN li.id END) AS Unmapped
+              FROM local_items li
+              LEFT JOIN local_item_metadata lm ON lm.item_id = li.id
+             WHERE {{commonPredicate}};
+            """, parameters, cancellationToken: ct));
+
+        var years = connection.Query<int>(new CommandDefinition($$"""
+            SELECT DISTINCT CAST(strftime('%Y', COALESCE(li.captured_at, li.created_at)) AS INTEGER)
+              FROM local_items li
+             WHERE ({{libraryPredicate}})
+               AND li.hidden = 0 AND li.archived_at IS NULL AND li.trashed_at IS NULL
+             ORDER BY 1 DESC;
+            """, parameters, cancellationToken: ct)).Where(year => year > 0).ToList();
+
+        return new ViewAtlasDiscoveryPage(
+            rows.Select(row => new ViewAtlasDiscoveryRow(
+                row.Key, row.Name, row.Latitude, row.Longitude, checked((int)row.AssetCount),
+                checked((int)row.ImageCount), checked((int)row.VideoCount), row.EarliestAt, row.LatestAt,
+                row.RepresentativeLibraryId, row.RepresentativeAssetId)).ToList(),
+            years,
+            checked((int)totals.Mapped),
+            checked((int)totals.Unmapped),
+            rows.Count > 0 || totals.Mapped > 0);
+    }
+
+    public ViewPlaceAssetDiscoveryPage QueryPlaceAssets(
+        ViewPlaceAssetDiscoveryQuery query,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        if (string.IsNullOrWhiteSpace(query.PlaceKey) || query.PlaceKey.Length > 300)
+            throw new ArgumentException("A valid place key is required.", nameof(query));
+        if (query.Offset < 0 || query.Limit is < 1 or > 500)
+            throw new ArgumentOutOfRangeException(nameof(query), "Place media paging is invalid.");
+
+        var libraries = ValidateAtlas(query.AuthorizedLibraryIds, query.Limit, null, query.Year, query.MediaKind);
+        if (libraries.Length == 0 && !query.IncludeSharedLibraryAssets)
+            return new ViewPlaceAssetDiscoveryPage(string.Empty, [], 0, false);
+
+        var parameters = new DynamicParameters(new
+        {
+            query.PlaceKey,
+            query.Offset,
+            Take = query.Limit + 1,
+            query.Year,
+            MediaKind = string.IsNullOrWhiteSpace(query.MediaKind) ? null : query.MediaKind.Trim().ToLowerInvariant(),
+        });
+        AddLibraries(parameters, libraries);
+        var libraryPredicate = query.IncludeSharedLibraryAssets
+            ? "EXISTS (SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = li.id)"
+            : LibraryPredicate("li", libraries.Length);
+        using var connection = database.CreateConnection();
+        var rows = connection.Query<PlaceAssetRow>(new CommandDefinition($$"""
+            WITH eligible AS (
+                SELECT li.id AS AssetId,
+                       COALESCE(NULLIF(TRIM(lm.location_name), ''),
+                           printf('%.3f, %.3f', ROUND(lm.latitude, 3), ROUND(lm.longitude, 3))) AS PlaceName,
+                       COALESCE(li.captured_at, li.created_at) AS EffectiveAt,
+                       LOWER(COALESCE(NULLIF(TRIM(lm.location_name), ''), 'location')) || '@' ||
+                           printf('%.1f,%.1f', ROUND(lm.latitude, 1), ROUND(lm.longitude, 1)) AS PlaceKey
+                  FROM local_items li
+                  JOIN local_item_metadata lm ON lm.item_id = li.id
+                 WHERE ({{libraryPredicate}})
+                   AND li.hidden = 0 AND li.archived_at IS NULL AND li.trashed_at IS NULL
+                   AND lm.latitude IS NOT NULL AND lm.longitude IS NOT NULL
+                   AND (@Year IS NULL OR CAST(strftime('%Y', COALESCE(li.captured_at, li.created_at)) AS INTEGER) = @Year)
+                   AND (@MediaKind IS NULL OR LOWER(li.media_kind) = @MediaKind)
+            )
+            SELECT AssetId, PlaceName, COUNT(*) OVER () AS TotalCount
+              FROM eligible
+             WHERE PlaceKey = @PlaceKey
+             ORDER BY EffectiveAt DESC, AssetId DESC
+             LIMIT @Take OFFSET @Offset;
+            """, parameters, cancellationToken: ct)).ToList();
+        var total = rows.FirstOrDefault()?.TotalCount ?? 0;
+        var hasMore = rows.Count > query.Limit;
+        if (hasMore) rows.RemoveAt(rows.Count - 1);
+        return new ViewPlaceAssetDiscoveryPage(
+            rows.FirstOrDefault()?.PlaceName ?? string.Empty,
+            rows.Select(row => row.AssetId).ToList(),
+            checked((int)total),
+            hasMore);
     }
 
     public ViewPeopleDiscoveryPage QueryPeople(
@@ -272,6 +448,26 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
         return authorizedLibraryIds.Distinct().ToArray();
     }
 
+    private static Guid[] ValidateAtlas(
+        IReadOnlyCollection<Guid> authorizedLibraryIds,
+        int limit,
+        string? search,
+        int? year,
+        string? mediaKind)
+    {
+        ArgumentNullException.ThrowIfNull(authorizedLibraryIds);
+        if (limit is < 1 or > 2000) throw new ArgumentOutOfRangeException(nameof(limit));
+        if (search?.Length > 200) throw new ArgumentOutOfRangeException(nameof(search));
+        if (year is < 1800 or > 9999) throw new ArgumentOutOfRangeException(nameof(year));
+        var normalizedKind = mediaKind?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(normalizedKind)
+            && normalizedKind is not ("image" or "video"))
+            throw new ArgumentException("Atlas media kind must be image or video.", nameof(mediaKind));
+        if (authorizedLibraryIds.Any(id => id == Guid.Empty))
+            throw new ArgumentException("Authorized library IDs cannot be empty.", nameof(authorizedLibraryIds));
+        return authorizedLibraryIds.Distinct().ToArray();
+    }
+
     private static DynamicParameters Parameters(
         IReadOnlyList<Guid> libraries,
         int limit,
@@ -291,6 +487,12 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
         }
 
         return parameters;
+    }
+
+    private static void AddLibraries(DynamicParameters parameters, IReadOnlyList<Guid> libraries)
+    {
+        for (var index = 0; index < libraries.Count; index++)
+            parameters.Add($"LibraryId{index}", GuidSql.ToBlob(libraries[index]), DbType.Binary);
     }
 
     private static string LibraryPredicate(string alias, int count) =>

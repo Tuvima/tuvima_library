@@ -183,12 +183,13 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("ViewRuleBuilder", galleryEditor, StringComparison.Ordinal);
         Assert.Contains("ViewDiscoveryCapabilityStates", people, StringComparison.Ordinal);
         Assert.Contains("GetViewPeopleAsync", people, StringComparison.Ordinal);
-        Assert.Contains("AppPageStateKind.Empty", places, StringComparison.Ordinal);
-        Assert.Contains("GetViewPlacesAsync", places, StringComparison.Ordinal);
-        Assert.Contains("Coordinate plot of authorized media locations", places, StringComparison.Ordinal);
-        Assert.Contains("Accessible place list", places, StringComparison.Ordinal);
+        Assert.Contains("GetViewAtlasAsync", places, StringComparison.Ordinal);
+        Assert.Contains("World map of authorized photo and video locations", places, StringComparison.Ordinal);
+        Assert.Contains("PLACE STORY", places, StringComparison.Ordinal);
+        Assert.Contains("ViewPhotoTimeline", places, StringComparison.Ordinal);
         Assert.Contains("<ViewImmersiveViewer", places, StringComparison.Ordinal);
-        Assert.Contains("map tiles are disabled until an administrator configures a provider", places, StringComparison.Ordinal);
+        Assert.Contains("ShowUnmappedAsync", places, StringComparison.Ordinal);
+        Assert.Contains("Journey Threads", places, StringComparison.Ordinal);
         Assert.DoesNotContain("fake", galleries, StringComparison.OrdinalIgnoreCase);
     }
 

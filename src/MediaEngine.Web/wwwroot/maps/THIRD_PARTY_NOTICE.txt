@@ -1,0 +1,5 @@
+The bundled world boundary dataset is Natural Earth 1:110m Admin 0 Countries data.
+Natural Earth data is in the public domain. See https://www.naturalearthdata.com/about/terms-of-use/.
+
+MapLibre GL JS is distributed under the BSD 3-Clause License. Its full license is
+stored at ../vendor/maplibre/LICENSE.txt.

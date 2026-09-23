@@ -3438,6 +3438,26 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewAssetTim
   NextCursor: System.String | nullability=nullable | accessors=get,init
   HasMore: System.Boolean | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewAtlasHotspotDto
+  Key: System.String | nullability=not-null | accessors=get,init
+  Name: System.String | nullability=not-null | accessors=get,init
+  Latitude: System.Double | nullability=not-null | accessors=get,init
+  Longitude: System.Double | nullability=not-null | accessors=get,init
+  AssetCount: System.Int32 | nullability=not-null | accessors=get,init
+  ImageCount: System.Int32 | nullability=not-null | accessors=get,init
+  VideoCount: System.Int32 | nullability=not-null | accessors=get,init
+  EarliestAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  LatestAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  RepresentativeLibraryId: System.Guid | nullability=not-null | accessors=get,init
+  RepresentativeAssetId: System.Guid | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewAtlasPageDto
+  Hotspots: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewAtlasHotspotDto> | nullability=not-null | accessors=get,init
+  AvailableYears: System.Collections.Generic.IReadOnlyList<System.Int32> | nullability=not-null | accessors=get,init
+  MappedAssetCount: System.Int32 | nullability=not-null | accessors=get,init
+  UnmappedAssetCount: System.Int32 | nullability=not-null | accessors=get,init
+  Capability: MediaEngine.Contracts.LocalAssets.ViewDiscoveryCapabilityDto | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewDeviceAdminDto
   Id: System.Guid | nullability=not-null | accessors=get,init
   SourceId: System.Guid? | nullability=nullable | accessors=get,init
@@ -3618,6 +3638,13 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPlaceDto
   AssetCount: System.Int32 | nullability=not-null | accessors=get,init
   RepresentativeLibraryId: System.Guid | nullability=not-null | accessors=get,init
   RepresentativeAssetId: System.Guid | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPlaceMediaPageDto
+  PlaceKey: System.String | nullability=not-null | accessors=get,init
+  PlaceName: System.String | nullability=not-null | accessors=get,init
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.LocalAssetDto> | nullability=not-null | accessors=get,init
+  Total: System.Int32 | nullability=not-null | accessors=get,init
+  HasMore: System.Boolean | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPlacesPageDto
   Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewPlaceDto> | nullability=not-null | accessors=get,init

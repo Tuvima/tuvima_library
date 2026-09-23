@@ -22,6 +22,16 @@ public sealed record ViewPeopleResult(
     ViewPeoplePageDto? Page = null,
     ResolvedViewScope? Scope = null);
 
+public sealed record ViewAtlasResult(
+    ViewAccessOutcome Outcome,
+    ViewAtlasPageDto? Page = null,
+    ResolvedViewScope? Scope = null);
+
+public sealed record ViewPlaceMediaResult(
+    ViewAccessOutcome Outcome,
+    ViewPlaceMediaPageDto? Page = null,
+    ResolvedViewScope? Scope = null);
+
 /// <summary>
 /// Applies the trusted View scope before any People or Places storage query.
 /// The repository sees only the physical library IDs produced by authorization.
@@ -29,7 +39,8 @@ public sealed record ViewPeopleResult(
 public sealed class ViewDiscoveryService(
     IViewRequestProfileContext profileContext,
     IViewResourceAuthorizationService authorization,
-    IViewDiscoveryRepository repository)
+    IViewDiscoveryRepository repository,
+    ILocalAssetRepository? assets = null)
 {
     public async Task<ViewPlacesResult> GetPlacesAsync(
         ViewDiscoveryRequest request,
@@ -113,6 +124,74 @@ public sealed class ViewDiscoveryService(
                 ViewDiscoveryCursorCodec.Encode(page.NextCursor),
                 page.HasMore,
                 capability),
+            decision.Scope);
+    }
+
+    public async Task<ViewAtlasResult> GetAtlasAsync(
+        ViewScopeRequest scope,
+        string? search = null,
+        int? year = null,
+        string? mediaKind = null,
+        CancellationToken ct = default)
+    {
+        var decision = await AuthorizeAsync(scope, ct).ConfigureAwait(false);
+        if (!decision.IsAllowed || decision.Scope is null)
+            return new ViewAtlasResult(decision.Outcome);
+
+        var page = repository.QueryAtlas(new ViewAtlasDiscoveryQuery(
+            decision.Scope.LibraryIds,
+            search,
+            year,
+            mediaKind,
+            IncludeSharedLibraryAssets: decision.Scope.Kind == ViewScopeKind.Shared), ct);
+        var hotspots = page.Hotspots.Select(item => new ViewAtlasHotspotDto(
+            item.Key, item.Name, item.Latitude, item.Longitude, item.AssetCount,
+            item.ImageCount, item.VideoCount, item.EarliestAt, item.LatestAt,
+            item.RepresentativeLibraryId, item.RepresentativeAssetId)).ToList();
+        return new ViewAtlasResult(
+            ViewAccessOutcome.Allowed,
+            new ViewAtlasPageDto(
+                hotspots,
+                page.AvailableYears,
+                page.MappedAssetCount,
+                page.UnmappedAssetCount,
+                Capability(page.HasEligibleData, hotspots.Count > 0, search,
+                    "GPS and named location metadata",
+                    "Atlas hotspots appear when active photos or videos contain real GPS metadata.")),
+            decision.Scope);
+    }
+
+    public async Task<ViewPlaceMediaResult> GetPlaceMediaAsync(
+        ViewScopeRequest scope,
+        string placeKey,
+        int offset,
+        int limit,
+        int? year = null,
+        string? mediaKind = null,
+        CancellationToken ct = default)
+    {
+        var decision = await AuthorizeAsync(scope, ct).ConfigureAwait(false);
+        if (!decision.IsAllowed || decision.Scope is null)
+            return new ViewPlaceMediaResult(decision.Outcome);
+        if (assets is null)
+            throw new InvalidOperationException("The asset repository is unavailable.");
+
+        var page = repository.QueryPlaceAssets(new ViewPlaceAssetDiscoveryQuery(
+            decision.Scope.LibraryIds,
+            placeKey,
+            offset,
+            limit,
+            year,
+            mediaKind,
+            decision.Scope.Kind == ViewScopeKind.Shared), ct);
+        var items = page.AssetIds
+            .Select(id => assets.Find(id, ct))
+            .Where(item => item is not null)
+            .Cast<LocalAssetDto>()
+            .ToList();
+        return new ViewPlaceMediaResult(
+            ViewAccessOutcome.Allowed,
+            new ViewPlaceMediaPageDto(placeKey, page.PlaceName, items, page.Total, page.HasMore),
             decision.Scope);
     }
 

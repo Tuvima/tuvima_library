@@ -7,6 +7,10 @@ namespace MediaEngine.Storage.Contracts;
 public interface IViewDiscoveryRepository
 {
     ViewPlaceDiscoveryPage QueryPlaces(ViewPlaceDiscoveryQuery query, CancellationToken ct = default);
+    ViewAtlasDiscoveryPage QueryAtlas(ViewAtlasDiscoveryQuery query, CancellationToken ct = default) =>
+        throw new NotSupportedException("Atlas discovery is not implemented by this repository.");
+    ViewPlaceAssetDiscoveryPage QueryPlaceAssets(ViewPlaceAssetDiscoveryQuery query, CancellationToken ct = default) =>
+        throw new NotSupportedException("Place Story discovery is not implemented by this repository.");
     ViewPeopleDiscoveryPage QueryPeople(ViewPeopleDiscoveryQuery query, CancellationToken ct = default);
 }
 
@@ -24,6 +28,23 @@ public sealed record ViewPeopleDiscoveryQuery(
     ViewDiscoveryCursor? Cursor = null,
     bool IncludeSharedLibraryAssets = false);
 
+public sealed record ViewAtlasDiscoveryQuery(
+    IReadOnlyCollection<Guid> AuthorizedLibraryIds,
+    string? Search = null,
+    int? Year = null,
+    string? MediaKind = null,
+    int Limit = 2000,
+    bool IncludeSharedLibraryAssets = false);
+
+public sealed record ViewPlaceAssetDiscoveryQuery(
+    IReadOnlyCollection<Guid> AuthorizedLibraryIds,
+    string PlaceKey,
+    int Offset = 0,
+    int Limit = 250,
+    int? Year = null,
+    string? MediaKind = null,
+    bool IncludeSharedLibraryAssets = false);
+
 public sealed record ViewDiscoveryCursor(int AssetCount, string Key);
 
 public sealed record ViewPlaceDiscoveryRow(
@@ -32,6 +53,19 @@ public sealed record ViewPlaceDiscoveryRow(
     double Latitude,
     double Longitude,
     int AssetCount,
+    Guid RepresentativeLibraryId,
+    Guid RepresentativeAssetId);
+
+public sealed record ViewAtlasDiscoveryRow(
+    string Key,
+    string Name,
+    double Latitude,
+    double Longitude,
+    int AssetCount,
+    int ImageCount,
+    int VideoCount,
+    DateTimeOffset EarliestAt,
+    DateTimeOffset LatestAt,
     Guid RepresentativeLibraryId,
     Guid RepresentativeAssetId);
 
@@ -50,6 +84,19 @@ public sealed record ViewPlaceDiscoveryPage(
     ViewDiscoveryCursor? NextCursor,
     bool HasMore,
     bool HasEligibleData);
+
+public sealed record ViewAtlasDiscoveryPage(
+    IReadOnlyList<ViewAtlasDiscoveryRow> Hotspots,
+    IReadOnlyList<int> AvailableYears,
+    int MappedAssetCount,
+    int UnmappedAssetCount,
+    bool HasEligibleData);
+
+public sealed record ViewPlaceAssetDiscoveryPage(
+    string PlaceName,
+    IReadOnlyList<Guid> AssetIds,
+    int Total,
+    bool HasMore);
 
 public sealed record ViewPeopleDiscoveryPage(
     IReadOnlyList<ViewPersonDiscoveryRow> Items,

@@ -44,6 +44,60 @@ public static class ViewDiscoveryEndpoints
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapGet("/places/atlas", async (
+            string? scope,
+            Guid? scopeProfileId,
+            string? q,
+            int? year,
+            string? kind,
+            ViewDiscoveryService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return ToResult(await service.GetAtlasAsync(
+                    ParseScope(scope, scopeProfileId), q, year, kind, ct).ConfigureAwait(false));
+            }
+            catch (ArgumentException exception)
+            {
+                return ApiErrors.BadRequest(exception.Message);
+            }
+        })
+        .WithName("GetViewAtlas")
+        .WithSummary("Returns authorization-scoped world hotspots and Atlas time facets.")
+        .Produces<ViewAtlasPageDto>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapGet("/places/media", async (
+            string placeKey,
+            string? scope,
+            Guid? scopeProfileId,
+            int? offset,
+            int? limit,
+            int? year,
+            string? kind,
+            ViewDiscoveryService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var page = PagedRequest.From(offset, limit, defaultLimit: 250, maxLimit: 500);
+                return ToResult(await service.GetPlaceMediaAsync(
+                    ParseScope(scope, scopeProfileId), placeKey, page.Offset, page.Limit,
+                    year, kind, ct).ConfigureAwait(false));
+            }
+            catch (ArgumentException exception)
+            {
+                return ApiErrors.BadRequest(exception.Message);
+            }
+        })
+        .WithName("GetViewPlaceMedia")
+        .WithSummary("Returns date-ordered media for one authorized Atlas hotspot.")
+        .Produces<ViewPlaceMediaPageDto>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         group.MapGet("/people", async (
             string? scope,
             Guid? scopeProfileId,
@@ -110,6 +164,22 @@ public static class ViewDiscoveryEndpoints
     };
 
     private static IResult ToResult(ViewPeopleResult result) => result.Outcome switch
+    {
+        ViewAccessOutcome.Allowed when result.Page is not null => Results.Ok(result.Page),
+        ViewAccessOutcome.Unauthenticated => Results.Unauthorized(),
+        ViewAccessOutcome.Forbidden => ApiErrors.Forbidden("View access is not permitted."),
+        _ => ApiErrors.NotFound("The requested View scope was not found."),
+    };
+
+    private static IResult ToResult(ViewAtlasResult result) => result.Outcome switch
+    {
+        ViewAccessOutcome.Allowed when result.Page is not null => Results.Ok(result.Page),
+        ViewAccessOutcome.Unauthenticated => Results.Unauthorized(),
+        ViewAccessOutcome.Forbidden => ApiErrors.Forbidden("View access is not permitted."),
+        _ => ApiErrors.NotFound("The requested View scope was not found."),
+    };
+
+    private static IResult ToResult(ViewPlaceMediaResult result) => result.Outcome switch
     {
         ViewAccessOutcome.Allowed when result.Page is not null => Results.Ok(result.Page),
         ViewAccessOutcome.Unauthenticated => Results.Unauthorized(),

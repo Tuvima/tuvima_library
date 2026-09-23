@@ -67,6 +67,23 @@ public sealed class ViewDiscoveryServiceTests
         Assert.Contains("not currently available", result.Page.Capability.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task AtlasUsesOnlyTheLibrariesResolvedForTheAuthorizedScope()
+    {
+        var caller = State(access: false, include: false);
+        var other = State(access: false, include: false);
+        var repository = new CapturingRepository();
+        var service = Service(repository, caller, caller, other);
+
+        var result = await service.GetAtlasAsync(ViewScopeRequest.Mine, year: 2025, mediaKind: "image");
+
+        Assert.Equal(ViewAccessOutcome.Allowed, result.Outcome);
+        Assert.Equal([caller.PersonalSpace!.LibraryId], repository.AtlasQuery!.AuthorizedLibraryIds);
+        Assert.DoesNotContain(other.PersonalSpace!.LibraryId, repository.AtlasQuery.AuthorizedLibraryIds);
+        Assert.Equal(2025, repository.AtlasQuery.Year);
+        Assert.Equal("image", repository.AtlasQuery.MediaKind);
+    }
+
     [Theory]
     [InlineData("mine", null, ViewScopeKind.Mine)]
     [InlineData("shared", null, ViewScopeKind.Shared)]
@@ -106,6 +123,7 @@ public sealed class ViewDiscoveryServiceTests
     {
         public ViewPlaceDiscoveryQuery? PlaceQuery { get; private set; }
         public ViewPeopleDiscoveryQuery? PeopleQuery { get; private set; }
+        public ViewAtlasDiscoveryQuery? AtlasQuery { get; private set; }
         public ViewPlaceDiscoveryPage PlacePage { get; init; } = new([], null, false, false);
         public ViewPeopleDiscoveryPage PeoplePage { get; init; } = new([], null, false, false);
 
@@ -119,6 +137,12 @@ public sealed class ViewDiscoveryServiceTests
         {
             PeopleQuery = query;
             return PeoplePage;
+        }
+
+        public ViewAtlasDiscoveryPage QueryAtlas(ViewAtlasDiscoveryQuery query, CancellationToken ct = default)
+        {
+            AtlasQuery = query;
+            return new([], [], 0, 0, false);
         }
     }
 

@@ -116,6 +116,26 @@ public sealed partial class EngineApiClient
     public Task<ViewPlacesPageDto?> GetViewPlacesAsync(ViewDiscoveryQueryOptions options, CancellationToken ct = default) =>
         GetViewDiscoveryAsync<ViewPlacesPageDto>("places", options, ct);
 
+    public Task<ViewAtlasPageDto?> GetViewAtlasAsync(ViewAtlasQueryOptions options, CancellationToken ct = default) =>
+        GetAsync<ViewAtlasPageDto>("GET /view/places/atlas", "/view/places/atlas", AtlasQuery(options), ct: ct);
+
+    public Task<ViewPlaceMediaPageDto?> GetViewPlaceMediaAsync(
+        string placeKey,
+        ViewAtlasQueryOptions options,
+        int offset = 0,
+        int limit = 250,
+        CancellationToken ct = default) =>
+        GetAsync<ViewPlaceMediaPageDto>(
+            "GET /view/places/media",
+            "/view/places/media",
+            new Dictionary<string, string?>(AtlasQuery(options))
+            {
+                ["placeKey"] = placeKey,
+                ["offset"] = Math.Max(0, offset).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["limit"] = Math.Clamp(limit, 1, 500).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            },
+            ct: ct);
+
     public async Task<IReadOnlyList<string>> GetViewTagSuggestionsAsync(string? search = null, int limit = 20, CancellationToken ct = default) =>
         await GetAsync<List<string>>("GET /view/tag-suggestions", "/view/tag-suggestions", new Dictionary<string, string?>
         {
@@ -313,6 +333,14 @@ public sealed partial class EngineApiClient
         AddQuery(query, "limit", Math.Clamp(options.Limit, 1, 100).ToString(System.Globalization.CultureInfo.InvariantCulture));
         return GetAsync<T>($"GET /view/{resource}", $"/view/{resource}?{string.Join('&', query)}", ct: ct);
     }
+    private static Dictionary<string, string?> AtlasQuery(ViewAtlasQueryOptions options) => new()
+    {
+        ["scope"] = ScopeValue(options.Scope),
+        ["scopeProfileId"] = options.Scope == ViewScopeKind.Profile ? options.ScopeProfileId?.ToString("D") : null,
+        ["q"] = options.Search?.Trim(),
+        ["year"] = options.Year?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        ["kind"] = options.MediaKind,
+    };
     private static string ScopeValue(ViewScopeKind scope) => scope.ToString().ToLowerInvariant();
 
     private static async Task<string> ReadViewErrorAsync(HttpResponseMessage response, CancellationToken ct)

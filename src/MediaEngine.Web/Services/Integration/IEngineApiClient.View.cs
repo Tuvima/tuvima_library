@@ -17,6 +17,8 @@ public partial interface IEngineApiClient
     Task<bool> SetViewFolderTimelinePolicyAsync(ViewFolderTimelinePolicyRequest request, CancellationToken ct = default);
     Task<ViewPeoplePageDto?> GetViewPeopleAsync(ViewDiscoveryQueryOptions options, CancellationToken ct = default);
     Task<ViewPlacesPageDto?> GetViewPlacesAsync(ViewDiscoveryQueryOptions options, CancellationToken ct = default);
+    Task<ViewAtlasPageDto?> GetViewAtlasAsync(ViewAtlasQueryOptions options, CancellationToken ct = default);
+    Task<ViewPlaceMediaPageDto?> GetViewPlaceMediaAsync(string placeKey, ViewAtlasQueryOptions options, int offset = 0, int limit = 250, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetViewTagSuggestionsAsync(string? search = null, int limit = 20, CancellationToken ct = default);
     Task<ViewUploadResult> UploadViewMediaAsync(Stream fileStream, string fileName, string? contentType = null, CancellationToken ct = default);
     Task<bool> SetViewItemFavoriteAsync(Guid itemId, bool value, CancellationToken ct = default);
@@ -75,6 +77,13 @@ public sealed record ViewDiscoveryQueryOptions(
     string? Search = null,
     string? Cursor = null,
     int Limit = 100);
+
+public sealed record ViewAtlasQueryOptions(
+    ViewScopeKind Scope = ViewScopeKind.Shared,
+    Guid? ScopeProfileId = null,
+    string? Search = null,
+    int? Year = null,
+    string? MediaKind = null);
 
 public sealed record ViewFolderQueryOptions(
     ViewScopeKind Scope = ViewScopeKind.Shared,

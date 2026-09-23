@@ -100,6 +100,36 @@ public sealed class ViewDiscoveryRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task Atlas_ReturnsTruthfulFacetsAndDateOrderedPlaceStoryMedia()
+    {
+        var owner = await CreateOwnership();
+        var privateOwner = await CreateOwnership();
+        var newest = await AddAsset(owner, "Recent Chicago", 41.8781, -87.6298, "Chicago", new DateTimeOffset(2025, 8, 2, 12, 0, 0, TimeSpan.Zero));
+        var older = await AddAsset(owner, "Older Chicago", 41.8784, -87.6301, "Chicago", new DateTimeOffset(2022, 5, 1, 12, 0, 0, TimeSpan.Zero), LocalAssetMediaKinds.Video);
+        await AddAsset(owner, "Unmapped", null, null, null, new DateTimeOffset(2025, 1, 1, 12, 0, 0, TimeSpan.Zero));
+        await AddAsset(privateOwner, "Private London", 51.5072, -.1276, "London", new DateTimeOffset(2025, 2, 1, 12, 0, 0, TimeSpan.Zero));
+
+        var atlas = _discovery.QueryAtlas(new ViewAtlasDiscoveryQuery([owner.LibraryId]));
+
+        var hotspot = Assert.Single(atlas.Hotspots);
+        Assert.Equal(2, hotspot.AssetCount);
+        Assert.Equal(1, hotspot.ImageCount);
+        Assert.Equal(1, hotspot.VideoCount);
+        Assert.Equal(2, atlas.MappedAssetCount);
+        Assert.Equal(1, atlas.UnmappedAssetCount);
+        Assert.Equal([2025, 2022], atlas.AvailableYears);
+
+        var filtered = _discovery.QueryAtlas(new ViewAtlasDiscoveryQuery([owner.LibraryId], Year: 2025));
+        Assert.Equal(1, Assert.Single(filtered.Hotspots).AssetCount);
+
+        var story = _discovery.QueryPlaceAssets(new ViewPlaceAssetDiscoveryQuery(
+            [owner.LibraryId], hotspot.Key));
+        Assert.Equal([newest, older], story.AssetIds);
+        Assert.Equal(2, story.Total);
+        Assert.False(story.HasMore);
+    }
+
+    [Fact]
     public void Schema_HasDiscoveryScopeAndEvidenceIndexes()
     {
         using var connection = _database.CreateConnection();
@@ -143,16 +173,18 @@ public sealed class ViewDiscoveryRepositoryTests : IDisposable
         string title,
         double? latitude,
         double? longitude,
-        string? locationName)
+        string? locationName,
+        DateTimeOffset? capturedAt = null,
+        string mediaKind = LocalAssetMediaKinds.Image)
     {
         var hashCharacter = _hash++;
         var result = await _assets.UpsertAsync(new LocalAssetRegistration(
             owner.LibraryId,
             owner.SpaceId,
             owner.ProfileId,
-            LocalAssetMediaKinds.Image,
+            mediaKind,
             title,
-            DateTimeOffset.UtcNow.AddMinutes(-_hash),
+            capturedAt ?? DateTimeOffset.UtcNow.AddMinutes(-_hash),
             [new LocalAssetFileRegistration(
                 $@"C:\personal\{title}.jpg",
                 new string(hashCharacter, 64),
