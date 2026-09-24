@@ -33,8 +33,12 @@ public sealed record ViewAtlasDiscoveryQuery(
     string? Search = null,
     int? Year = null,
     string? MediaKind = null,
-    int Limit = 2000,
-    bool IncludeSharedLibraryAssets = false);
+    int Limit = 50000,
+    bool IncludeSharedLibraryAssets = false,
+    DateTimeOffset? From = null,
+    DateTimeOffset? To = null,
+    string TimelineResolution = "year",
+    bool FavoritesOnly = false);
 
 public sealed record ViewPlaceAssetDiscoveryQuery(
     IReadOnlyCollection<Guid> AuthorizedLibraryIds,
@@ -43,7 +47,10 @@ public sealed record ViewPlaceAssetDiscoveryQuery(
     int Limit = 250,
     int? Year = null,
     string? MediaKind = null,
-    bool IncludeSharedLibraryAssets = false);
+    bool IncludeSharedLibraryAssets = false,
+    DateTimeOffset? From = null,
+    DateTimeOffset? To = null,
+    bool FavoritesOnly = false);
 
 public sealed record ViewDiscoveryCursor(int AssetCount, string Key);
 
@@ -69,6 +76,12 @@ public sealed record ViewAtlasDiscoveryRow(
     Guid RepresentativeLibraryId,
     Guid RepresentativeAssetId);
 
+public sealed record ViewAtlasTimelineBucketRow(
+    DateTimeOffset Start,
+    int AssetCount,
+    int ImageCount,
+    int VideoCount);
+
 public sealed record ViewPersonDiscoveryRow(
     string Key,
     string DisplayName,
@@ -90,7 +103,10 @@ public sealed record ViewAtlasDiscoveryPage(
     IReadOnlyList<int> AvailableYears,
     int MappedAssetCount,
     int UnmappedAssetCount,
-    bool HasEligibleData);
+    bool HasEligibleData,
+    IReadOnlyList<ViewAtlasTimelineBucketRow>? Timeline = null,
+    DateTimeOffset? EarliestAt = null,
+    DateTimeOffset? LatestAt = null);
 
 public sealed record ViewPlaceAssetDiscoveryPage(
     string PlaceName,

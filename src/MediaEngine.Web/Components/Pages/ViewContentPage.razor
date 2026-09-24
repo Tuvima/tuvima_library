@@ -1,6 +1,8 @@
 @namespace MediaEngine.Web.Components.Pages
 
 <div class="@CssClass">
+    @if (ShowHeader)
+    {
     <header class="view-content-page__header">
         <div class="view-content-page__identity">
             <span class="view-content-page__eyebrow">@Eyebrow</span>
@@ -17,6 +19,7 @@
             </div>
         }
     </header>
+    }
 
     @ChildContent
 </div>
@@ -26,6 +29,7 @@
     [Parameter] public string Eyebrow { get; set; } = "View";
     [Parameter] public string? Subtitle { get; set; }
     [Parameter] public string? Class { get; set; }
+    [Parameter] public bool ShowHeader { get; set; } = true;
     [Parameter] public RenderFragment? HeaderActions { get; set; }
     [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
 

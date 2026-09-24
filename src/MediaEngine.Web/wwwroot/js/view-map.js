@@ -70,6 +70,36 @@ function clearMarkers(state) {
   state.markers = [];
 }
 
+function collapseAttribution(container) {
+  const attribution = container.querySelector('details.maplibregl-ctrl-attrib');
+  if (!attribution) return;
+  attribution.classList.remove('maplibregl-compact-show');
+  attribution.removeAttribute('open');
+}
+
+function atlasLabelMinZoom(layer) {
+  const identity = `${layer.id ?? ''} ${layer['source-layer'] ?? ''}`.toLowerCase();
+  if (/(continent|ocean|sea-label|marine-label)/.test(identity)) return 0;
+  if (/(country|admin-0|admin_0)/.test(identity)) return 2;
+  if (/(state|province|admin-1|admin_1)/.test(identity)) return 4;
+  if (/(capital|city)/.test(identity)) return 5;
+  if (/(town|village|locality|settlement|place)/.test(identity)) return 7;
+  if (/(motorway|trunk|primary|road-label|road_label|highway|route-shield)/.test(identity)) return 9;
+  if (/(road|street|rail|transit|airport)/.test(identity)) return 11;
+  if (/(poi|point-of-interest|address|housenumber|building)/.test(identity)) return 13;
+  return 8;
+}
+
+function applyAtlasLabelPolicy(map) {
+  const layers = map.getStyle()?.layers ?? [];
+  for (const layer of layers) {
+    if (layer.type !== 'symbol') continue;
+    const minimum = Math.max(Number(layer.minzoom ?? 0), atlasLabelMinZoom(layer));
+    const maximum = Number(layer.maxzoom ?? 24);
+    try { map.setLayerZoomRange(layer.id, minimum, maximum); } catch { }
+  }
+}
+
 function renderHotspots(state) {
   if (state.mode !== 'atlas' || !state.map || !state.map.isStyleLoaded()) return;
   clearMarkers(state);
@@ -118,7 +148,8 @@ function renderHotspots(state) {
       event.stopPropagation();
       if (group.items.length === 1) {
         state.dotnet.invokeMethodAsync('SelectHotspot', group.items[0].key);
-        state.map.easeTo({ center: [longitude, latitude], zoom: Math.max(state.map.getZoom(), 8), duration: reducedMotion() ? 0 : 650 });
+        const detailZoom = state.detailedStyle ? 8 : 4.25;
+        state.map.easeTo({ center: [longitude, latitude], zoom: Math.max(state.map.getZoom(), detailZoom), duration: reducedMotion() ? 0 : 650 });
         return;
       }
       const bounds = new maplibregl.LngLatBounds();
@@ -126,7 +157,7 @@ function renderHotspots(state) {
       if (bounds.getNorthEast().equals(bounds.getSouthWest()))
         state.map.easeTo({ center: [longitude, latitude], zoom: Math.min(14, zoom + 2), duration: reducedMotion() ? 0 : 650 });
       else
-        state.map.fitBounds(bounds, { padding: 92, maxZoom: 10, duration: reducedMotion() ? 0 : 700 });
+        state.map.fitBounds(bounds, { padding: 92, maxZoom: state.detailedStyle ? 10 : 4.25, duration: reducedMotion() ? 0 : 700 });
     });
     state.markers.push(new maplibregl.Marker({ element, anchor: 'center' }).setLngLat([longitude, latitude]).addTo(state.map));
   }
@@ -192,6 +223,10 @@ export async function initialize(container, dotnet, options) {
       minZoom: mode === 'atlas' ? 0 : 1,
       maxZoom: 18,
       renderWorldCopies: false,
+      pitch: 0,
+      bearing: 0,
+      dragRotate: false,
+      pitchWithRotate: false,
       attributionControl: false,
       dragPan: options.interactive !== false,
       scrollZoom: mode === 'atlas' && options.interactive !== false,
@@ -199,13 +234,16 @@ export async function initialize(container, dotnet, options) {
       touchZoomRotate: options.interactive !== false
     });
     state.map = map;
+    map.touchZoomRotate?.disableRotation();
     state.resizeObserver = new ResizeObserver(() => map.resize());
     state.resizeObserver.observe(container);
     map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: styleSelection.attribution }), 'bottom-right');
+    window.requestAnimationFrame(() => collapseAttribution(container));
     if (options.showNavigation !== false) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
     map.on('load', () => {
       if (mode === 'atlas') {
-        try { map.setProjection({ type: 'globe' }); } catch { }
+        try { map.setProjection({ type: 'mercator' }); } catch { }
+        applyAtlasLabelPolicy(map);
         map.addSource('atlas-journey', { type: 'geojson', data: journeyGeoJson(state.journeyEnabled ? state.hotspots : []) });
         map.addLayer({ id: 'atlas-journey-glow', type: 'line', source: 'atlas-journey', paint: { 'line-color': '#7c3aed', 'line-width': 8, 'line-opacity': .16, 'line-blur': 6 } });
         map.addLayer({ id: 'atlas-journey', type: 'line', source: 'atlas-journey', paint: { 'line-color': '#c4b5fd', 'line-width': 2, 'line-opacity': .72, 'line-dasharray': [2, 2] } });
@@ -241,10 +279,12 @@ export async function initialize(container, dotnet, options) {
         state.fallbackApplied = true;
         state.detailedStyle = false;
         map.setStyle(baseStyle());
+        if (mode === 'atlas') map.once('style.load', () => applyAtlasLabelPolicy(map));
         if (mode !== 'atlas') map.jumpTo({ zoom: Math.min(requestedZoom, 4.25) });
       }
     });
   } catch (error) {
+    console.error('Tuvima map initialization failed', error);
     state.dotnet.invokeMethodAsync('MapFailed', error?.message ?? 'The map could not be initialized.');
   }
 }
@@ -271,7 +311,7 @@ export function updateLocation(container, latitude, longitude) {
 
 export function resetWorld(container) {
   const state = states.get(container);
-  state?.map?.easeTo({ center: atlasWorldCenter(state.hotspots), zoom: 0.8, duration: reducedMotion() ? 0 : 700 });
+  state?.map?.easeTo({ center: [0, 18], zoom: 0.8, pitch: 0, bearing: 0, duration: reducedMotion() ? 0 : 700 });
 }
 
 export function fitHotspots(container) {
@@ -279,7 +319,13 @@ export function fitHotspots(container) {
   if (!state?.map || state.hotspots.length === 0) return;
   const bounds = new maplibregl.LngLatBounds();
   for (const item of state.hotspots) bounds.extend([item.longitude, item.latitude]);
-  state.map.fitBounds(bounds, { padding: 110, maxZoom: 9, duration: reducedMotion() ? 0 : 700 });
+  state.map.fitBounds(bounds, { padding: 110, maxZoom: state.detailedStyle ? 9 : 4.25, duration: reducedMotion() ? 0 : 700 });
+}
+
+export function zoomBy(container, delta) {
+  const state = states.get(container);
+  if (!state?.map) return;
+  state.map.easeTo({ zoom: Math.max(state.map.getMinZoom(), Math.min(state.map.getMaxZoom(), state.map.getZoom() + Number(delta ?? 0))), duration: reducedMotion() ? 0 : 260 });
 }
 
 export function resize(container) {

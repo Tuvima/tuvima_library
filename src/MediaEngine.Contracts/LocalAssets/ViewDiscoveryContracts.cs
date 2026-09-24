@@ -47,12 +47,21 @@ public sealed record ViewAtlasHotspotDto(
     [property: JsonPropertyName("representative_library_id")] Guid RepresentativeLibraryId,
     [property: JsonPropertyName("representative_asset_id")] Guid RepresentativeAssetId);
 
+public sealed record ViewAtlasTimelineBucketDto(
+    [property: JsonPropertyName("start")] DateTimeOffset Start,
+    [property: JsonPropertyName("asset_count")] int AssetCount,
+    [property: JsonPropertyName("image_count")] int ImageCount,
+    [property: JsonPropertyName("video_count")] int VideoCount);
+
 public sealed record ViewAtlasPageDto(
     [property: JsonPropertyName("hotspots")] IReadOnlyList<ViewAtlasHotspotDto> Hotspots,
     [property: JsonPropertyName("available_years")] IReadOnlyList<int> AvailableYears,
     [property: JsonPropertyName("mapped_asset_count")] int MappedAssetCount,
     [property: JsonPropertyName("unmapped_asset_count")] int UnmappedAssetCount,
-    [property: JsonPropertyName("capability")] ViewDiscoveryCapabilityDto Capability);
+    [property: JsonPropertyName("capability")] ViewDiscoveryCapabilityDto Capability,
+    [property: JsonPropertyName("timeline")] IReadOnlyList<ViewAtlasTimelineBucketDto>? Timeline = null,
+    [property: JsonPropertyName("earliest_at")] DateTimeOffset? EarliestAt = null,
+    [property: JsonPropertyName("latest_at")] DateTimeOffset? LatestAt = null);
 
 public sealed record ViewPlaceMediaPageDto(
     [property: JsonPropertyName("place_key")] string PlaceKey,

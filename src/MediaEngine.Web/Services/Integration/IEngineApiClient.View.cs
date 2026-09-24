@@ -83,7 +83,11 @@ public sealed record ViewAtlasQueryOptions(
     Guid? ScopeProfileId = null,
     string? Search = null,
     int? Year = null,
-    string? MediaKind = null);
+    string? MediaKind = null,
+    DateTimeOffset? From = null,
+    DateTimeOffset? To = null,
+    string TimelineResolution = "year",
+    bool FavoritesOnly = false);
 
 public sealed record ViewFolderQueryOptions(
     ViewScopeKind Scope = ViewScopeKind.Shared,

@@ -118,9 +118,22 @@ public sealed class ViewDiscoveryRepositoryTests : IDisposable
         Assert.Equal(2, atlas.MappedAssetCount);
         Assert.Equal(1, atlas.UnmappedAssetCount);
         Assert.Equal([2025, 2022], atlas.AvailableYears);
+        Assert.Equal(2, atlas.Timeline?.Count);
+        Assert.Equal(2, atlas.Timeline?.Sum(bucket => bucket.AssetCount));
 
         var filtered = _discovery.QueryAtlas(new ViewAtlasDiscoveryQuery([owner.LibraryId], Year: 2025));
         Assert.Equal(1, Assert.Single(filtered.Hotspots).AssetCount);
+
+        var ranged = _discovery.QueryAtlas(new ViewAtlasDiscoveryQuery(
+            [owner.LibraryId], From: new DateTimeOffset(2022, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            To: new DateTimeOffset(2022, 12, 31, 23, 59, 59, TimeSpan.Zero)));
+        Assert.Equal(1, Assert.Single(ranged.Hotspots).AssetCount);
+        Assert.Equal(2, ranged.Timeline?.Sum(bucket => bucket.AssetCount));
+
+        Assert.True(await _assets.SetFlagsAsync(older, favorite: true, hidden: null));
+        var favorites = _discovery.QueryAtlas(new ViewAtlasDiscoveryQuery([owner.LibraryId], FavoritesOnly: true));
+        Assert.Equal(1, Assert.Single(favorites.Hotspots).AssetCount);
+        Assert.Equal(1, favorites.Timeline?.Sum(bucket => bucket.AssetCount));
 
         var story = _discovery.QueryPlaceAssets(new ViewPlaceAssetDiscoveryQuery(
             [owner.LibraryId], hotspot.Key));
@@ -140,6 +153,7 @@ public sealed class ViewDiscoveryRepositoryTests : IDisposable
             """).ToHashSet(StringComparer.Ordinal);
         Assert.Contains("ix_local_items_active_discovery", indexes);
         Assert.Contains("ix_local_item_annotations_people", indexes);
+        Assert.True(connection.QuerySingle<bool>("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'ix_local_items_library_atlas_timeline');"));
 
         var plan = connection.Query<QueryPlanRow>("""
             EXPLAIN QUERY PLAN

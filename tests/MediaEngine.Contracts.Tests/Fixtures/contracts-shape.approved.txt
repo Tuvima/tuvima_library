@@ -3457,6 +3457,15 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewAtlasPag
   MappedAssetCount: System.Int32 | nullability=not-null | accessors=get,init
   UnmappedAssetCount: System.Int32 | nullability=not-null | accessors=get,init
   Capability: MediaEngine.Contracts.LocalAssets.ViewDiscoveryCapabilityDto | nullability=not-null | accessors=get,init
+  Timeline: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewAtlasTimelineBucketDto> | nullability=nullable | accessors=get,init
+  EarliestAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  LatestAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewAtlasTimelineBucketDto
+  Start: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  AssetCount: System.Int32 | nullability=not-null | accessors=get,init
+  ImageCount: System.Int32 | nullability=not-null | accessors=get,init
+  VideoCount: System.Int32 | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewDeviceAdminDto
   Id: System.Guid | nullability=not-null | accessors=get,init

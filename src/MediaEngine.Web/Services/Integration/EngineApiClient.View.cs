@@ -340,6 +340,10 @@ public sealed partial class EngineApiClient
         ["q"] = options.Search?.Trim(),
         ["year"] = options.Year?.ToString(System.Globalization.CultureInfo.InvariantCulture),
         ["kind"] = options.MediaKind,
+        ["from"] = options.From?.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+        ["to"] = options.To?.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+        ["resolution"] = options.TimelineResolution,
+        ["favorites"] = options.FavoritesOnly ? "true" : null,
     };
     private static string ScopeValue(ViewScopeKind scope) => scope.ToString().ToLowerInvariant();
 

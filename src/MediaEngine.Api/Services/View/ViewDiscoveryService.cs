@@ -132,6 +132,10 @@ public sealed class ViewDiscoveryService(
         string? search = null,
         int? year = null,
         string? mediaKind = null,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null,
+        string? timelineResolution = null,
+        bool favoritesOnly = false,
         CancellationToken ct = default)
     {
         var decision = await AuthorizeAsync(scope, ct).ConfigureAwait(false);
@@ -143,7 +147,11 @@ public sealed class ViewDiscoveryService(
             search,
             year,
             mediaKind,
-            IncludeSharedLibraryAssets: decision.Scope.Kind == ViewScopeKind.Shared), ct);
+            IncludeSharedLibraryAssets: decision.Scope.Kind == ViewScopeKind.Shared,
+            From: from,
+            To: to,
+            TimelineResolution: timelineResolution ?? "year",
+            FavoritesOnly: favoritesOnly), ct);
         var hotspots = page.Hotspots.Select(item => new ViewAtlasHotspotDto(
             item.Key, item.Name, item.Latitude, item.Longitude, item.AssetCount,
             item.ImageCount, item.VideoCount, item.EarliestAt, item.LatestAt,
@@ -157,7 +165,11 @@ public sealed class ViewDiscoveryService(
                 page.UnmappedAssetCount,
                 Capability(page.HasEligibleData, hotspots.Count > 0, search,
                     "GPS and named location metadata",
-                    "Atlas hotspots appear when active photos or videos contain real GPS metadata.")),
+                    "Atlas hotspots appear when active photos or videos contain real GPS metadata."),
+                page.Timeline?.Select(bucket => new ViewAtlasTimelineBucketDto(
+                    bucket.Start, bucket.AssetCount, bucket.ImageCount, bucket.VideoCount)).ToList(),
+                page.EarliestAt,
+                page.LatestAt),
             decision.Scope);
     }
 
@@ -168,6 +180,9 @@ public sealed class ViewDiscoveryService(
         int limit,
         int? year = null,
         string? mediaKind = null,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null,
+        bool favoritesOnly = false,
         CancellationToken ct = default)
     {
         var decision = await AuthorizeAsync(scope, ct).ConfigureAwait(false);
@@ -183,7 +198,10 @@ public sealed class ViewDiscoveryService(
             limit,
             year,
             mediaKind,
-            decision.Scope.Kind == ViewScopeKind.Shared), ct);
+            decision.Scope.Kind == ViewScopeKind.Shared,
+            from,
+            to,
+            favoritesOnly), ct);
         var items = page.AssetIds
             .Select(id => assets.Find(id, ct))
             .Where(item => item is not null)

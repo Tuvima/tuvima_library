@@ -10,13 +10,7 @@
 
 <PageTitle>Places - Tuvima Library</PageTitle>
 <ViewSectionShell>
-<ViewContentPage Title="Places" Subtitle="Explore the world through the places captured in your library." Class="view-atlas-page">
-<HeaderActions>
-    @if (!_initializing && Workspace.Scopes is not null)
-    {
-        <label><span>Scope</span><AppNativeSelect Value="@SelectedScopeValue" OnChange="ScopeChangedAsync" aria-label="Authorized Places scope">@foreach (var scope in Workspace.Scopes.AvailableScopes) { <option value="@ScopeValue(scope.Kind, scope.ProfileId)">@scope.Label</option> }</AppNativeSelect></label>
-    }
-</HeaderActions>
+<ViewContentPage Title="Places" Class="view-atlas-page" ShowHeader="false">
 <ChildContent>
 @if (_initializing || _loading)
 {
@@ -31,45 +25,42 @@ else
     <section class="view-atlas" aria-label="Tuvima Atlas">
         <div class="view-atlas__map-shell">
             <ViewMap @ref="_map" Mode="atlas" Class="view-atlas__map" AriaLabel="World map of authorized photo and video locations"
-                     Hotspots="@_atlas.Hotspots" ThumbnailUrl="HotspotThumbnail" JourneyEnabled="@_journey" OnHotspotSelected="SelectHotspotAsync" />
+                     Hotspots="@_atlas.Hotspots" ThumbnailUrl="HotspotThumbnail" JourneyEnabled="@_journey" ShowNavigation="false" OnHotspotSelected="SelectHotspotAsync" />
             <div class="view-atlas__toolbar" aria-label="Atlas filters">
-                <label class="view-atlas__search"><MudIcon Icon="@Icons.Material.Outlined.Search" /><AppNativeInput Type="search" Value="@_search" ValueChanged="SearchChangedAsync" Placeholder="Search places" AriaLabel="Search places" /></label>
-                <AppNativeSelect Value="@YearValue" OnChange="YearChangedAsync" aria-label="Filter Atlas by year"><option value="">All time</option>@foreach (var year in _atlas.AvailableYears) { <option value="@year">@year</option> }</AppNativeSelect>
+                <label class="view-atlas__search"><MudIcon Icon="@Icons.Material.Outlined.Search" /><AppNativeInput Type="search" Value="@_search" ValueChanged="SearchChangedAsync" Placeholder="Search places, cities, or regions…" AriaLabel="Search places, cities, or regions" /></label>
+                <AppNativeSelect Value="@TimePresetValue" OnChange="TimePresetChangedAsync" aria-label="Filter Atlas by time"><option value="">All time</option>@foreach (var year in _atlas.AvailableYears) { <option value="@year">@year</option> }</AppNativeSelect>
                 <div class="view-atlas__types" role="group" aria-label="Media type"><AppNativeButton Type="button" Class="@TypeClass(null)" OnClick="@(_ => SetMediaKindAsync(null))">All</AppNativeButton><AppNativeButton Type="button" Class="@TypeClass("image")" OnClick="@(_ => SetMediaKindAsync("image"))">Photos</AppNativeButton><AppNativeButton Type="button" Class="@TypeClass("video")" OnClick="@(_ => SetMediaKindAsync("video"))">Videos</AppNativeButton></div>
+                <AppNativeButton Type="button" Class="@($"view-atlas__filters-button{(_filtersOpen || _favoritesOnly ? " is-active" : string.Empty)}")" aria-expanded="@_filtersOpen" OnClick="@(_ => _filtersOpen = !_filtersOpen)"><MudIcon Icon="@Icons.Material.Outlined.Tune" />Filters</AppNativeButton>
             </div>
+            @if (_filtersOpen)
+            {
+                <section class="view-atlas__filter-sheet" aria-label="Places filters">
+                    @if (Workspace.Scopes is not null)
+                    {
+                        <label><span>Library scope</span><AppNativeSelect Value="@SelectedScopeValue" OnChange="ScopeChangedAsync" aria-label="Authorized Places scope">@foreach (var scope in Workspace.Scopes.AvailableScopes) { <option value="@ScopeValue(scope.Kind, scope.ProfileId)">@scope.Label</option> }</AppNativeSelect></label>
+                    }
+                    <div class="view-atlas__check"><AppCheckbox Value="@_favoritesOnly" ValueChanged="FavoritesChangedAsync" Label="Favorites only" /><small>Show mapped media marked as a favorite.</small></div>
+                    @if (_favoritesOnly) { <AppNativeButton Type="button" Class="view-atlas__clear-filter" OnClick="@(_ => ClearAdvancedFiltersAsync())">Clear filters</AppNativeButton> }
+                </section>
+            }
             <div class="view-atlas__compass" role="toolbar" aria-label="Memory Compass">
+                <AppIconButton Icon="@Icons.Material.Outlined.Add" Tooltip="Zoom in" AriaLabel="Zoom in" OnClick="ZoomInAsync" />
+                <AppIconButton Icon="@Icons.Material.Outlined.Remove" Tooltip="Zoom out" AriaLabel="Zoom out" OnClick="ZoomOutAsync" />
                 <AppIconButton Icon="@Icons.Material.Outlined.Public" Tooltip="World" AriaLabel="Show the world" OnClick="ResetWorldAsync" />
                 <AppIconButton Icon="@Icons.Material.Outlined.CenterFocusStrong" Tooltip="Fit memories" AriaLabel="Fit all visible memories" OnClick="FitMemoriesAsync" />
-                <AppIconButton Icon="@Icons.Material.Outlined.Route" Tooltip="Journey Threads" AriaLabel="Toggle chronological Journey Threads" Class="@(_journey ? "is-active" : null)" OnClick="ToggleJourney" />
+                <AppIconButton Icon="@Icons.Material.Outlined.Layers" Tooltip="Journey layer" AriaLabel="Toggle chronological Journey layer" Class="@(_journey ? "is-active" : null)" OnClick="ToggleJourney" />
                 <AppNativeButton Type="button" Class="view-atlas__unmapped" OnClick="@(_ => ShowUnmappedAsync())"><MudIcon Icon="@Icons.Material.Outlined.LocationOff" /><span>Unmapped</span><strong>@_atlas.UnmappedAssetCount</strong></AppNativeButton>
             </div>
-            <div class="view-atlas__legend" aria-label="Atlas summary"><strong>@_atlas.MappedAssetCount.ToString("N0")</strong><span>mapped memories</span><i></i><span>Photos</span><i class="is-video"></i><span>Videos</span></div>
+            <ViewPlacesTimeline Buckets="@(_atlas.Timeline ?? [])" EarliestAt="@_atlas.EarliestAt" LatestAt="@_atlas.LatestAt"
+                                SelectedFrom="@_from" SelectedTo="@_to" Resolution="@_timelineResolution"
+                                MappedAssetCount="@_atlas.MappedAssetCount" ImageCount="@_atlas.Hotspots.Sum(item => item.ImageCount)" VideoCount="@_atlas.Hotspots.Sum(item => item.VideoCount)"
+                                OnFromChanged="FromChangedAsync" OnToChanged="ToChangedAsync" OnResolutionChanged="ResolutionChangedAsync" OnReset="ResetTimelineAsync" />
         </div>
 
         @if (_selectedHotspot is not null || _showUnmapped)
         {
-            <aside class="view-atlas__story" aria-label="Place Story">
-                <header class="view-atlas__story-header">
-                    <div><span>@(_showUnmapped ? "LIBRARY CARE" : "PLACE STORY")</span><h2>@StoryTitle</h2><p>@StorySummary</p></div>
-                    <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Close Place Story" AriaLabel="Close Place Story" OnClick="CloseStory" />
-                </header>
-                @if (_storyLoading)
-                {
-                    <AppPageState Kind="AppPageStateKind.Loading" Title="Gathering memories" Message="Building this place story." />
-                }
-                else if (StoryItems.Count == 0)
-                {
-                    <AppPageState Kind="AppPageStateKind.Empty" Title="No matching memories" Message="Adjust the Atlas filters or choose another hotspot." />
-                }
-                else
-                {
-                    @if (_selected.Count > 0) { <div class="view-atlas__selection"><strong>@_selected.Count selected</strong><AppButton ButtonStyle="AppButtonStyle.Text" OnClick="ClearSelection">Clear</AppButton></div> }
-                    <ViewPhotoTimeline Items="@StoryItems" Selected="@_selected" Density="ViewTimelineDensity.Compact"
-                                       ThumbnailUrl="@(item => AssetUrl(item, ViewMediaResourceKind.Thumbnail))"
-                                       OnOpen="OpenItem" OnToggleSelection="ToggleSelection" OnToggleSelectionRequested="ToggleSelectionRequested"
-                                       OnSelectDateGroup="SelectDateGroup" OnDragStarted="BeginDrag" OnDragEnded="EndDrag" />
-                }
-            </aside>
+            <ViewPlaceStoryPanel Title="@StoryTitle" Summary="@StorySummary" Hotspot="@_selectedHotspot" Items="@StoryItems" Loading="@_storyLoading"
+                                 HasMore="@(_placeMedia?.HasMore == true)" ThumbnailUrl="@(item => AssetUrl(item, ViewMediaResourceKind.Thumbnail))" OnOpen="OpenItem" OnClose="CloseStoryAsync" />
         }
     </section>
 }
@@ -101,11 +92,13 @@ else
     private string _search = string.Empty;
     private int? _year;
     private string? _mediaKind;
-    private bool _initializing = true, _loading, _storyLoading, _showUnmapped, _journey;
+    private DateTimeOffset? _from, _to;
+    private string _timelineResolution = "year";
+    private bool _initializing = true, _loading, _storyLoading, _showUnmapped, _journey, _filtersOpen, _favoritesOnly;
     private IReadOnlyList<LocalAssetDto> _unmapped = [];
 
     protected override async Task OnInitializedAsync() { _profileId = (await Orchestrator.GetActiveProfileAsync())?.Id; await Workspace.InitializeAsync(); await Workspace.LoadGalleriesAsync(); _initializing = false; await LoadAtlasAsync(); }
-    private ViewAtlasQueryOptions AtlasQuery() => new(Workspace.ScopeKind, Workspace.ScopeProfileId, _search, _year, _mediaKind);
+    private ViewAtlasQueryOptions AtlasQuery() => new(Workspace.ScopeKind, Workspace.ScopeProfileId, _search, _year, _mediaKind, _from, _to, _timelineResolution, _favoritesOnly);
     private async Task LoadAtlasAsync()
     {
         _loading = true; _atlas = await ApiClient.GetViewAtlasAsync(AtlasQuery()); _loading = false;
@@ -120,26 +113,38 @@ else
         _search = value?.ToString() ?? string.Empty; _searchCts?.Cancel(); _searchCts?.Dispose(); var pending = _searchCts = new CancellationTokenSource();
         try { await Task.Delay(250, pending.Token); await LoadAtlasAsync(); } catch (OperationCanceledException) { }
     }
-    private async Task YearChangedAsync(ChangeEventArgs args) { _year = int.TryParse(args.Value?.ToString(), out var year) ? year : null; await LoadAtlasAsync(); }
+    private async Task TimePresetChangedAsync(ChangeEventArgs args) { _year = int.TryParse(args.Value?.ToString(), out var year) ? year : null; _from = _year.HasValue ? new DateTimeOffset(_year.Value, 1, 1, 0, 0, 0, TimeSpan.Zero) : null; _to = _year.HasValue ? new DateTimeOffset(_year.Value, 12, 31, 23, 59, 59, 999, TimeSpan.Zero) : null; await LoadAtlasAsync(); }
     private async Task SetMediaKindAsync(string? kind) { _mediaKind = kind; await LoadAtlasAsync(); }
-    private string YearValue => _year?.ToString() ?? string.Empty;
+    private string TimePresetValue => _year?.ToString() ?? string.Empty;
     private string TypeClass(string? kind) => string.Equals(_mediaKind, kind, StringComparison.Ordinal) ? "is-active" : string.Empty;
     private async Task SelectHotspotAsync(string key) { _selectedHotspot = _atlas?.Hotspots.FirstOrDefault(item => item.Key == key); _showUnmapped = false; await LoadStoryAsync(); if (_map is not null) await _map.ResizeAsync(); }
     private async Task LoadStoryAsync() { if (_selectedHotspot is null) return; _storyLoading = true; _placeMedia = await ApiClient.GetViewPlaceMediaAsync(_selectedHotspot.Key, AtlasQuery()); _storyLoading = false; _selected.Clear(); _selectionAnchor = null; }
     private async Task ShowUnmappedAsync()
     {
         _selectedHotspot = null; _placeMedia = null; _showUnmapped = true; _storyLoading = true;
-        var page = await ApiClient.GetViewAssetsAsync(new(Workspace.ScopeKind, Workspace.ScopeProfileId, Search: _search, Kinds: _mediaKind is null ? null : [_mediaKind], Limit: 500));
-        _unmapped = (page?.Items ?? []).Where(item => !item.Latitude.HasValue || !item.Longitude.HasValue).Where(item => !_year.HasValue || (item.CapturedAt ?? item.CreatedAt).Year == _year.Value).ToList();
+        var page = await ApiClient.GetViewAssetsAsync(new(Workspace.ScopeKind, Workspace.ScopeProfileId, Search: _search, Kinds: _mediaKind is null ? null : [_mediaKind], FavoritesOnly: _favoritesOnly, Limit: 500));
+        _unmapped = (page?.Items ?? []).Where(item => !item.Latitude.HasValue || !item.Longitude.HasValue)
+            .Where(item => !_year.HasValue || (item.CapturedAt ?? item.CreatedAt).Year == _year.Value)
+            .Where(item => !_from.HasValue || (item.CapturedAt ?? item.CreatedAt) >= _from.Value)
+            .Where(item => !_to.HasValue || (item.CapturedAt ?? item.CreatedAt) <= _to.Value).ToList();
         _storyLoading = false; _selected.Clear(); if (_map is not null) await _map.ResizeAsync();
     }
     private void CloseStory() { _selectedHotspot = null; _placeMedia = null; _showUnmapped = false; _unmapped = []; _selected.Clear(); }
+    private async Task CloseStoryAsync() { CloseStory(); if (_map is not null) { await InvokeAsync(StateHasChanged); await _map.ResizeAsync(); } }
     private IReadOnlyList<LocalAssetDto> StoryItems => _showUnmapped ? _unmapped : _placeMedia?.Items ?? [];
     private string StoryTitle => _showUnmapped ? "Memories without a place" : _selectedHotspot?.Name ?? "Place Story";
-    private string StorySummary => _showUnmapped ? $"{StoryItems.Count:N0} loaded · open an item to add a precise location" : _selectedHotspot is null ? string.Empty : $"{_selectedHotspot.AssetCount:N0} memories · {_selectedHotspot.EarliestAt:yyyy}–{_selectedHotspot.LatestAt:yyyy}";
+    private string StorySummary => _showUnmapped ? $"{StoryItems.Count:N0} loaded · open an item to add a precise location" : _selectedHotspot is null ? string.Empty : $"{_selectedHotspot.AssetCount:N0} {(_selectedHotspot.AssetCount == 1 ? "memory" : "memories")} · {_selectedHotspot.EarliestAt:yyyy}–{_selectedHotspot.LatestAt:yyyy}";
     private Task ResetWorldAsync() => _map?.ResetWorldAsync() ?? Task.CompletedTask;
     private Task FitMemoriesAsync() => _map?.FitHotspotsAsync() ?? Task.CompletedTask;
+    private Task ZoomInAsync() => _map?.ZoomInAsync() ?? Task.CompletedTask;
+    private Task ZoomOutAsync() => _map?.ZoomOutAsync() ?? Task.CompletedTask;
     private void ToggleJourney() => _journey = !_journey;
+    private async Task FromChangedAsync(DateTimeOffset? value) { _year = null; _from = value; await LoadAtlasAsync(); }
+    private async Task ToChangedAsync(DateTimeOffset? value) { _year = null; _to = value; await LoadAtlasAsync(); }
+    private async Task ResolutionChangedAsync(string value) { _timelineResolution = value; await LoadAtlasAsync(); }
+    private async Task ResetTimelineAsync() { _year = null; _from = null; _to = null; await LoadAtlasAsync(); }
+    private async Task FavoritesChangedAsync(bool value) { _favoritesOnly = value; await LoadAtlasAsync(); }
+    private async Task ClearAdvancedFiltersAsync() { _favoritesOnly = false; await LoadAtlasAsync(); }
     private string HotspotThumbnail(ViewAtlasHotspotDto hotspot) => _profileId.HasValue ? GrantUrl(hotspot.RepresentativeLibraryId, hotspot.RepresentativeAssetId, ViewMediaResourceKind.Thumbnail, ViewMediaResourceRole.Primary, Workspace.ScopeKind, Workspace.ScopeProfileId) : string.Empty;
     private async Task ScopeChangedAsync(ChangeEventArgs args)
     {

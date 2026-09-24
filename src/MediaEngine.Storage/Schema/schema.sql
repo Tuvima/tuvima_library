@@ -1000,6 +1000,9 @@ CREATE INDEX IF NOT EXISTS ix_local_items_library_favorite_timeline
 CREATE INDEX IF NOT EXISTS ix_local_item_metadata_location
     ON local_item_metadata(location_name, latitude, longitude, item_id)
     WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_local_items_library_atlas_timeline
+    ON local_items(library_id, hidden, archived_at, trashed_at, media_kind,
+                   favorite, COALESCE(captured_at, created_at), id);
 CREATE INDEX IF NOT EXISTS ix_local_items_active_discovery
     ON local_items(library_id, hidden, archived_at, trashed_at, id);
 CREATE INDEX IF NOT EXISTS ix_local_files_hash

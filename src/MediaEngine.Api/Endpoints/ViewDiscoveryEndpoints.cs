@@ -50,13 +50,18 @@ public static class ViewDiscoveryEndpoints
             string? q,
             int? year,
             string? kind,
+            DateTimeOffset? from,
+            DateTimeOffset? to,
+            string? resolution,
+            bool? favorites,
             ViewDiscoveryService service,
             CancellationToken ct) =>
         {
             try
             {
                 return ToResult(await service.GetAtlasAsync(
-                    ParseScope(scope, scopeProfileId), q, year, kind, ct).ConfigureAwait(false));
+                    ParseScope(scope, scopeProfileId), q, year, kind, from, to,
+                    resolution, favorites == true, ct).ConfigureAwait(false));
             }
             catch (ArgumentException exception)
             {
@@ -77,6 +82,9 @@ public static class ViewDiscoveryEndpoints
             int? limit,
             int? year,
             string? kind,
+            DateTimeOffset? from,
+            DateTimeOffset? to,
+            bool? favorites,
             ViewDiscoveryService service,
             CancellationToken ct) =>
         {
@@ -85,7 +93,7 @@ public static class ViewDiscoveryEndpoints
                 var page = PagedRequest.From(offset, limit, defaultLimit: 250, maxLimit: 500);
                 return ToResult(await service.GetPlaceMediaAsync(
                     ParseScope(scope, scopeProfileId), placeKey, page.Offset, page.Limit,
-                    year, kind, ct).ConfigureAwait(false));
+                    year, kind, from, to, favorites == true, ct).ConfigureAwait(false));
             }
             catch (ArgumentException exception)
             {

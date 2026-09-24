@@ -178,7 +178,10 @@ public sealed class ViewLibrarySurfaceTests
         var people = Read("src/MediaEngine.Web/Components/Pages/ViewPeoplePage.razor");
         var places = Read("src/MediaEngine.Web/Components/Pages/ViewPlacesPage.razor");
         var mapComponent = Read("src/MediaEngine.Web/Components/View/ViewMap.razor");
+        var mapStyles = Read("src/MediaEngine.Web/Components/View/ViewMap.razor.css");
         var mapScript = Read("src/MediaEngine.Web/wwwroot/js/view-map.js");
+        var story = Read("src/MediaEngine.Web/Components/View/ViewPlaceStoryPanel.razor");
+        var timeline = Read("src/MediaEngine.Web/Components/View/ViewPlacesTimeline.razor");
 
         Assert.Contains("GalleryEditorLauncher.OpenAsync", galleries, StringComparison.Ordinal);
         Assert.Contains("CreateViewGalleryAsync", galleryEditor, StringComparison.Ordinal);
@@ -187,18 +190,26 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("GetViewPeopleAsync", people, StringComparison.Ordinal);
         Assert.Contains("GetViewAtlasAsync", places, StringComparison.Ordinal);
         Assert.Contains("World map of authorized photo and video locations", places, StringComparison.Ordinal);
-        Assert.Contains("PLACE STORY", places, StringComparison.Ordinal);
-        Assert.Contains("ViewPhotoTimeline", places, StringComparison.Ordinal);
+        Assert.Contains("ViewPlaceStoryPanel", places, StringComparison.Ordinal);
+        Assert.Contains("Place Story", story, StringComparison.Ordinal);
+        Assert.Contains("ViewPlacesTimeline", places, StringComparison.Ordinal);
+        Assert.Contains("Timeline resolution", timeline, StringComparison.Ordinal);
         Assert.Contains("<ViewImmersiveViewer", places, StringComparison.Ordinal);
         Assert.Contains("ShowUnmappedAsync", places, StringComparison.Ordinal);
-        Assert.Contains("Journey Threads", places, StringComparison.Ordinal);
+        Assert.Contains("Journey layer", places, StringComparison.Ordinal);
         Assert.Contains("tiles.openfreemap.org/styles/dark", mapScript, StringComparison.Ordinal);
         Assert.Contains("Math.min(requestedZoom, 4.25)", mapScript, StringComparison.Ordinal);
         Assert.Contains("map.setStyle(baseStyle())", mapScript, StringComparison.Ordinal);
+        Assert.Contains("collapseAttribution(container)", mapScript, StringComparison.Ordinal);
+        Assert.Contains("setProjection({ type: 'mercator' })", mapScript, StringComparison.Ordinal);
+        Assert.Contains("applyAtlasLabelPolicy(map)", mapScript, StringComparison.Ordinal);
+        Assert.Contains("renderWorldCopies: false", mapScript, StringComparison.Ordinal);
+        Assert.DoesNotContain("setProjection({ type: 'globe' })", mapScript, StringComparison.Ordinal);
+        Assert.Contains("maplibregl-compact-show", mapStyles, StringComparison.Ordinal);
         Assert.Contains("map.once('idle', () => renderHotspots(state))", mapScript, StringComparison.Ordinal);
         Assert.Contains("group.representative?.thumbnailUrl", mapScript, StringComparison.Ordinal);
         Assert.Contains("new ResizeObserver", mapScript, StringComparison.Ordinal);
-        Assert.Contains("view-map.js?v=20260924.2", mapComponent, StringComparison.Ordinal);
+        Assert.Contains("view-map.js?v=20260924.7", mapComponent, StringComparison.Ordinal);
         Assert.DoesNotContain("fake", galleries, StringComparison.OrdinalIgnoreCase);
     }
 

@@ -1,0 +1,69 @@
+@using System.Globalization
+@using MediaEngine.Contracts.LocalAssets
+@namespace MediaEngine.Web.Components.View
+
+<aside class="place-story" aria-label="Place details">
+    <header class="place-story__header">
+        <div><h2>@Title</h2><p>@Summary</p></div>
+        <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Close place details" AriaLabel="Close place details" OnClick="@(_ => OnClose.InvokeAsync())" />
+    </header>
+    @if (Hotspot is not null)
+    {
+        <div class="place-story__chips" aria-label="Place summary">
+            @if (Hotspot.ImageCount > 0) { <span><MudIcon Icon="@Icons.Material.Outlined.Image" />@Hotspot.ImageCount.ToString("N0") photos</span> }
+            @if (Hotspot.VideoCount > 0) { <span><MudIcon Icon="@Icons.Material.Outlined.Videocam" />@Hotspot.VideoCount.ToString("N0") videos</span> }
+            @if (IdentifiedPeopleCount > 0) { <span><MudIcon Icon="@Icons.Material.Outlined.People" />@IdentifiedPeopleCount.ToString("N0") people</span> }
+        </div>
+        <section class="place-story__fact"><MudIcon Icon="@Icons.Material.Outlined.LocationOn" /><div><strong>Place Story</strong><p>@FactSummary</p></div></section>
+    }
+    @if (Loading)
+    {
+        <AppPageState Kind="AppPageStateKind.Loading" Title="Gathering memories" Message="Building this place timeline." />
+    }
+    else if (Items.Count == 0)
+    {
+        <AppPageState Kind="AppPageStateKind.Empty" Title="No matching memories" Message="Adjust the Places filters or choose another hotspot." />
+    }
+    else
+    {
+        <div class="place-story__timeline">
+            @foreach (var month in Months)
+            {
+                <section class="place-story__month" aria-labelledby="@MonthId(month.Key)">
+                    <header><h3 id="@MonthId(month.Key)">@month.Key.ToString("MMMM yyyy", CultureInfo.CurrentCulture)</h3><span>@month.Count().ToString("N0") @(month.Count() == 1 ? "memory" : "memories")</span></header>
+                    @foreach (var item in month)
+                    {
+                        var date = Date(item);
+                        <article class="place-story__item">
+                            <time datetime="@date.ToString("O")"><span>@date.ToString("ddd", CultureInfo.CurrentCulture)</span><strong>@date.Day</strong><small>@date.ToString("MMM", CultureInfo.CurrentCulture)</small></time>
+                            <i aria-hidden="true"></i>
+                            <AppNativeButton Type="button" Class="place-story__thumbnail" AriaLabel="@($"Open {Name(item)}")" OnClick="@(_ => OnOpen.InvokeAsync(item))"><img src="@ThumbnailUrl(item)" alt="" loading="lazy" decoding="async" /></AppNativeButton>
+                            <div class="place-story__copy"><strong>@Name(item)</strong><time datetime="@date.ToString("O")">@date.ToString("t", CultureInfo.CurrentCulture)</time>@if (!string.IsNullOrWhiteSpace(item.Description)) { <p>@item.Description</p> }<span title="@(IsVideo(item) ? "Video" : "Photo")"><MudIcon Icon="@(IsVideo(item) ? Icons.Material.Outlined.Videocam : Icons.Material.Outlined.Image)" /></span></div>
+                        </article>
+                    }
+                </section>
+            }
+        </div>
+    }
+</aside>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Place";
+    [Parameter] public string Summary { get; set; } = string.Empty;
+    [Parameter] public ViewAtlasHotspotDto? Hotspot { get; set; }
+    [Parameter] public IReadOnlyList<LocalAssetDto> Items { get; set; } = [];
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool HasMore { get; set; }
+    [Parameter, EditorRequired] public Func<LocalAssetDto, string> ThumbnailUrl { get; set; } = _ => string.Empty;
+    [Parameter] public EventCallback<LocalAssetDto> OnOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    private IEnumerable<IGrouping<DateTimeOffset, LocalAssetDto>> Months => Items.OrderByDescending(Date).GroupBy(item => new DateTimeOffset(Date(item).Year, Date(item).Month, 1, 0, 0, 0, Date(item).Offset));
+    private int IdentifiedPeopleCount => HasMore ? 0 : Items.SelectMany(item => item.People ?? []).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+    private string FactSummary => Hotspot is null ? string.Empty : Hotspot.EarliestAt.Year == Hotspot.LatestAt.Year
+        ? $"{Hotspot.AssetCount:N0} {(Hotspot.AssetCount == 1 ? "memory" : "memories")} captured here in {Hotspot.EarliestAt:yyyy}."
+        : $"{Hotspot.AssetCount:N0} {(Hotspot.AssetCount == 1 ? "memory" : "memories")} captured here from {Hotspot.EarliestAt:yyyy} through {Hotspot.LatestAt:yyyy}.";
+    private static DateTimeOffset Date(LocalAssetDto item) => item.CapturedAt ?? item.CreatedAt;
+    private static string Name(LocalAssetDto item) => string.IsNullOrWhiteSpace(item.Title) ? item.FileName : item.Title;
+    private static bool IsVideo(LocalAssetDto item) => item.MimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
+    private static string MonthId(DateTimeOffset value) => $"place-story-{value:yyyy-MM}";
+}
