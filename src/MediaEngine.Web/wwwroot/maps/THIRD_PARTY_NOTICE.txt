@@ -3,3 +3,7 @@ Natural Earth data is in the public domain. See https://www.naturalearthdata.com
 
 MapLibre GL JS is distributed under the BSD 3-Clause License. Its full license is
 stored at ../vendor/maplibre/LICENSE.txt.
+
+When network access is available, Tuvima Atlas uses OpenFreeMap's hosted MapLibre
+style with map data from OpenStreetMap contributors. The bundled Natural Earth
+world layer remains the offline fallback.

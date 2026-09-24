@@ -3,6 +3,32 @@ import * as maplibregl from '../vendor/maplibre/maplibre-gl.mjs';
 maplibregl.setWorkerUrl('/vendor/maplibre/maplibre-gl-worker.mjs');
 
 const states = new WeakMap();
+const detailedStyleUrl = 'https://tiles.openfreemap.org/styles/dark';
+
+async function preferredStyle() {
+  try {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 3500);
+    const response = await fetch(detailedStyleUrl, {
+      cache: 'force-cache',
+      mode: 'cors',
+      signal: controller.signal
+    });
+    window.clearTimeout(timeout);
+    if (!response.ok) throw new Error(`Detailed map style returned ${response.status}`);
+    return {
+      style: detailedStyleUrl,
+      attribution: '© OpenFreeMap · © OpenStreetMap contributors',
+      detailed: true
+    };
+  } catch {
+    return {
+      style: baseStyle(),
+      attribution: 'Natural Earth · Tuvima Atlas',
+      detailed: false
+    };
+  }
+}
 
 function baseStyle() {
   return {
@@ -44,7 +70,7 @@ function clearMarkers(state) {
 }
 
 function renderHotspots(state) {
-  if (state.mode !== 'atlas' || !state.map.loaded()) return;
+  if (state.mode !== 'atlas' || !state.map || !state.map.isStyleLoaded()) return;
   clearMarkers(state);
   const zoom = state.map.getZoom();
   const cell = zoom < 2 ? 92 : zoom < 4 ? 78 : zoom < 7 ? 66 : 52;
@@ -53,11 +79,13 @@ function renderHotspots(state) {
     if (!Number.isFinite(hotspot.latitude) || !Number.isFinite(hotspot.longitude)) continue;
     const point = state.map.project([hotspot.longitude, hotspot.latitude]);
     const key = `${Math.floor(point.x / cell)}:${Math.floor(point.y / cell)}`;
-    const group = groups.get(key) ?? { items: [], count: 0, images: 0, videos: 0 };
+    const group = groups.get(key) ?? { items: [], count: 0, images: 0, videos: 0, representative: null };
     group.items.push(hotspot);
     group.count += hotspot.assetCount;
     group.images += hotspot.imageCount;
     group.videos += hotspot.videoCount;
+    if (hotspot.thumbnailUrl && (!group.representative || hotspot.assetCount > group.representative.assetCount))
+      group.representative = hotspot;
     groups.set(key, group);
   }
 
@@ -72,12 +100,13 @@ function renderHotspots(state) {
     element.appendChild(count);
     const mediaTotal = Math.max(1, group.images + group.videos);
     element.style.setProperty('--video-share', `${Math.round(group.videos / mediaTotal * 360)}deg`);
-    if (group.items.length === 1 && zoom >= 7 && group.items[0].thumbnailUrl) {
+    if (group.representative?.thumbnailUrl) {
       const image = document.createElement('img');
-      image.src = group.items[0].thumbnailUrl;
+      image.src = group.representative.thumbnailUrl;
       image.alt = '';
       element.prepend(image);
       element.classList.add('has-thumbnail');
+      if (group.items.length > 1) element.classList.add('is-cluster');
     }
     const label = group.items.length === 1
       ? `${group.items[0].name}, ${group.count} media item${group.count === 1 ? '' : 's'}`
@@ -144,12 +173,13 @@ export async function initialize(container, dotnet, options) {
   if (!container) return;
   await dispose(container);
   const mode = options.mode ?? 'location';
-  const state = { map: null, dotnet, mode, markers: [], hotspots: (options.hotspots ?? []).map(normalizedHotspot), locationMarker: null, journeyEnabled: options.journeyEnabled === true };
+  const state = { map: null, dotnet, mode, markers: [], hotspots: (options.hotspots ?? []).map(normalizedHotspot), locationMarker: null, resizeObserver: null, journeyEnabled: options.journeyEnabled === true };
   states.set(container, state);
   try {
+    const styleSelection = await preferredStyle();
     const map = new maplibregl.Map({
       container,
-      style: baseStyle(),
+      style: styleSelection.style,
       center: mode === 'atlas' ? atlasWorldCenter(state.hotspots) : [Number(options.longitude ?? 0), Number(options.latitude ?? 0)],
       zoom: mode === 'atlas' ? 0.8 : Number(options.zoom ?? 11),
       minZoom: mode === 'atlas' ? 0 : 1,
@@ -162,7 +192,9 @@ export async function initialize(container, dotnet, options) {
       touchZoomRotate: options.interactive !== false
     });
     state.map = map;
-    map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Natural Earth · Tuvima Atlas' }), 'bottom-right');
+    state.resizeObserver = new ResizeObserver(() => map.resize());
+    state.resizeObserver.observe(container);
+    map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: styleSelection.attribution }), 'bottom-right');
     if (options.showNavigation !== false) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
     map.on('load', () => {
       if (mode === 'atlas') {
@@ -171,6 +203,7 @@ export async function initialize(container, dotnet, options) {
         map.addLayer({ id: 'atlas-journey-glow', type: 'line', source: 'atlas-journey', paint: { 'line-color': '#7c3aed', 'line-width': 8, 'line-opacity': .16, 'line-blur': 6 } });
         map.addLayer({ id: 'atlas-journey', type: 'line', source: 'atlas-journey', paint: { 'line-color': '#c4b5fd', 'line-width': 2, 'line-opacity': .72, 'line-dasharray': [2, 2] } });
         renderHotspots(state);
+        map.once('idle', () => renderHotspots(state));
       } else {
         const marker = new maplibregl.Marker({ color: '#9f67ff', draggable: options.editable === true })
           .setLngLat([Number(options.longitude ?? 0), Number(options.latitude ?? 0)])
@@ -197,7 +230,8 @@ export async function initialize(container, dotnet, options) {
       });
     }
     map.on('error', event => {
-      if (event?.error?.message) state.dotnet.invokeMethodAsync('MapFailed', event.error.message);
+      if (!map.isStyleLoaded() && event?.error?.message)
+        state.dotnet.invokeMethodAsync('MapFailed', event.error.message);
     });
   } catch (error) {
     state.dotnet.invokeMethodAsync('MapFailed', error?.message ?? 'The map could not be initialized.');
@@ -245,6 +279,7 @@ export async function dispose(container) {
   const state = states.get(container);
   if (!state) return;
   clearMarkers(state);
+  state.resizeObserver?.disconnect();
   state.locationMarker?.remove();
   state.map?.remove();
   states.delete(container);
