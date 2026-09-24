@@ -6,15 +6,14 @@ const states = new WeakMap();
 const detailedStyleUrl = 'https://tiles.openfreemap.org/styles/dark';
 
 async function preferredStyle() {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 6000);
   try {
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 3500);
     const response = await fetch(detailedStyleUrl, {
       cache: 'force-cache',
       mode: 'cors',
       signal: controller.signal
     });
-    window.clearTimeout(timeout);
     if (!response.ok) throw new Error(`Detailed map style returned ${response.status}`);
     return {
       style: detailedStyleUrl,
@@ -27,6 +26,8 @@ async function preferredStyle() {
       attribution: 'Natural Earth · Tuvima Atlas',
       detailed: false
     };
+  } finally {
+    window.clearTimeout(timeout);
   }
 }
 
@@ -173,15 +174,21 @@ export async function initialize(container, dotnet, options) {
   if (!container) return;
   await dispose(container);
   const mode = options.mode ?? 'location';
-  const state = { map: null, dotnet, mode, markers: [], hotspots: (options.hotspots ?? []).map(normalizedHotspot), locationMarker: null, resizeObserver: null, journeyEnabled: options.journeyEnabled === true };
+  const state = { map: null, dotnet, mode, markers: [], hotspots: (options.hotspots ?? []).map(normalizedHotspot), locationMarker: null, resizeObserver: null, detailedStyle: false, fallbackApplied: false, journeyEnabled: options.journeyEnabled === true };
   states.set(container, state);
   try {
     const styleSelection = await preferredStyle();
+    state.detailedStyle = styleSelection.detailed;
+    state.fallbackApplied = !styleSelection.detailed;
+    const requestedZoom = Number(options.zoom ?? 11);
     const map = new maplibregl.Map({
       container,
       style: styleSelection.style,
       center: mode === 'atlas' ? atlasWorldCenter(state.hotspots) : [Number(options.longitude ?? 0), Number(options.latitude ?? 0)],
-      zoom: mode === 'atlas' ? 0.8 : Number(options.zoom ?? 11),
+      // The bundled fallback has country geometry rather than street tiles. Keep
+      // it at a regional zoom so it remains visibly geographic instead of
+      // becoming a featureless dark square around a city coordinate.
+      zoom: mode === 'atlas' ? 0.8 : styleSelection.detailed ? requestedZoom : Math.min(requestedZoom, 4.25),
       minZoom: mode === 'atlas' ? 0 : 1,
       maxZoom: 18,
       renderWorldCopies: false,
@@ -229,9 +236,13 @@ export async function initialize(container, dotnet, options) {
         state.dotnet.invokeMethodAsync('CameraChanged', center.lat, center.lng, map.getZoom());
       });
     }
-    map.on('error', event => {
-      if (!map.isStyleLoaded() && event?.error?.message)
-        state.dotnet.invokeMethodAsync('MapFailed', event.error.message);
+    map.on('error', () => {
+      if (!map.isStyleLoaded() && state.detailedStyle && !state.fallbackApplied) {
+        state.fallbackApplied = true;
+        state.detailedStyle = false;
+        map.setStyle(baseStyle());
+        if (mode !== 'atlas') map.jumpTo({ zoom: Math.min(requestedZoom, 4.25) });
+      }
     });
   } catch (error) {
     state.dotnet.invokeMethodAsync('MapFailed', error?.message ?? 'The map could not be initialized.');

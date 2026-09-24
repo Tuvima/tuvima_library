@@ -177,6 +177,7 @@ public sealed class ViewLibrarySurfaceTests
         var galleryEditor = Read("src/MediaEngine.Web/Components/Collections/GalleryEditorShell.razor");
         var people = Read("src/MediaEngine.Web/Components/Pages/ViewPeoplePage.razor");
         var places = Read("src/MediaEngine.Web/Components/Pages/ViewPlacesPage.razor");
+        var mapComponent = Read("src/MediaEngine.Web/Components/View/ViewMap.razor");
         var mapScript = Read("src/MediaEngine.Web/wwwroot/js/view-map.js");
 
         Assert.Contains("GalleryEditorLauncher.OpenAsync", galleries, StringComparison.Ordinal);
@@ -192,9 +193,12 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("ShowUnmappedAsync", places, StringComparison.Ordinal);
         Assert.Contains("Journey Threads", places, StringComparison.Ordinal);
         Assert.Contains("tiles.openfreemap.org/styles/dark", mapScript, StringComparison.Ordinal);
+        Assert.Contains("Math.min(requestedZoom, 4.25)", mapScript, StringComparison.Ordinal);
+        Assert.Contains("map.setStyle(baseStyle())", mapScript, StringComparison.Ordinal);
         Assert.Contains("map.once('idle', () => renderHotspots(state))", mapScript, StringComparison.Ordinal);
         Assert.Contains("group.representative?.thumbnailUrl", mapScript, StringComparison.Ordinal);
         Assert.Contains("new ResizeObserver", mapScript, StringComparison.Ordinal);
+        Assert.Contains("view-map.js?v=20260924.2", mapComponent, StringComparison.Ordinal);
         Assert.DoesNotContain("fake", galleries, StringComparison.OrdinalIgnoreCase);
     }
 
