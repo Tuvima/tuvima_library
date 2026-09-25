@@ -31,7 +31,9 @@ public sealed class DevHarnessSettingsTests
         Assert.Contains("Reset & Seed Test Library", source, StringComparison.Ordinal);
         Assert.Contains("Rescan All Libraries", source, StringComparison.Ordinal);
         Assert.Contains("Seed View Photos", source, StringComparison.Ordinal);
-        Assert.Contains("2004–2024", source, StringComparison.Ordinal);
+        Assert.Contains("2004–2026", source, StringComparison.Ordinal);
+        Assert.Contains("288 labeled synthetic images", source, StringComparison.Ordinal);
+        Assert.Contains("Seattle (180), Tokyo (72), and Paris (36)", source, StringComparison.Ordinal);
         Assert.Contains("Standard", source, StringComparison.Ordinal);
         Assert.Contains("Stress", source, StringComparison.Ordinal);
         Assert.Contains("types", source, StringComparison.Ordinal);

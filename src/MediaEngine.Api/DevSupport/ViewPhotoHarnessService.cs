@@ -43,12 +43,19 @@ public sealed class ViewPhotoHarnessService(
         client.DefaultRequestHeaders.UserAgent.ParseAdd(
             "TuvimaLibraryPhotoHarness/1.0 (development fixture; https://github.com/Tuvima/tuvima_library)");
         var results = new List<ViewPhotoFixtureResult>();
+        var density = ViewDensityFixtures.Create();
+        var densityByName = density.ToDictionary(sample => sample.FileName);
+        var allFixtures = Fixtures.Concat(density.Select(sample => new Fixture(
+            sample.FileName, $"[Test] {sample.City} {sample.Number:D3}", "",
+            "tuvima:synthetic-places-density-v1", "Synthetic test fixture", "Tuvima Library",
+            sample.CapturedAt, sample.Latitude, sample.Longitude, sample.LocationName, []))).ToArray();
 
-        foreach (var fixture in Fixtures)
+        foreach (var fixture in allFixtures)
         {
             try
             {
-                var bytes = await client.GetByteArrayAsync(fixture.DownloadUrl, ct);
+                var synthetic = densityByName.TryGetValue(fixture.FileName, out var sample);
+                var bytes = synthetic ? ViewDensityFixtures.Render(sample!) : await client.GetByteArrayAsync(fixture.DownloadUrl, ct);
                 await using var stream = new MemoryStream(bytes, writable: false);
                 var upload = await viewLibrary.UploadAsync(ProfileId, $"harness-{fixture.FileName}", stream, ct);
                 var location = assets.ResolveContent(upload.ItemId)
@@ -78,6 +85,8 @@ public sealed class ViewPhotoHarnessService(
                 // as an override so the sample Places timeline stays deterministic.
                 await assets.UpdateCapturedAtAsync(
                     upload.ItemId, fixture.CapturedAt, resetToEmbedded: false, ct);
+                await assets.UpdateLocationAsync(upload.ItemId,
+                    new LocalAssetLocationUpdate(fixture.Latitude, fixture.Longitude, fixture.LocationName), ct);
                 foreach (var person in fixture.People)
                 {
                     await assets.AddAnnotationAsync(upload.ItemId,
@@ -88,10 +97,11 @@ public sealed class ViewPhotoHarnessService(
                 }
 
                 await assets.ReplaceTagsAsync(upload.ItemId,
-                    ["view-photo-harness", "free-stock", fixture.LocationName], ct);
+                    ["view-photo-harness", synthetic ? "synthetic-density-fixture" : "free-stock", fixture.LocationName], ct);
                 results.Add(new ViewPhotoFixtureResult(fixture.FileName, upload.ItemId, "passed", null,
                     fixture.SourcePage, fixture.License, fixture.Author));
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "View photo harness fixture {Fixture} failed", fixture.FileName);
@@ -113,7 +123,10 @@ public sealed class ViewPhotoHarnessService(
         var places = discovery.QueryPlaces(new ViewPlaceDiscoveryQuery([space.LibraryId], 100), ct);
         var people = discovery.QueryPeople(new ViewPeopleDiscoveryQuery([space.LibraryId], 100), ct);
         var passed = results.All(result => result.Status == "passed")
-                     && lifecyclePassed && places.Items.Count >= Fixtures.Length
+                     && results.Select(result => result.ItemId).Distinct().Count() == allFixtures.Length
+                     && lifecyclePassed && places.Items.Count >= Fixtures.Select(fixture => fixture.LocationName).Distinct().Count()
+                     && density.GroupBy(sample => sample.LocationName).All(group =>
+                         places.Items.Any(place => place.Name == group.Key && place.AssetCount >= group.Count()))
                      && people.Items.Count >= Fixtures.Sum(fixture => fixture.People.Length);
         return new ViewPhotoHarnessReport(passed, ProfileId, space.LibraryId, results,
             places.Items.Count, people.Items.Count, lifecyclePassed,

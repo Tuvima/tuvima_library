@@ -81,7 +81,7 @@
     <section class="dev-harness-secondary-section">
         <div>
             <h3>View Sample Memories</h3>
-            <p>Adds ten attributed photos spanning 2004–2024 and six continents so Places, map clusters, and date-range behavior can be tested with realistic variety.</p>
+            <p>Adds ten attributed photos plus 288 labeled synthetic images: Seattle (180), Tokyo (72), and Paris (36). Mixed shapes and dense dates spanning 2004–2026 exercise Photos and Places detail scrolling. Re-running reuses the fixtures.</p>
         </div>
         <AppButton Label="@(_runningAction == "view-photos" ? "Seeding View Photos" : "Seed View Photos")"
                    StartIcon="@Icons.Material.Outlined.AddPhotoAlternate"
@@ -252,7 +252,7 @@
             "view-photos",
             "/dev/view-photo-harness",
             null,
-            "Ten View photo fixtures seeded across 2004–2024.");
+            "298 View image fixtures seeded, including dense Seattle, Tokyo, and Paris groups.");
 
     private async Task ResetLibraryDataAsync()
     {
