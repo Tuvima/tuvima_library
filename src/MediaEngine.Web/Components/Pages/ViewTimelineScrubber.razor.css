@@ -1,6 +1,7 @@
-.view-timeline-scrubber{position:sticky;z-index:8;top:1.25rem;display:flex;align-self:start;flex-direction:column;justify-content:center;gap:.08rem;width:4.3rem;max-height:calc(100dvh - 8.5rem);padding:.3rem 0;overflow-y:auto;color:rgba(203,213,225,.58);scrollbar-width:none}
+.view-timeline-scrubber{position:sticky;z-index:8;top:1.25rem;display:flex;align-self:start;flex-direction:column;justify-content:space-between;gap:.08rem;width:4.3rem;height:var(--timeline-rail-height,calc(100dvh - 12rem));padding:.3rem 0;overflow:visible;color:rgba(203,213,225,.58)}
 .view-timeline-scrubber__rail{position:absolute;z-index:-1;top:.75rem;right:.43rem;bottom:.75rem;width:1px;background:linear-gradient(transparent,rgba(148,163,184,.22) 8%,rgba(148,163,184,.22) 92%,transparent)}
 .view-timeline-scrubber__year{position:relative;display:flex;justify-content:flex-end}
+.view-timeline-scrubber__year[hidden]{display:none}
 ::deep .view-timeline-scrubber__year>button{display:grid;grid-template-columns:1fr .9rem;align-items:center;width:4.3rem;min-height:1.42rem;padding:.12rem 0;border:0;background:transparent;color:inherit;font:inherit;font-size:.75rem;text-align:right;cursor:pointer}
 ::deep .view-timeline-scrubber__year>button span{padding-right:.28rem}
 ::deep .view-timeline-scrubber__year>button i{display:block;justify-self:center;width:.28rem;height:.28rem;border-radius:50%;background:rgba(148,163,184,.58);box-shadow:0 0 .22rem rgba(148,163,184,.25)}

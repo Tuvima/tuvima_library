@@ -284,6 +284,11 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             query.BeforeEffectiveAt,
             query.BeforeItemId,
             query.AnchorBefore,
+            query.WithoutLocation,
+            LocationSearch = string.IsNullOrWhiteSpace(query.Search) ? null : "%" + query.Search.Trim().Replace("~", "~~").Replace("%", "~%").Replace("_", "~_") + "%",
+            PersonKey = query.PersonKey?.Trim().ToLowerInvariant(),
+            query.From,
+            query.To,
             query.TimelineEligibleOnly,
             Take = query.Limit + 1,
         });
@@ -366,6 +371,17 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                         AND li.id < @BeforeItemId))
                AND (@AnchorBefore IS NULL
                     OR COALESCE(li.captured_at, li.created_at) < @AnchorBefore)
+               AND (@From IS NULL OR COALESCE(li.captured_at, li.created_at) >= @From)
+               AND (@To IS NULL OR COALESCE(li.captured_at, li.created_at) <= @To)
+               AND (@WithoutLocation = 0 OR @LocationSearch IS NULL OR lm.location_name LIKE @LocationSearch ESCAPE '~'
+                    OR printf('%.3f,%.3f', ROUND(lm.latitude, 3), ROUND(lm.longitude, 3)) LIKE @LocationSearch ESCAPE '~')
+               AND (@WithoutLocation = 0 OR lm.latitude IS NULL OR lm.longitude IS NULL
+                    OR lm.latitude NOT BETWEEN -90 AND 90 OR lm.longitude NOT BETWEEN -180 AND 180)
+               AND (@PersonKey IS NULL OR EXISTS (
+                    SELECT 1 FROM local_item_annotations lia WHERE lia.item_id = li.id
+                      AND LOWER(TRIM(lia.annotation_value)) = @PersonKey
+                      AND (lia.annotation_kind IN ('person_name', 'named_person', 'face_name')
+                           OR (lia.annotation_kind IN ('person_identity', 'face_identity') AND lia.reviewed_at IS NOT NULL))))
              ORDER BY COALESCE(li.captured_at, li.created_at) DESC, li.id DESC
              LIMIT @Take;
             """, parameters, cancellationToken: ct)).ToList();
@@ -444,6 +460,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             SearchExpression = searchExpression,
             query.TimelineEligibleOnly,
         });
+        if (query.WithoutLocation) parameters.Add("SearchExpression", null);
         parameters.AddDynamicParams(smartRule.Parameters);
         for (var index = 0; index < libraryIds.Length; index++)
         {

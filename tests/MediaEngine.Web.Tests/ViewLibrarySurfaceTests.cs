@@ -220,8 +220,8 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("group.representative?.thumbnailUrl", mapScript, StringComparison.Ordinal);
         Assert.Contains("new ResizeObserver", mapScript, StringComparison.Ordinal);
         Assert.Contains("view-map.js?v=20260924.9", mapComponent, StringComparison.Ordinal);
-        Assert.Contains("EffectiveResolution", timeline, StringComparison.Ordinal);
-        Assert.Contains("MaximumHistogramBars", timeline, StringComparison.Ordinal);
+        Assert.Contains("PlacesTimeScale", timeline, StringComparison.Ordinal);
+        Assert.Contains("@onfocus", timeline, StringComparison.Ordinal);
         Assert.Contains("SelectedYear", timeline, StringComparison.Ordinal);
         Assert.Contains("SelectedYear=\"@_year\"", places, StringComparison.Ordinal);
         Assert.Contains("places-timeline__actions", timeline, StringComparison.Ordinal);

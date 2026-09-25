@@ -11,7 +11,7 @@
         var ids = day.Select(item => item.Id).ToList();
         var selectedCount = ids.Count(Selected.Contains);
         var groupState = selectedCount == 0 ? "false" : selectedCount == ids.Count ? "true" : "mixed";
-        <section class="view-date-group" aria-labelledby="@DayId(day.Key)"><div class="view-date-group__heading"><AppNativeButton Type="button" Class="@($"view-date-group__select is-{groupState}")" role="checkbox" aria-checked="@groupState" AriaLabel="@($"{(selectedCount == ids.Count ? "Clear" : "Select")} all {ids.Count} items from {day.Key:MMMM d}")" OnClick="@(_ => OnSelectDateGroup.InvokeAsync(ids))"><span aria-hidden="true"></span></AppNativeButton><h3 id="@DayId(day.Key)">@day.Key.ToString("dddd, MMM d", CultureInfo.CurrentCulture)</h3></div><div class="view-grid">
+        <section class="view-date-group" aria-labelledby="@DayId(day.Key)"><div class="view-date-group__heading"><AppNativeButton Type="button" Class="@($"view-date-group__select is-{groupState}")" role="checkbox" aria-checked="@groupState" AriaLabel="@($"{(selectedCount == ids.Count ? "Clear" : "Select")} all {(SelectEntireDate ? "matching" : $"{ids.Count} loaded")} items from {day.Key:MMMM d}")" OnClick="@(_ => OnSelectDateGroup.InvokeAsync(ids))"><span aria-hidden="true"></span></AppNativeButton><h3 id="@DayId(day.Key)">@day.Key.ToString("dddd, MMM d", CultureInfo.CurrentCulture)</h3></div><div class="view-grid"><JustifiedGalleryLayout />
         @foreach (var item in day)
         {
             <article @key="item.Id" class="@TileClass(item)" @attributes="@AspectAttributes(item)" draggable="true" @ondragstart="@(_ => OnDragStarted.InvokeAsync(item.Id))" @ondragend="@(_ => OnDragEnded.InvokeAsync())">
@@ -32,6 +32,7 @@
     [Parameter, EditorRequired] public IReadOnlyList<LocalAssetDto> Items { get; set; } = [];
     [Parameter, EditorRequired] public IReadOnlySet<Guid> Selected { get; set; } = new HashSet<Guid>();
     [Parameter] public ViewTimelineDensity Density { get; set; } = ViewTimelineDensity.Comfortable;
+    [Parameter] public bool SelectEntireDate { get; set; }
     [Parameter, EditorRequired] public Func<LocalAssetDto, string> ThumbnailUrl { get; set; } = _ => string.Empty;
     [Parameter] public EventCallback<LocalAssetDto> OnOpen { get; set; }
     [Parameter] public EventCallback<Guid> OnToggleSelection { get; set; }
@@ -42,8 +43,8 @@
     private IEnumerable<IGrouping<DateTimeOffset, LocalAssetDto>> Months => Items.OrderByDescending(Date).GroupBy(i => StartOfMonth(Date(i)));
     private static IEnumerable<IGrouping<DateTimeOffset, LocalAssetDto>> Days(IEnumerable<LocalAssetDto> month) => month.GroupBy(i => StartOfDay(Date(i))).OrderByDescending(g => g.Key);
     private static DateTimeOffset Date(LocalAssetDto item) => item.CapturedAt ?? item.CreatedAt;
-    private static DateTimeOffset StartOfMonth(DateTimeOffset d) => new(d.Year, d.Month, 1, 0, 0, 0, d.Offset);
-    private static DateTimeOffset StartOfDay(DateTimeOffset d) => new(d.Year, d.Month, d.Day, 0, 0, 0, d.Offset);
+    private static DateTimeOffset StartOfMonth(DateTimeOffset d) => new(d.Year, d.Month, 1, 0, 0, 0, TimeSpan.Zero);
+    private static DateTimeOffset StartOfDay(DateTimeOffset d) => new(d.Year, d.Month, d.Day, 0, 0, 0, TimeSpan.Zero);
     private static string MonthId(DateTimeOffset date) => $"view-{date:yyyy-MM}";
     private static string DayId(DateTimeOffset date) => $"view-{date:yyyy-MM-dd}";
     private static string Title(LocalAssetDto item) => string.IsNullOrWhiteSpace(item.Title) ? item.FileName : item.Title;
@@ -54,7 +55,7 @@
     private static string Orientation(LocalAssetDto item) => item.Width is > 0 && item.Height is > 0 ? item.Width > item.Height * 1.15 ? "landscape" : item.Height > item.Width * 1.15 ? "portrait" : "square" : "standard";
     private static string Duration(double seconds) => TimeSpan.FromSeconds(seconds).TotalHours >= 1 ? TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture) : TimeSpan.FromSeconds(seconds).ToString(@"m\:ss", CultureInfo.InvariantCulture);
     private static double Aspect(LocalAssetDto item) => item.Width is > 0 && item.Height is > 0
-        ? Math.Clamp(item.Width.Value / (double)item.Height.Value, .35, 5)
+        ? item.Width.Value / (double)item.Height.Value
         : 16d / 11d;
     private static string AspectStyle(LocalAssetDto item) => FormattableString.Invariant($"--view-aspect:{Aspect(item):0.####}");
     private static IReadOnlyDictionary<string, object> AspectAttributes(LocalAssetDto item) => new Dictionary<string, object> { ["style"] = AspectStyle(item) };

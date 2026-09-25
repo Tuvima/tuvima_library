@@ -43,11 +43,14 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
     {
         public long Mapped { get; init; }
         public long Unmapped { get; init; }
+        public int ImageCount { get; init; }
+        public int VideoCount { get; init; }
     }
 
     private sealed class AtlasTimelineRow
     {
         public DateTimeOffset Start { get; init; }
+        public DateTimeOffset End { get; init; }
         public long AssetCount { get; init; }
         public long ImageCount { get; init; }
         public long VideoCount { get; init; }
@@ -203,6 +206,9 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
             : LibraryPredicate("li", libraries.Length);
         var facetPredicate = $$"""
             ({{libraryPredicate}})
+            AND LOWER(li.media_kind) IN ('image', 'video')
+            AND (@SearchPattern IS NULL OR lm.location_name LIKE @SearchPattern ESCAPE '\'
+                 OR printf('%.3f,%.3f', ROUND(lm.latitude, 3), ROUND(lm.longitude, 3)) LIKE @SearchPattern ESCAPE '\')
             AND li.hidden = 0
             AND li.archived_at IS NULL
             AND li.trashed_at IS NULL
@@ -229,8 +235,8 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
                   FROM local_items li
                   JOIN local_item_metadata lm ON lm.item_id = li.id
                  WHERE {{commonPredicate}}
-                   AND lm.latitude IS NOT NULL
-                   AND lm.longitude IS NOT NULL
+                   AND lm.latitude BETWEEN -90 AND 90
+                   AND lm.longitude BETWEEN -180 AND 180
                    AND (@SearchPattern IS NULL
                         OR lm.location_name LIKE @SearchPattern ESCAPE '\'
                         OR printf('%.3f,%.3f', ROUND(lm.latitude, 3), ROUND(lm.longitude, 3)) LIKE @SearchPattern ESCAPE '\')
@@ -254,8 +260,10 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
             """, parameters, cancellationToken: ct)).ToList();
 
         var totals = connection.QuerySingle<AtlasTotalsRow>(new CommandDefinition($$"""
-            SELECT COUNT(DISTINCT CASE WHEN lm.latitude IS NOT NULL AND lm.longitude IS NOT NULL THEN li.id END) AS Mapped,
-                   COUNT(DISTINCT CASE WHEN lm.latitude IS NULL OR lm.longitude IS NULL THEN li.id END) AS Unmapped
+            SELECT COUNT(DISTINCT CASE WHEN lm.latitude BETWEEN -90 AND 90 AND lm.longitude BETWEEN -180 AND 180 THEN li.id END) AS Mapped,
+                   COUNT(DISTINCT CASE WHEN lm.latitude IS NULL OR lm.longitude IS NULL OR lm.latitude NOT BETWEEN -90 AND 90 OR lm.longitude NOT BETWEEN -180 AND 180 THEN li.id END) AS Unmapped,
+                   COUNT(DISTINCT CASE WHEN lm.latitude BETWEEN -90 AND 90 AND lm.longitude BETWEEN -180 AND 180 AND LOWER(li.media_kind) = 'image' THEN li.id END) AS ImageCount,
+                   COUNT(DISTINCT CASE WHEN lm.latitude BETWEEN -90 AND 90 AND lm.longitude BETWEEN -180 AND 180 AND LOWER(li.media_kind) = 'video' THEN li.id END) AS VideoCount
               FROM local_items li
               LEFT JOIN local_item_metadata lm ON lm.item_id = li.id
              WHERE {{commonPredicate}};
@@ -264,8 +272,8 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
         var years = connection.Query<int>(new CommandDefinition($$"""
             SELECT DISTINCT CAST(strftime('%Y', COALESCE(li.captured_at, li.created_at)) AS INTEGER)
               FROM local_items li
-             WHERE ({{libraryPredicate}})
-               AND li.hidden = 0 AND li.archived_at IS NULL AND li.trashed_at IS NULL
+              LEFT JOIN local_item_metadata lm ON lm.item_id = li.id
+             WHERE {{facetPredicate}}
              ORDER BY 1 DESC;
             """, parameters, cancellationToken: ct)).Where(year => year > 0).ToList();
 
@@ -276,7 +284,7 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
                   FROM local_items li
                   JOIN local_item_metadata lm ON lm.item_id = li.id
                  WHERE {{facetPredicate}}
-                   AND lm.latitude IS NOT NULL AND lm.longitude IS NOT NULL
+                   AND lm.latitude BETWEEN -90 AND 90 AND lm.longitude BETWEEN -180 AND 180
                    AND (@SearchPattern IS NULL
                         OR lm.location_name LIKE @SearchPattern ESCAPE '\'
                         OR printf('%.3f,%.3f', ROUND(lm.latitude, 3), ROUND(lm.longitude, 3)) LIKE @SearchPattern ESCAPE '\')
@@ -288,13 +296,24 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
                            ELSE substr(EffectiveAt, 1, 4) || '-01-01T00:00:00+00:00'
                        END AS Start
                   FROM eligible
+            ), units AS (
+                SELECT *, CASE @Resolution
+                    WHEN 'day' THEN CAST(julianday(Start) AS INTEGER)
+                    WHEN 'month' THEN CAST(substr(Start, 1, 4) AS INTEGER) * 12 + CAST(substr(Start, 6, 2) AS INTEGER)
+                    ELSE CAST(substr(Start, 1, 4) AS INTEGER) END AS UnitIndex,
+                    CASE @Resolution WHEN 'day' THEN datetime(Start, '+1 day')
+                         WHEN 'month' THEN datetime(Start, '+1 month')
+                         ELSE datetime(Start, '+1 year') END AS End
+                FROM bucketed
+            ), bounds AS (
+                SELECT MIN(UnitIndex) AS FirstUnit, MAX(1, (MAX(UnitIndex) - MIN(UnitIndex) + 180) / 180) AS Stride FROM units
             )
-            SELECT Start,
+            SELECT MIN(Start) AS Start, MAX(End) AS End,
                    COUNT(DISTINCT ItemId) AS AssetCount,
                    COUNT(DISTINCT CASE WHEN MediaKind = 'image' THEN ItemId END) AS ImageCount,
                    COUNT(DISTINCT CASE WHEN MediaKind = 'video' THEN ItemId END) AS VideoCount
-              FROM bucketed
-             GROUP BY Start
+              FROM units CROSS JOIN bounds
+             GROUP BY (UnitIndex - FirstUnit) / Stride
              ORDER BY Start;
             """, parameters, cancellationToken: ct)).ToList();
 
@@ -304,7 +323,7 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
               FROM local_items li
               JOIN local_item_metadata lm ON lm.item_id = li.id
              WHERE {{facetPredicate}}
-               AND lm.latitude IS NOT NULL AND lm.longitude IS NOT NULL
+                   AND lm.latitude BETWEEN -90 AND 90 AND lm.longitude BETWEEN -180 AND 180
                AND (@SearchPattern IS NULL
                     OR lm.location_name LIKE @SearchPattern ESCAPE '\'
                     OR printf('%.3f,%.3f', ROUND(lm.latitude, 3), ROUND(lm.longitude, 3)) LIKE @SearchPattern ESCAPE '\');
@@ -321,9 +340,9 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
             rows.Count > 0 || totals.Mapped > 0,
             timeline.Select(bucket => new ViewAtlasTimelineBucketRow(
                 bucket.Start, checked((int)bucket.AssetCount), checked((int)bucket.ImageCount),
-                checked((int)bucket.VideoCount))).ToList(),
+                checked((int)bucket.VideoCount), bucket.End)).ToList(),
             extent.EarliestAt,
-            extent.LatestAt);
+            extent.LatestAt, totals.ImageCount, totals.VideoCount);
     }
 
     public ViewPlaceAssetDiscoveryPage QueryPlaceAssets(
@@ -369,7 +388,7 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
                   JOIN local_item_metadata lm ON lm.item_id = li.id
                  WHERE ({{libraryPredicate}})
                    AND li.hidden = 0 AND li.archived_at IS NULL AND li.trashed_at IS NULL
-                   AND lm.latitude IS NOT NULL AND lm.longitude IS NOT NULL
+                   AND lm.latitude BETWEEN -90 AND 90 AND lm.longitude BETWEEN -180 AND 180
                    AND (@Year IS NULL OR CAST(strftime('%Y', COALESCE(li.captured_at, li.created_at)) AS INTEGER) = @Year)
                    AND (@MediaKind IS NULL OR LOWER(li.media_kind) = @MediaKind)
                    AND (@From IS NULL OR COALESCE(li.captured_at, li.created_at) >= @From)

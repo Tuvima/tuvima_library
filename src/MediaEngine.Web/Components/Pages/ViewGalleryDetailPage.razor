@@ -74,9 +74,10 @@
                                    OnOpen="Open"
                                    OnToggleSelection="Toggle"
                                    OnSelectDateGroup="SelectGroup" />
-                @if (_gallery.Kind == ViewGalleryKind.Manual && _selected.Count > 0)
+                @if (_page.HasMore) { <AppButton Label="Load more" Disabled="@_loadingMore" OnClick="LoadMoreAsync" /> }
+                @if (IsOwner && _gallery.Kind == ViewGalleryKind.Manual && _selected.Count > 0)
                 {
-                    <AppButton ButtonStyle="AppButtonStyle.Outlined" OnClick="RemoveAsync">Remove from Gallery</AppButton>
+                    <ViewSelectionToolbar Count="@_selected.Count" OnClear="@(() => _selected.Clear())" OnRemoveFromGallery="RemoveAsync" />
                 }
             }
         }
@@ -87,7 +88,7 @@
 {
     <ViewImmersiveViewer Item="@_active"
                          HasPrevious="@(ActiveIndex > 0)"
-                         HasNext="@(ActiveIndex >= 0 && ActiveIndex < (_page?.Items.Count ?? 0) - 1)"
+                         HasNext="@(ActiveIndex >= 0 && (ActiveIndex < (_page?.Items.Count ?? 0) - 1 || _page?.HasMore == true))"
                          ContentUrl="@Resource(_active, ViewMediaResourceKind.Preview)"
                          OriginalUrl="@Resource(_active, ViewMediaResourceKind.Content)"
                          MotionUrl="@MotionUrl(_active)"
@@ -101,6 +102,7 @@
                          OnTrash="TrashAsync"
                          ManualGalleries="@Workspace.OwnedGalleries.Where(gallery => gallery.Kind == ViewGalleryKind.Manual).ToList()"
                          CanManage="@(ItemScope(_active).Kind == ViewScopeKind.Mine)"
+                         CanEdit="@(ItemScope(_active).Kind == ViewScopeKind.Mine)" OnItemUpdated="UpdateActive"
                          OnAddToGallery="AddToGalleryAsync" />
 }
 
@@ -169,6 +171,18 @@
     private readonly HashSet<Guid> _selected = [];
     private Guid? _profileId;
     private bool _loading = true;
+    private bool _loadingMore;
+    private async Task LoadMoreAsync()
+    {
+        if (_loadingMore || _page?.NextCursor is null) return;
+        _loadingMore = true;
+        try
+        {
+            var next = await ApiClient.GetViewAssetsAsync(new(Workspace.ScopeKind, Workspace.ScopeProfileId, Cursor: _page.NextCursor, GalleryId: GalleryId));
+            if (next is not null) _page = next with { Items = [.. _page.Items, .. next.Items] };
+        }
+        finally { _loadingMore = false; }
+    }
 
     private bool _shareOpen;
     private bool _loadingShares;
@@ -207,7 +221,8 @@
 
     private void SelectGroup(IReadOnlyCollection<Guid> ids)
     {
-        foreach (var id in ids) _selected.Add(id);
+        var select = ids.Any(id => !_selected.Contains(id));
+        foreach (var id in ids) { if (select) _selected.Add(id); else _selected.Remove(id); }
     }
 
     private async Task RemoveAsync()
@@ -226,7 +241,8 @@
     private void Open(LocalAssetDto item) => _active = item;
     private int ActiveIndex => _active is null ? -1 : (_page?.Items.ToList().FindIndex(item => item.Id == _active.Id) ?? -1);
     private void Previous() { if (ActiveIndex > 0) _active = _page!.Items[ActiveIndex - 1]; }
-    private void Next() { if (ActiveIndex >= 0 && ActiveIndex < (_page?.Items.Count ?? 0) - 1) _active = _page!.Items[ActiveIndex + 1]; }
+    private async Task Next() { var index = ActiveIndex; if (index < 0) return; if (index == (_page?.Items.Count ?? 0) - 1 && _page?.HasMore == true) await LoadMoreAsync(); if (index + 1 < (_page?.Items.Count ?? 0)) _active = _page!.Items[index + 1]; }
+    private void UpdateActive(LocalAssetDto item) { _active = item; if (_page is not null) _page = _page with { Items = _page.Items.Select(value => value.Id == item.Id ? item : value).ToList() }; }
 
     private async Task FavoriteAsync()
     {

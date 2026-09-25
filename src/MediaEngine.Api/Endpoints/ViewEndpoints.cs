@@ -21,13 +21,18 @@ public static class ViewEndpoints
         var group = app.MapGroup("/view").WithTags("View")
             .RequireAuthorization(AuthPolicies.Authenticated);
 
-        group.MapGet("/library-capacity", (string? area, IConfigurationLoader configuration) =>
+        group.MapGet("/library-capacity", async (string? area, IConfigurationLoader configuration,
+            IViewRequestProfileContext identity, IAccountAccessDecisionService accounts, CancellationToken ct) =>
         {
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (!authority.IsAuthenticated) return Unauthenticated();
             var normalizedArea = string.IsNullOrWhiteSpace(area) ? "view" : area.Trim().ToLowerInvariant();
             var config = configuration.LoadLibraries();
             var candidates = new List<(string Label, string Path)>();
             if (normalizedArea == "view")
             {
+                if (!(await accounts.EvaluateFeatureAsync(authority, AccountFeatureId.View, ct)).IsAllowed)
+                    return Results.Forbid();
                 var location = config.StorageLocations.FirstOrDefault(value =>
                     string.Equals(value.Id, config.ViewStorage.StorageLocationId, StringComparison.OrdinalIgnoreCase));
                 if (location is not null)
@@ -38,9 +43,14 @@ public static class ViewEndpoints
                 var libraries = normalizedArea == "collections"
                     ? config.Libraries
                     : config.Libraries.Where(library => string.Equals(library.Area, normalizedArea, StringComparison.OrdinalIgnoreCase));
-                candidates.AddRange(libraries.SelectMany(library => library.Sources
-                    .Where(source => !string.IsNullOrWhiteSpace(source.Path))
-                    .Select(source => (library.Name, source.Path))));
+                foreach (var library in libraries)
+                {
+                    var feature = library.Area.ToLowerInvariant() switch { "read" => AccountFeatureId.Read, "watch" => AccountFeatureId.Watch, "listen" => AccountFeatureId.Listen, _ => AccountFeatureId.View };
+                    if (!Guid.TryParse(library.Id, out var libraryId)
+                        || !(await accounts.EvaluateFeatureAsync(authority, feature, ct)).IsAllowed
+                        || !(await accounts.EvaluateLibraryAsync(authority, libraryId, ct)).IsAllowed) continue;
+                    candidates.AddRange(library.Sources.Where(source => !string.IsNullOrWhiteSpace(source.Path)).Select(source => (library.Name, source.Path)));
+                }
             }
 
             var locations = candidates.GroupBy(candidate => CapacityRoot(candidate.Path), StringComparer.OrdinalIgnoreCase)
@@ -147,6 +157,7 @@ public static class ViewEndpoints
         group.MapGet("/assets", async (string? scope, Guid? scopeProfileId,
             int? limit, string? cursor, DateTimeOffset? anchorBefore, string? q, string[]? kind,
             bool? favorite, bool? hidden, Guid? galleryId, string? lifecycle,
+            bool? withoutLocation, string? personKey, DateTimeOffset? from, DateTimeOffset? to,
             IViewRequestProfileContext identity, IViewProfileRepository preferences,
             IViewResourceAuthorizationService authorization,
             IViewQueryOrchestrator queries, CancellationToken ct) =>
@@ -174,7 +185,8 @@ public static class ViewEndpoints
                     favorite == true, hidden == true, hidden == true, galleryId,
                     ParseLifecycle(lifecycle),
                     AllowStaleSelectionFallback: string.IsNullOrWhiteSpace(scope),
-                    AnchorBefore: anchorBefore), ct);
+                    AnchorBefore: anchorBefore, WithoutLocation: withoutLocation == true,
+                    PersonKey: personKey, From: from, To: to), ct);
                 return Access(result.Outcome, result.Page);
             }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }

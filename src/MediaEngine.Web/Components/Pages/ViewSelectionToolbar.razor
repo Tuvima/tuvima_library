@@ -7,6 +7,8 @@
     </div>
     <span class="view-selection-toolbar__divider" aria-hidden="true"></span>
     <div class="view-selection-toolbar__actions">
+        @if (OnAddToGallery.HasDelegate || OnCreateGallery.HasDelegate)
+        {
         <AppOverflowMenu Label="Add to Gallery"
                          Icon="@Icons.Material.Outlined.PhotoLibrary"
                          AriaLabel="Add selected items to a Gallery"
@@ -24,23 +26,25 @@
                          DividerBefore="@(ManualGalleries.Count > 0)"
                          OnClick="@(() => OnCreateGallery.InvokeAsync())" />
         </AppOverflowMenu>
+        }
         @if (ShowSharedLibrary)
         {
             <AppNativeButton Type="button" Class="view-selection-toolbar__action" OnClick="@(_ => OnSharedLibrary.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.GroupWork" />Submit to Shared Library</AppNativeButton>
         }
-        <AppNativeButton Type="button" Class="view-selection-toolbar__action" OnClick="@(_ => OnFavorite.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.FavoriteBorder" />Favorite</AppNativeButton>
+        @if (OnFavorite.HasDelegate) { <AppNativeButton Type="button" Class="view-selection-toolbar__action" OnClick="@(_ => OnFavorite.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.FavoriteBorder" />Favorite</AppNativeButton> }
         @if (ShowRestore)
         {
             <AppNativeButton Type="button" Class="view-selection-toolbar__action" OnClick="@(_ => OnRestore.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.Restore" />Restore</AppNativeButton>
         }
-        else
+        else if (OnArchive.HasDelegate)
         {
             <AppNativeButton Type="button" Class="view-selection-toolbar__action" OnClick="@(_ => OnArchive.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.Inventory2" />Archive</AppNativeButton>
         }
-        @if (ShowTrash)
+        @if (ShowTrash && OnTrash.HasDelegate)
         {
             <AppNativeButton Type="button" Class="view-selection-toolbar__action" OnClick="@(_ => OnTrash.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.DeleteOutline" />Trash</AppNativeButton>
         }
+        @if (OnRemoveFromGallery.HasDelegate) { <AppNativeButton Type="button" Class="view-selection-toolbar__action" OnClick="@(_ => OnRemoveFromGallery.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.RemoveCircleOutline" />Remove from Gallery</AppNativeButton> }
     </div>
     <span class="view-selection-toolbar__divider" aria-hidden="true"></span>
     <AppNativeButton Type="button" Class="view-selection-toolbar__close" AriaLabel="Clear photo selection" OnClick="@(_ => OnClear.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.Close" /></AppNativeButton>
@@ -60,4 +64,5 @@
     [Parameter] public EventCallback OnTrash { get; set; }
     [Parameter] public EventCallback<Guid> OnAddToGallery { get; set; }
     [Parameter] public EventCallback OnCreateGallery { get; set; }
+    [Parameter] public EventCallback OnRemoveFromGallery { get; set; }
 }

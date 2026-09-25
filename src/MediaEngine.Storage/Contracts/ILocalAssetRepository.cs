@@ -73,7 +73,11 @@ public sealed record LocalAssetTimelineQuery(
     CollectionRuleDefinition? SmartRule = null,
     bool TimelineEligibleOnly = false,
     bool IncludeSharedLibraryAssets = false,
-    DateTimeOffset? AnchorBefore = null);
+    DateTimeOffset? AnchorBefore = null,
+    bool WithoutLocation = false,
+    string? PersonKey = null,
+    DateTimeOffset? From = null,
+    DateTimeOffset? To = null);
 
 public sealed record LocalAssetTimelineCursor(DateTimeOffset EffectiveAt, Guid ItemId);
 

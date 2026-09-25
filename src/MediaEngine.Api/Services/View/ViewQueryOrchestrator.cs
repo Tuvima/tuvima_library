@@ -17,7 +17,11 @@ public sealed record ViewAssetQueryRequest(
     Guid? GalleryId = null,
     LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active,
     bool AllowStaleSelectionFallback = false,
-    DateTimeOffset? AnchorBefore = null);
+    DateTimeOffset? AnchorBefore = null,
+    bool WithoutLocation = false,
+    string? PersonKey = null,
+    DateTimeOffset? From = null,
+    DateTimeOffset? To = null);
 
 /// <summary>
 /// Authorized persistence plan. Backends receive only library IDs approved by
@@ -37,7 +41,11 @@ public sealed record ViewAssetQueryPlan(
     CollectionRuleDefinition? SmartRule,
     bool TimelineEligibleOnly,
     bool IncludeSharedLibraryAssets,
-    DateTimeOffset? AnchorBefore = null);
+    DateTimeOffset? AnchorBefore = null,
+    bool WithoutLocation = false,
+    string? PersonKey = null,
+    DateTimeOffset? From = null,
+    DateTimeOffset? To = null);
 
 public sealed record ViewQueryResult(
     ViewAccessOutcome Outcome,
@@ -105,9 +113,9 @@ public sealed class ViewQueryOrchestrator(
             smartRule is null ? request.GalleryId : null,
             request.Lifecycle,
             smartRule,
-            request.GalleryId is null && string.IsNullOrWhiteSpace(request.Search),
+            request.GalleryId is null && string.IsNullOrWhiteSpace(request.Search) && !request.WithoutLocation && request.PersonKey is null,
             decision.Scope.Kind == ViewScopeKind.Shared,
-            request.AnchorBefore);
+            request.AnchorBefore, request.WithoutLocation, request.PersonKey, request.From, request.To);
         var page = await backend.QueryAsync(plan, ct).ConfigureAwait(false);
         return new ViewQueryResult(ViewAccessOutcome.Allowed, page, decision.Scope);
     }

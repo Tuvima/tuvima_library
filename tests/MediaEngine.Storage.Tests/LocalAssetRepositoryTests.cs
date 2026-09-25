@@ -427,6 +427,31 @@ public sealed class LocalAssetRepositoryTests : IDisposable
             ScopeKind: LocalAssetScopeKinds.Shared)));
     }
 
+    [Fact]
+    public async Task Timeline_WithoutLocationAndPersonFilters_AreScopedAndCursorPaged()
+    {
+        var library = Guid.NewGuid();
+        var owner = await CreateOwnership(library);
+        var first = await AddImage(owner, library, 'a', "one.jpg");
+        var second = await AddImage(owner, library, 'b', "two.jpg");
+        var mapped = await AddImage(owner, library, 'c', "mapped.jpg");
+        await _repository.UpdateLocationAsync(mapped.ItemId, new LocalAssetLocationUpdate(0, 0, "Equator", null, null, null, null, false));
+        await _repository.ReplacePeopleAsync(first.ItemId, ["Alex"]);
+        await _repository.ReplacePeopleAsync(second.ItemId, ["Alexandra"]);
+        var query = new LocalAssetTimelineQuery([library], Limit: 1, WithoutLocation: true);
+        var page = _repository.QueryTimeline(query);
+        Assert.Single(page.Items);
+        Assert.True(page.HasMore);
+        var next = _repository.QueryTimeline(query with { BeforeEffectiveAt = page.NextCursor!.EffectiveAt, BeforeItemId = page.NextCursor.ItemId });
+        Assert.Single(next.Items);
+        Assert.NotEqual(page.Items[0].Id, next.Items[0].Id);
+        Assert.DoesNotContain(mapped.ItemId, page.Items.Concat(next.Items).Select(item => item.Id));
+        var person = _repository.QueryTimeline(new LocalAssetTimelineQuery([library], PersonKey: "alex"));
+        Assert.Equal(first.ItemId, Assert.Single(person.Items).Id);
+        Assert.Empty(_repository.QueryTimeline(new LocalAssetTimelineQuery([Guid.NewGuid()], PersonKey: "alex")).Items);
+        Assert.Empty(_repository.QueryTimeline(query with { From = DateTimeOffset.UtcNow.AddDays(1) }).Items);
+    }
+
     private Task<LocalAssetUpsertResult> AddImage(
         (Guid ProfileId, Guid SpaceId) owner,
         Guid libraryId,

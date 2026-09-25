@@ -1,0 +1,19 @@
+@namespace MediaEngine.Web.Components.Shared
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+<span @ref="_root" hidden data-gallery-observer></span>
+@code {
+    private ElementReference _root;
+    private IJSObjectReference? _module;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/justified-gallery.js");
+        await _module.InvokeVoidAsync("observe", _root);
+    }
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is null) return;
+        try { await _module.InvokeVoidAsync("disconnect", _root); await _module.DisposeAsync(); }
+        catch (JSDisconnectedException) { }
+    }
+}

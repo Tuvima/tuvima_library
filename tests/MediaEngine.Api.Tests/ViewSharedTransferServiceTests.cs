@@ -275,6 +275,24 @@ public sealed class ViewSharedTransferServiceTests
         Assert.Null(nested.IncludeInTimelineOverride);
     }
 
+    [Fact]
+    public async Task FolderCounts_CountLogicalItemsRatherThanDuplicateFilePaths()
+    {
+        using var fixture = new Fixture();
+        var first = fixture.WriteManaged(Path.Combine("Trip", "photo.jpg"), [1, 2, 3, 4]);
+        var duplicate = fixture.WriteManaged(Path.Combine("Trip", "copy.jpg"), [1, 2, 3, 4]);
+        await fixture.Library.IndexPathAsync(fixture.Space.LibraryId, first);
+        await fixture.Library.IndexPathAsync(fixture.Space.LibraryId, duplicate);
+        var source = Assert.Single(await fixture.Sources.GetSourcesAsync(fixture.Space.Id));
+        var scope = new ResolvedViewScope(ViewScopeKind.Mine, fixture.ProfileId, new HashSet<Guid> { fixture.Space.LibraryId });
+        var root = await fixture.Folders.QueryAsync(fixture.ProfileId, scope, null, null, false, null, 0, 100);
+        var folders = await fixture.Folders.QueryAsync(fixture.ProfileId, scope, source.Id, null, false, null, 0, 100);
+        var items = await fixture.Folders.QueryAsync(fixture.ProfileId, scope, source.Id, "Trip", false, null, 0, 100);
+        Assert.Equal(1, Assert.Single(root.Sources).ItemCount);
+        Assert.Equal(1, Assert.Single(folders.Folders).ItemCount);
+        Assert.Single(items.Items);
+    }
+
     private sealed class Fixture : IDisposable
     {
         private readonly ConfigurationDirectoryLoader _configuration;

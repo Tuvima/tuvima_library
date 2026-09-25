@@ -60,13 +60,13 @@ public sealed class ViewFolderService(
         var paths = QueryPaths(selected.LibraryId, selected.SourceId, prefix, search, selected.SharedOnly, ct);
         var folderPreferences = GetFolderPreferences(viewerProfileId, selected.SourceId, ct);
         var folders = paths
-            .Select(path => path[prefix.Length..])
-            .Where(suffix => suffix.Contains(Path.DirectorySeparatorChar))
-            .GroupBy(suffix => suffix[..suffix.IndexOf(Path.DirectorySeparatorChar)], StringComparer.OrdinalIgnoreCase)
+            .Select(row => new { row.ItemId, Suffix = row.FilePath[prefix.Length..] })
+            .Where(row => row.Suffix.Contains(Path.DirectorySeparatorChar))
+            .GroupBy(row => row.Suffix[..row.Suffix.IndexOf(Path.DirectorySeparatorChar)], StringComparer.OrdinalIgnoreCase)
             .Select(group =>
             {
                 var path = CombineRelative(normalized, group.Key);
-                return new ViewFolderNodeDto(group.Key, path, group.Count(),
+                return new ViewFolderNodeDto(group.Key, path, group.Select(row => row.ItemId).Distinct().Count(),
                     folderPreferences.Pins.Contains(path),
                     folderPreferences.TimelinePolicies.GetValueOrDefault(path));
             })
@@ -226,7 +226,7 @@ public sealed class ViewFolderService(
                 result.Add(new ConfiguredSource(source.LibraryId, source.Id, root, SharedOnly: true,
                     new ViewFolderSourceDto(source.Id, source.Name, Guid.Empty, "Server",
                         linked ? "linked" : "managed", source.IncludeInTimeline,
-                        CountItems(source.LibraryId, source.Id, ct), Directory.Exists(root))));
+                        CountItems(source.LibraryId, source.Id, true, ct), Directory.Exists(root))));
             }
         }
 
@@ -241,7 +241,7 @@ public sealed class ViewFolderService(
             foreach (var source in (await spaces.GetSourcesAsync(space.Id, ct)).Where(value => value.Enabled))
             {
                 var root = storage.GetSourcePath(space, source);
-                var count = CountItems(space.LibraryId, source.Id, ct);
+                var count = CountItems(space.LibraryId, source.Id, false, ct);
                 result.Add(new ConfiguredSource(space.LibraryId, source.Id, root, SharedOnly: false, new ViewFolderSourceDto(
                     source.Id, source.Name, space.OwnerProfileId, profile?.DisplayName ?? "Profile",
                     source.StorageMode == ViewSourceStorageMode.Linked ? "linked" : "managed",
@@ -252,15 +252,18 @@ public sealed class ViewFolderService(
             .ThenBy(value => value.Dto.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    private int CountItems(Guid libraryId, Guid sourceId, CancellationToken ct)
+    private int CountItems(Guid libraryId, Guid sourceId, bool sharedOnly, CancellationToken ct)
     {
         using var connection = database.CreateConnection();
         return connection.ExecuteScalar<int>(new CommandDefinition("""
             SELECT COUNT(DISTINCT lif.item_id)
               FROM local_item_files lif
               JOIN local_file_sources lfs ON lfs.file_id = lif.file_id
-             WHERE lfs.library_id = @libraryId AND lfs.source_id = @sourceId;
-            """, new { libraryId, sourceId }, cancellationToken: ct));
+              JOIN local_items li ON li.id = lif.item_id
+             WHERE lfs.library_id = @libraryId AND lfs.source_id = @sourceId
+               AND li.trashed_at IS NULL AND li.hidden = 0
+               AND (@sharedOnly = 0 OR EXISTS (SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = li.id));
+            """, new { libraryId, sourceId, sharedOnly }, cancellationToken: ct));
     }
 
     private IReadOnlyList<ViewFolderPinDto> GetPins(Guid viewerProfileId,
@@ -331,16 +334,18 @@ public sealed class ViewFolderService(
         return absolute;
     }
 
-    private List<string> QueryPaths(Guid libraryId, Guid sourceId, string prefix, string? search,
+    private sealed record FolderItemPath(Guid ItemId, string FilePath);
+    private List<FolderItemPath> QueryPaths(Guid libraryId, Guid sourceId, string prefix, string? search,
         bool sharedOnly, CancellationToken ct)
     {
         using var connection = database.CreateConnection();
-        return connection.Query<string>(new CommandDefinition("""
-            SELECT DISTINCT lfs.file_path
+        return connection.Query<FolderItemPath>(new CommandDefinition("""
+            SELECT DISTINCT li.id AS ItemId, lfs.file_path AS FilePath
               FROM local_file_sources lfs
               JOIN local_item_files lif ON lif.file_id = lfs.file_id
               JOIN local_items li ON li.id = lif.item_id
              WHERE lfs.library_id = @libraryId AND lfs.source_id = @sourceId
+               AND li.trashed_at IS NULL AND li.hidden = 0
                AND (@sharedOnly = 0 OR EXISTS (
                     SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = lif.item_id))
                AND lfs.file_path LIKE @pathPrefix ESCAPE '~'
@@ -374,7 +379,7 @@ public sealed class ViewFolderService(
                AND (@recursive = 1 OR instr(substr(lfs.file_path, length(@prefix) + 1), @separator) = 0)
                AND (@search IS NULL OR li.title LIKE @searchLike ESCAPE '~'
                     OR li.primary_file_name LIKE @searchLike ESCAPE '~')
-               AND li.trashed_at IS NULL
+               AND li.trashed_at IS NULL AND li.hidden = 0
              ORDER BY COALESCE(li.captured_at, li.created_at) DESC, li.id DESC
              LIMIT @take OFFSET @offset;
             """, new

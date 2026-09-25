@@ -11,7 +11,7 @@
 ::deep .view-date-group__select.is-mixed span::after{content:"";width:.55rem;height:.12rem;border-radius:999px;background:white}
 ::deep .view-date-group__select:focus-visible{opacity:1;outline:2px solid #ddd6fe;outline-offset:1px}
 .view-grid{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--gallery-gap)}
-.view-grid::after{content:"";flex:999 1 calc(var(--target-row-height) * 2);height:0}
+.view-grid::after{content:none}
 .view-tile{position:relative;flex:var(--view-aspect) 1 calc(var(--view-aspect) * var(--target-row-height));min-width:calc(var(--target-row-height) * .35);max-width:100%;aspect-ratio:var(--view-aspect);overflow:hidden;border:1px solid rgba(148,163,184,.16);border-radius:.48rem;background:#0c1422;transition:border-color .15s ease,box-shadow .15s ease}
 .view-density--compact .view-tile{border-radius:.38rem}.view-density--relaxed .view-tile{border-radius:.65rem}.view-tile--panorama{max-width:min(100%,52rem)}
 .view-tile:hover,.view-tile:focus-within{border-color:#8b5cf6;box-shadow:0 0 1.3rem rgba(124,58,237,.25)}

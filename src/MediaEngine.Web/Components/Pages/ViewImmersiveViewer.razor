@@ -83,7 +83,7 @@
             </section>
         }
         <section class="view-viewer-info__section"><div class="view-viewer-info__heading"><h3>People</h3></div>@if (CanEdit) { <AppAutocomplete TItem="string" Value="@_personToAdd" ValueChanged="PersonSelected" SearchFunc="SearchPeopleAsync" Placeholder="Add people…" ResetValueOnEmptyText="true" /> }<div class="view-viewer-info__tags">@foreach (var person in _people) { <span>@person@if (CanEdit) { <AppIconButton Icon="@Icons.Material.Outlined.Close" Size="AppControlSize.Compact" Class="view-viewer-info__chip-remove" Tooltip="@($"Remove {person}")" AriaLabel="@($"Remove {person}")" OnClick="@(() => RemovePersonAsync(person))" /> }</span> }</div></section>
-        <section class="view-viewer-info__section"><div class="view-viewer-info__heading"><h3>Tags</h3></div>@if (CanEdit) { <AppAutocomplete TItem="string" Value="@_tagToAdd" ValueChanged="TagSelected" SearchFunc="SearchTagsAsync" Placeholder="Add tags…" ResetValueOnEmptyText="true" CoerceText="true" CoerceValue="true" /> }<div class="view-viewer-info__tags">@foreach (var tag in _tagValues) { <span>@tag@if (CanEdit) { <AppIconButton Icon="@Icons.Material.Outlined.Close" Size="AppControlSize.Compact" Class="view-viewer-info__chip-remove" Tooltip="@($"Remove {tag}")" AriaLabel="@($"Remove {tag}")" OnClick="@(() => RemoveTagAsync(tag))" /> }</span> }</div></section>
+        <section class="view-viewer-info__section"><div class="view-viewer-info__heading"><h3>Tags</h3></div>@if (CanEdit) { <AppTagInput @key="Item.Id" Commit="CommitTagAsync" Search="SearchTagsAsync" /> }<div class="view-viewer-info__tags">@foreach (var tag in _tagValues) { <span>@tag@if (CanEdit) { <AppIconButton Icon="@Icons.Material.Outlined.Close" Disabled="@_tagSaving" Size="AppControlSize.Compact" Class="view-viewer-info__chip-remove" Tooltip="@($"Remove {tag}")" AriaLabel="@($"Remove {tag}")" OnClick="@(() => RemoveTagAsync(tag))" /> }</span> }</div></section>
         <section class="view-viewer-info__section"><div class="view-viewer-info__heading"><h3>Files</h3></div><div class="view-viewer-info__files">@foreach (var file in DisplayFiles) { <div><MudIcon Icon="@Icons.Material.Outlined.InsertPhoto" /><span><strong>@(file.FileName ?? Item.FileName)</strong>@if (DisplayFiles.Count > 1) { <small>@FileRole(file.Role)</small> }</span><small>@FormatBytes(file.ByteSize)</small></div> }</div></section>
     </InfoContent>
 </MediaViewerShell>
@@ -109,7 +109,7 @@
     [Parameter] public EventCallback<LocalAssetDto> OnItemUpdated { get; set; }
     [Parameter] public bool CanEdit { get; set; }
     [Parameter] public bool CanManage { get; set; }
-    private Guid _editingItemId; private string? _description, _locationName, _locationCity, _locationRegion, _locationCountry, _latitude, _longitude, _capturedAt, _personToAdd, _tagToAdd; private bool _saving, _showMotion, _editingDescription, _editingDate, _editingLocation; private ViewPlaceDto? _selectedPlace; private List<string> _people = []; private List<string> _tagValues = [];
+    private Guid _editingItemId; private string? _description, _locationName, _locationCity, _locationRegion, _locationCountry, _latitude, _longitude, _capturedAt, _personToAdd; private bool _saving, _showMotion, _editingDescription, _editingDate, _editingLocation; private ViewPlaceDto? _selectedPlace; private List<string> _people = []; private List<string> _tagValues = [];
     private string Title => string.IsNullOrWhiteSpace(Item.Title) ? Item.FileName : Item.Title;
     private DateTimeOffset Captured => Item.CapturedAt ?? Item.CreatedAt;
     private DateTimeOffset CapturedLocal => Captured.ToLocalTime();
@@ -227,14 +227,30 @@
     }
     private async Task RemovePersonAsync(string person) { _people.RemoveAll(value => string.Equals(value, person, StringComparison.OrdinalIgnoreCase)); await ApplyAsync(ApiClient.UpdateViewItemPeopleAsync(Item.Id, _people)); }
     private async Task<IEnumerable<string>> SearchTagsAsync(string? search, CancellationToken ct) => await ApiClient.GetViewTagSuggestionsAsync(search, 30, ct);
-    private async Task TagSelected(string? tag)
+    private bool _tagSaving;
+    private async Task<bool> CommitTagAsync(string tag)
     {
-        _tagToAdd = null;
-        if (string.IsNullOrWhiteSpace(tag) || _tagValues.Contains(tag, StringComparer.OrdinalIgnoreCase)) return;
-        _tagValues.Add(tag.Trim());
-        await ApplyAsync(ApiClient.UpdateViewItemTagsAsync(Item.Id, _tagValues));
+        if (string.IsNullOrWhiteSpace(tag)) return false;
+        tag = tag.Trim();
+        if (_tagValues.Contains(tag, StringComparer.OrdinalIgnoreCase)) return true;
+        return await SaveTagsAsync([.. _tagValues, tag]);
     }
-    private async Task RemoveTagAsync(string tag) { _tagValues.RemoveAll(value => string.Equals(value, tag, StringComparison.OrdinalIgnoreCase)); await ApplyAsync(ApiClient.UpdateViewItemTagsAsync(Item.Id, _tagValues)); }
+    private async Task RemoveTagAsync(string tag) => await SaveTagsAsync(_tagValues.Where(value => !string.Equals(value, tag, StringComparison.OrdinalIgnoreCase)).ToList());
+    private async Task<bool> SaveTagsAsync(List<string> tags)
+    {
+        if (_tagSaving || !CanEdit) return false;
+        var itemId = Item.Id;
+        _tagSaving = true;
+        try
+        {
+            var updated = await ApiClient.UpdateViewItemTagsAsync(itemId, tags);
+            if (updated is null) { Snackbar.Add(ApiClient.LastError ?? "Tags could not be saved. Try again.", Severity.Error); return false; }
+            // Navigating while saving must not replace the newly opened photo.
+            if (Item.Id == itemId) { _tagValues = [.. updated.Tags]; await OnItemUpdated.InvokeAsync(updated); }
+            return true;
+        }
+        finally { _tagSaving = false; }
+    }
     private async Task InfoOpenChangedAsync(bool open)
     {
         if (!await Workspace.SetViewerInfoOpenAsync(open))

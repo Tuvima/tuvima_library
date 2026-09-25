@@ -51,7 +51,8 @@ public sealed record ViewAtlasTimelineBucketDto(
     [property: JsonPropertyName("start")] DateTimeOffset Start,
     [property: JsonPropertyName("asset_count")] int AssetCount,
     [property: JsonPropertyName("image_count")] int ImageCount,
-    [property: JsonPropertyName("video_count")] int VideoCount);
+    [property: JsonPropertyName("video_count")] int VideoCount,
+    [property: JsonPropertyName("end")] DateTimeOffset? End = null);
 
 public sealed record ViewAtlasPageDto(
     [property: JsonPropertyName("hotspots")] IReadOnlyList<ViewAtlasHotspotDto> Hotspots,
@@ -61,7 +62,9 @@ public sealed record ViewAtlasPageDto(
     [property: JsonPropertyName("capability")] ViewDiscoveryCapabilityDto Capability,
     [property: JsonPropertyName("timeline")] IReadOnlyList<ViewAtlasTimelineBucketDto>? Timeline = null,
     [property: JsonPropertyName("earliest_at")] DateTimeOffset? EarliestAt = null,
-    [property: JsonPropertyName("latest_at")] DateTimeOffset? LatestAt = null);
+    [property: JsonPropertyName("latest_at")] DateTimeOffset? LatestAt = null,
+    [property: JsonPropertyName("image_count")] int ImageCount = 0,
+    [property: JsonPropertyName("video_count")] int VideoCount = 0);
 
 public sealed record ViewPlaceMediaPageDto(
     [property: JsonPropertyName("place_key")] string PlaceKey,

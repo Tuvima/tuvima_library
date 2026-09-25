@@ -60,14 +60,15 @@ else
     else if (_page.Items.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="@EmptyTitle" Message="@EmptyMessage" /> }
     else
     {
+        @if (_olderWindow) { <AppButton Label="Back to newest photos" OnClick="@(() => LoadAsync(preserveSelection: true))" /> }
         <div class="view-timeline-layout">
-            <ViewPhotoTimeline Items="@_page.Items" Selected="@_selected" Density="@Workspace.Density" ThumbnailUrl="@(item => AssetUrl(item, ViewMediaResourceKind.Thumbnail))" OnOpen="OpenItem" OnToggleSelection="ToggleSelection" OnToggleSelectionRequested="ToggleSelectionRequested" OnSelectDateGroup="SelectDateGroup" OnDragStarted="BeginDrag" OnDragEnded="EndDrag" />
+            <ViewPhotoTimeline Items="@_page.Items" Selected="@_selected" SelectEntireDate="true" Density="@Workspace.Density" ThumbnailUrl="@(item => AssetUrl(item, ViewMediaResourceKind.Thumbnail))" OnOpen="OpenItem" OnToggleSelection="ToggleSelection" OnToggleSelectionRequested="ToggleSelectionRequested" OnSelectDateGroup="SelectDateGroup" OnDragStarted="BeginDrag" OnDragEnded="EndDrag" />
             <ViewTimelineScrubber Buckets="@(_timelineIndex?.Buckets ?? [])" ActiveYear="@_activeYear" ActiveMonth="@_activeMonth" OnJump="JumpToBucketAsync" />
         </div>
         <span class="view-timeline-observer-anchor" @ref="_timelineSentinel" aria-hidden="true"></span>
         @if (_page.HasMore)
         {
-            <div class="view-load-more" aria-live="polite"><span class="view-load-more__status">@(_loadingMore ? "Loading more photos…" : "More photos load as you scroll")</span><AppButton ButtonStyle="AppButtonStyle.Text" Disabled="@_loadingMore" OnClick="LoadMoreAsync">@(_loadingMore ? "Loading…" : "Load more")</AppButton></div>
+            <div class="view-load-more" aria-live="polite"><span class="view-load-more__status">@(_loadingMore ? "Loading more photos…" : _page.Items.Count >= MaximumWindowItems ? "Continue into an older window, or use the date navigator. Your selection is kept." : "More photos load as you scroll")</span><AppButton ButtonStyle="AppButtonStyle.Text" Disabled="@_loadingMore" OnClick="LoadMoreAsync">@(_loadingMore ? "Loading…" : _page.Items.Count >= MaximumWindowItems ? "Continue to older photos" : "Load more")</AppButton></div>
         }
     }
 }
@@ -84,8 +85,51 @@ else
     protected override async Task OnInitializedAsync() { Orchestrator.OnProfileChanged += OnProfileChanged; await InitializeAsync(); }
     private async Task InitializeAsync() { _initializing = true; _profileId = (await Orchestrator.GetActiveProfileAsync())?.Id; await Workspace.InitializeAsync(); await Workspace.LoadGalleriesAsync(); _initializing = false; await LoadAsync(); }
     private ViewAssetQueryOptions Query(string? cursor = null, DateTimeOffset? anchorBefore = null) => new(Workspace.ScopeKind, Workspace.ScopeProfileId, cursor, _search, _filter switch { "videos" => ["video"], "documents" => ["document"], _ => null }, _filter == "favorites", _filter == "hidden", _filter switch { "archive" => "archived", "trash" => "trashed", _ => "active" }, AnchorBefore: anchorBefore);
-    private async Task LoadAsync(DateTimeOffset? anchorBefore = null) { _loading = true; _anchorBefore = anchorBefore; var pageTask = ApiClient.GetViewAssetsAsync(Query(anchorBefore: anchorBefore)); var indexTask = ApiClient.GetViewTimelineIndexAsync(Query()); await Task.WhenAll(pageTask, indexTask); _page = pageTask.Result; _timelineIndex = indexTask.Result; _selected.Clear(); _selectionAnchor = null; SetActiveFromFirstItem(); _observeTimeline = true; _focusAnchoredPeriod = anchorBefore.HasValue; _loading = false; }
-    private async Task LoadMoreAsync() { if (_page?.NextCursor is null || _loadingMore) return; _loadingMore = true; var next = await ApiClient.GetViewAssetsAsync(Query(_page.NextCursor)); if (next is not null) _page = next with { Items = [.. _page.Items, .. next.Items] }; _loadingMore = false; _observeTimeline = true; }
+    private int _loadVersion;
+    private const int MaximumWindowItems = 600;
+    private bool _olderWindow;
+    private async Task LoadAsync(DateTimeOffset? anchorBefore = null, bool preserveSelection = false)
+    {
+        var version = ++_loadVersion;
+        _observeTimeline = false;
+        _focusAnchoredPeriod = false;
+        if (_timelineModule is not null) await _timelineModule.InvokeVoidAsync("disconnectTimeline", _timelineSentinel);
+        _loading = true;
+        _loadingMore = false;
+        _anchorBefore = anchorBefore;
+        var pageTask = ApiClient.GetViewAssetsAsync(Query(anchorBefore: anchorBefore));
+        var indexTask = ApiClient.GetViewTimelineIndexAsync(Query());
+        await Task.WhenAll(pageTask, indexTask);
+        if (version != _loadVersion) return;
+        _page = pageTask.Result;
+        _timelineIndex = indexTask.Result;
+        if (!preserveSelection) _selected.Clear();
+        _olderWindow = anchorBefore.HasValue;
+        _selectionAnchor = null;
+        SetActiveFromFirstItem();
+        _observeTimeline = _page?.Items.Count > 0;
+        _focusAnchoredPeriod = _observeTimeline && anchorBefore.HasValue;
+        _loading = false;
+    }
+    private async Task LoadMoreAsync()
+    {
+        if (_page?.NextCursor is null || _loadingMore || _loading) return;
+        var version = _loadVersion;
+        _loadingMore = true;
+        var next = await ApiClient.GetViewAssetsAsync(Query(_page.NextCursor));
+        if (version != _loadVersion) return;
+        if (next is not null)
+        {
+            if (_page.Items.Count >= MaximumWindowItems)
+            {
+                if (_timelineModule is not null) await _timelineModule.InvokeVoidAsync("disconnectTimeline", _timelineSentinel);
+                _page = next; _olderWindow = true; _focusAnchoredPeriod = true;
+            }
+            else _page = next with { Items = [.. _page.Items, .. next.Items] };
+        }
+        _loadingMore = false;
+        _observeTimeline = _page.Items.Count > 0;
+    }
     private async Task ScopeChangedAsync(ChangeEventArgs args) { var parts = args.Value?.ToString()?.Split(':', 2) ?? []; if (parts.Length == 0 || !Enum.TryParse<ViewScopeKind>(parts[0], true, out var kind)) return; Guid? profile = parts.Length == 2 && Guid.TryParse(parts[1], out var parsed) ? parsed : null; if (await Workspace.SelectScopeAsync(kind, profile)) await LoadAsync(); }
     private async Task DensityChangedAsync(ChangeEventArgs args) { if (Enum.TryParse<ViewTimelineDensity>(args.Value?.ToString(), out var density) && !await Workspace.SetDensityAsync(density)) Snackbar.Add("Timeline density could not be saved.", Severity.Error); }
     private async Task SearchChanged(object? value)
@@ -98,27 +142,9 @@ else
         try
         {
             await Task.Delay(250, search.Token);
-            _loading = true;
-            _anchorBefore = null;
-            var pageTask = ApiClient.GetViewAssetsAsync(Query(), search.Token);
-            var indexTask = ApiClient.GetViewTimelineIndexAsync(Query(), search.Token);
-            await Task.WhenAll(pageTask, indexTask);
-            var page = pageTask.Result;
-            if (!search.IsCancellationRequested)
-            {
-                _page = page;
-                _timelineIndex = indexTask.Result;
-                _selected.Clear();
-                _selectionAnchor = null;
-                SetActiveFromFirstItem();
-                _observeTimeline = true;
-            }
+            await LoadAsync();
         }
         catch (OperationCanceledException) { }
-        finally
-        {
-            if (ReferenceEquals(_searchCts, search)) _loading = false;
-        }
     }
     private async Task SetFilterAsync(string filter) { _filter = filter; await LoadAsync(); } private string FilterClass(string filter) => $"app-discovery-filter__tab{(_filter == filter ? " is-active" : "")}"; private string SelectedScopeValue => ScopeValue(Workspace.ScopeKind, Workspace.ScopeProfileId); private static string ScopeValue(ViewScopeKind kind, Guid? profile) => $"{kind}:{(kind == ViewScopeKind.Profile ? profile?.ToString("D") : null)}";
     private string ScopeDescription => Workspace.ScopeKind switch
@@ -149,14 +175,57 @@ else
         }
         ToggleSelection(request.ItemId);
     }
-    private void SelectDateGroup(IReadOnlyCollection<Guid> ids) { var select = ids.Any(id => !_selected.Contains(id)); foreach (var id in ids) { if (select) _selected.Add(id); else _selected.Remove(id); } _selectionAnchor = ids.LastOrDefault(); }
+    private bool _selectingDate;
+    private async Task SelectDateGroup(IReadOnlyCollection<Guid> ids)
+    {
+        if (_selectingDate || _page is null || ids.Count == 0) return;
+        var item = _page.Items.FirstOrDefault(item => ids.Contains(item.Id));
+        if (item is null) return;
+        var date = (item.CapturedAt ?? item.CreatedAt).Date;
+        var version = _loadVersion;
+        var select = ids.Any(id => !_selected.Contains(id));
+        var matching = new HashSet<Guid>();
+        string? cursor = null;
+        _selectingDate = true;
+        try
+        {
+            do
+            {
+                var query = Query(cursor) with { From = new DateTimeOffset(date, TimeSpan.Zero).AddHours(-14),
+                    To = new DateTimeOffset(date.AddDays(1), TimeSpan.Zero).AddHours(14), Limit = 500 };
+                var page = await ApiClient.GetViewAssetsAsync(query);
+                if (version != _loadVersion) return;
+                if (page is null) { Snackbar.Add("The full date could not be selected. Please retry.", Severity.Error); return; }
+                matching.UnionWith(page.Items.Where(value => (value.CapturedAt ?? value.CreatedAt).Date == date).Select(value => value.Id));
+                cursor = page.NextCursor;
+            } while (cursor is not null);
+            if (select) _selected.UnionWith(matching); else _selected.ExceptWith(matching);
+            _selectionAnchor = ids.LastOrDefault();
+        }
+        finally { _selectingDate = false; }
+    }
     private void ClearSelection() { _selected.Clear(); _selectionAnchor = null; }
     private void BeginDrag(Guid id) => AssetDrag.Begin(_selected.Contains(id) ? _selected : [id]); private void EndDrag() => AssetDrag.Clear();
     private async Task AddSelectionToGalleryAsync(Guid id) { var result = await ApiClient.AddViewGalleryItemsAsync(id, _selected); if (result is null) { Snackbar.Add("The selected items could not be added to the Gallery.", Severity.Error); return; } Snackbar.Add(GalleryResult(result), Severity.Success); ClearSelection(); await Workspace.LoadGalleriesAsync(force: true); }
     private async Task CreateGalleryFromSelectionAsync() { if (_viewSectionShell is null) return; await _viewSectionShell.BeginManualGalleryCreateAsync(_selected); ClearSelection(); }
     private async Task AddActiveToGalleryAsync(Guid id) { if (_activeItem is null) return; var result = await ApiClient.AddViewGalleryItemsAsync(id, [_activeItem.Id]); if (result is not null) Snackbar.Add(GalleryResult(result), Severity.Success); }
     private static string GalleryResult(AddViewGalleryItemsResponseDto result) => result.AlreadyPresent > 0 ? $"{result.Added} added · {result.AlreadyPresent} already in Gallery" : $"{result.Added} added";
-    private Task ArchiveSelectionAsync() => MutateSelectionAsync(ApiClient.ArchiveViewItemAsync, "Archived selected items."); private Task TrashSelectionAsync() => MutateSelectionAsync(ApiClient.TrashViewItemAsync, "Moved selected items to Trash."); private async Task MutateSelectionAsync(Func<Guid, CancellationToken, Task<bool>> action, string message) { foreach (var id in _selected.ToList()) await action(id, default); Snackbar.Add(message, Severity.Success); await LoadAsync(); }
+    private Task ArchiveSelectionAsync() => MutateSelectionAsync(ApiClient.ArchiveViewItemAsync, "Archived selected items."); private Task TrashSelectionAsync() => MutateSelectionAsync(ApiClient.TrashViewItemAsync, "Moved selected items to Trash.");
+    private bool _mutatingSelection;
+    private async Task MutateSelectionAsync(Func<Guid, CancellationToken, Task<bool>> action, string message)
+    {
+        if (_mutatingSelection) return;
+        _mutatingSelection = true;
+        var failed = new HashSet<Guid>();
+        try
+        {
+            foreach (var id in _selected.ToArray()) if (!await action(id, default)) failed.Add(id);
+            await LoadAsync();
+            _selected.UnionWith(failed);
+            Snackbar.Add(failed.Count == 0 ? message : $"{failed.Count} items could not be updated and remain selected. Please retry.", failed.Count == 0 ? Severity.Success : Severity.Error);
+        }
+        finally { _mutatingSelection = false; }
+    }
     private Task FavoriteSelectionAsync() => MutateSelectionAsync((id, ct) => ApiClient.SetViewItemFavoriteAsync(id, true, ct), "Favorited selected items.");
     private async Task SubmitSelectionToSharedAsync()
     {
@@ -196,8 +265,9 @@ else
     private string EmptyTitle => !string.IsNullOrWhiteSpace(_search) ? "No matching items" : _filter switch { "favorites" => "No favorites yet", "videos" => "No videos yet", "archive" => "Archive is empty", "trash" => "Trash is empty", "hidden" => "No hidden items", "documents" => "No documents yet", _ => "No personal media yet" }; private string EmptyMessage => !string.IsNullOrWhiteSpace(_search) ? "Try a different search." : "Items matching this View filter will appear here.";
     private async Task JumpToBucketAsync(ViewTimelineBucketDto bucket)
     {
+        if (_timelineModule is not null && await _timelineModule.InvokeAsync<bool>("jumpToPeriod", bucket.Year, bucket.Month)) return;
         var anchor = new DateTimeOffset(bucket.Year, bucket.Month, 1, 0, 0, 0, TimeSpan.Zero).AddMonths(1);
-        await LoadAsync(anchor);
+        await LoadAsync(anchor, preserveSelection: true);
     }
     private void SetActiveFromFirstItem()
     {
@@ -206,16 +276,16 @@ else
         _activeYear = date.Year; _activeMonth = date.Month;
     }
     [JSInvokable] public Task SetActiveTimelinePeriod(int year, int month) { _activeYear = year; _activeMonth = month; return InvokeAsync(StateHasChanged); }
-    [JSInvokable] public Task LoadMoreFromObserverAsync() => InvokeAsync(LoadMoreAsync);
+    [JSInvokable] public Task LoadMoreFromObserverAsync() => _page?.Items.Count >= MaximumWindowItems ? Task.CompletedTask : InvokeAsync(LoadMoreAsync);
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!_observeTimeline && !_focusAnchoredPeriod) return;
+        if (_loading || _page?.Items.Count is not > 0 || (!_observeTimeline && !_focusAnchoredPeriod)) return;
         _timelineModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/view-timeline.js");
-        if (_observeTimeline) { _timelineReference ??= DotNetObjectReference.Create(this); await _timelineModule.InvokeVoidAsync("observeTimeline", _timelineSentinel, _timelineReference, _page?.HasMore == true); }
+        if (_observeTimeline) { _timelineReference ??= DotNetObjectReference.Create(this); await _timelineModule.InvokeVoidAsync("observeTimeline", _timelineSentinel, _timelineReference, _page?.HasMore == true && _page.Items.Count < MaximumWindowItems); }
         _observeTimeline = false;
         if (_focusAnchoredPeriod) { _focusAnchoredPeriod = false; await _timelineModule.InvokeVoidAsync("focusFirstPeriod"); }
     }
     private void OnProfileChanged() => _ = InvokeAsync(async () => { _grants.Clear(); Workspace.Reset(); await InitializeAsync(); StateHasChanged(); }); public void Dispose() { Orchestrator.OnProfileChanged -= OnProfileChanged; _searchCts?.Cancel(); _searchCts?.Dispose(); }
-    public async ValueTask DisposeAsync() { Dispose(); _timelineReference?.Dispose(); if (_timelineModule is not null) { try { await _timelineModule.DisposeAsync(); } catch (JSDisconnectedException) { } } }
+    public async ValueTask DisposeAsync() { Dispose(); if (_timelineModule is not null) { try { await _timelineModule.InvokeVoidAsync("disconnectTimeline", _timelineSentinel); await _timelineModule.DisposeAsync(); } catch (JSDisconnectedException) { } } _timelineReference?.Dispose(); }
     private sealed record CachedMediaGrant(string Url, DateTimeOffset ExpiresAt);
 }

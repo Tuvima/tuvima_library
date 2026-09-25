@@ -54,6 +54,10 @@ public sealed partial class EngineApiClient
             ? options.ScopeProfileId?.ToString("D") : null);
         AddQuery(query, "cursor", options.Cursor);
         AddQuery(query, "anchorBefore", options.AnchorBefore?.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        AddQuery(query, "withoutLocation", options.WithoutLocation ? "true" : null);
+        AddQuery(query, "personKey", options.PersonKey);
+        AddQuery(query, "from", options.From?.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        AddQuery(query, "to", options.To?.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
         AddQuery(query, "q", options.Search?.Trim());
         foreach (var kind in options.Kinds ?? [])
         {

@@ -6,7 +6,7 @@
 }
 
 .artwork-justified-gallery::after {
-    content: "";
+    content: none;
     flex-grow: 999999;
     min-width: 18%;
 }

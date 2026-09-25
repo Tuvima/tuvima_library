@@ -167,9 +167,9 @@ public sealed class ViewDiscoveryService(
                     "GPS and named location metadata",
                     "Atlas hotspots appear when active photos or videos contain real GPS metadata."),
                 page.Timeline?.Select(bucket => new ViewAtlasTimelineBucketDto(
-                    bucket.Start, bucket.AssetCount, bucket.ImageCount, bucket.VideoCount)).ToList(),
+                    bucket.Start, bucket.AssetCount, bucket.ImageCount, bucket.VideoCount, bucket.End)).ToList(),
                 page.EarliestAt,
-                page.LatestAt),
+                page.LatestAt, page.ImageCount, page.VideoCount),
             decision.Scope);
     }
 

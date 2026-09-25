@@ -2,6 +2,7 @@ const observers = new WeakMap();
 
 export function observeTimeline(anchor, dotnet, canLoadMore = false) {
   disconnectTimeline(anchor);
+  if (!anchor?.isConnected) return;
 
   const root = anchor.closest('.media-section-shell__content');
   const timeline = anchor.parentElement?.querySelector('.view-timeline');
@@ -25,6 +26,18 @@ export function observeTimeline(anchor, dotnet, canLoadMore = false) {
     if (!sections.length) return;
 
     const rootRect = root.getBoundingClientRect();
+    const rail = root.querySelector('.view-timeline-scrubber');
+    if (rail) {
+      const top = Math.max(rootRect.top + 20, rail.getBoundingClientRect().top);
+      rail.style.setProperty('--timeline-rail-height', `${Math.max(120, rootRect.bottom - top - 20)}px`);
+      if (matchMedia('(min-width:901px)').matches) {
+        const years = [...rail.querySelectorAll('.view-timeline-scrubber__year')];
+        const stride = Math.max(1, Math.ceil(years.length / Math.max(2, Math.floor((rootRect.bottom - top - 20) / 24))));
+        years.forEach((year, index) => { year.hidden = index % stride !== 0 && index !== years.length - 1 && !year.classList.contains('is-active') && !year.classList.contains('is-occupied'); });
+      } else {
+        rail.querySelectorAll('.view-timeline-scrubber__year').forEach(year => year.hidden = false);
+      }
+    }
     const activationLine = rootRect.top + Math.min(180, rootRect.height * .22);
     let current = sections[0];
     for (const section of sections) {
@@ -50,6 +63,7 @@ export function observeTimeline(anchor, dotnet, canLoadMore = false) {
   root.addEventListener('scroll', scheduleUpdate, { passive: true });
   const resizeObserver = new ResizeObserver(scheduleUpdate);
   resizeObserver.observe(timeline);
+  resizeObserver.observe(root);
   updateActivePeriod();
 
   observers.set(anchor, {
@@ -59,6 +73,13 @@ export function observeTimeline(anchor, dotnet, canLoadMore = false) {
     scheduleUpdate,
     cancelFrame: () => frame && cancelAnimationFrame(frame)
   });
+}
+
+export function jumpToPeriod(year, month) {
+  const section = document.querySelector(`.view-month[data-year="${year}"][data-month="${month}"]`);
+  if (!section) return false;
+  section.scrollIntoView({ block: 'start', behavior: 'auto' });
+  return true;
 }
 
 export function disconnectTimeline(anchor) {

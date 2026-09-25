@@ -1,0 +1,53 @@
+@namespace MediaEngine.Web.Components.Shared
+@implements IDisposable
+
+<form class="app-tag-input" @onsubmit="CommitAsync" @onsubmit:preventDefault>
+    <AppNativeInput Type="text" Value="@_draft" ValueChanged="DraftChangedAsync"
+                    Disabled="@_committing" Placeholder="Add tags…" AriaLabel="Tag to add"
+                    list="@_suggestionId" autocomplete="off" />
+    <datalist id="@_suggestionId">
+        @foreach (var suggestion in _suggestions) { <option value="@suggestion"></option> }
+    </datalist>
+    <AppNativeButton Type="submit" Disabled="@(_committing || string.IsNullOrWhiteSpace(_draft))" AriaLabel="Add tag">Add</AppNativeButton>
+</form>
+
+@code {
+    [Parameter, EditorRequired] public Func<string, Task<bool>> Commit { get; set; } = default!;
+    [Parameter, EditorRequired] public Func<string?, CancellationToken, Task<IEnumerable<string>>> Search { get; set; } = default!;
+    private readonly string _suggestionId = $"tags-{Guid.NewGuid():N}";
+    private string _draft = "";
+    private IEnumerable<string> _suggestions = [];
+    private CancellationTokenSource? _search;
+    private bool _committing;
+    private bool _disposed;
+
+    private async Task DraftChangedAsync(object? value)
+    {
+        var draft = value?.ToString() ?? "";
+        if (_draft == draft) return;
+        _draft = draft;
+        _search?.Cancel();
+        _search?.Dispose();
+        var search = _search = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(200, search.Token);
+            var suggestions = await Search(draft, search.Token);
+            if (!_disposed && !search.IsCancellationRequested) _suggestions = suggestions.ToArray();
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task CommitAsync()
+    {
+        if (_committing || string.IsNullOrWhiteSpace(_draft)) return;
+        _committing = true;
+        try
+        {
+            if (await Commit(_draft.Trim()) && !_disposed) { _draft = ""; _suggestions = []; }
+        }
+        finally { _committing = false; }
+    }
+
+    public void Dispose() { _disposed = true; _search?.Cancel(); _search?.Dispose(); }
+}

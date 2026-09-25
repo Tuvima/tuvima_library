@@ -1,5 +1,6 @@
 @page "/view/people"
 @using MediaEngine.Contracts.LocalAssets
+@using MediaEngine.Domain.PersonalMedia
 @inject IEngineApiClient ApiClient
 @inject ViewWorkspaceService Workspace
 @inject UIOrchestratorService Orchestrator
@@ -11,14 +12,84 @@
 @if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading People" Message="Looking at indexed local metadata." /> }
 else if (_page is null) { <AppErrorState Title="People could not be loaded" Message="The discovery service did not return a result." Retry="LoadAsync" /> }
 else if (_page.Items.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="@(_page.Capability.State == ViewDiscoveryCapabilityStates.NoMatches ? "No matching people" : "No people to show yet")" Message="@_page.Capability.Message" /> }
-else { <section class="view-discovery-grid" aria-label="People">@foreach (var person in _page.Items) { <article class="view-discovery-card"><img src="@Thumbnail(person.RepresentativeLibraryId, person.RepresentativeAssetId)" alt="" loading="lazy" /><strong>@person.DisplayName</strong><span>@person.AssetCount media items</span>@if (person.HasReviewedEvidence) { <small>Reviewed identity</small> }</article> }</section>@if (_page.HasMore) { <AppButton ButtonStyle="AppButtonStyle.Outlined" OnClick="LoadMoreAsync">Load more</AppButton> } }
+else if (_person is not null)
+{
+    <AppButton Label="All people" OnClick="ClosePerson" />
+    <h2>@_person.DisplayName</h2>
+    @if (_mediaLoading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading photos" /> }
+    else if (_media is null) { <AppErrorState Title="Photos could not be loaded" Retry="@(() => OpenPersonAsync(_person))" /> }
+    else
+    {
+        <ViewPhotoTimeline Items="@_media.Items" Selected="@_selected" ThumbnailUrl="@(item => Thumbnail(item.LibraryId, item.Id))" OnOpen="@(item => _active = item)" OnToggleSelection="ToggleSelection" OnSelectDateGroup="SelectGroup" />
+        @if (_selected.Count > 0) { <ViewSelectionToolbar Count="@_selected.Count" OnClear="@(() => _selected.Clear())" OnFavorite="FavoriteSelectionAsync" /> }
+        @if (_media.HasMore) { <AppButton Label="Load more photos" Disabled="@_mediaLoadingMore" OnClick="LoadMoreMediaAsync" /> }
+    }
+}
+else { <section class="view-discovery-grid" aria-label="People">@foreach (var person in _page.Items) { <AppNativeButton Class="view-discovery-card" AriaLabel="@($"View photos of {person.DisplayName}")" OnClick="@(_ => OpenPersonAsync(person))"><img src="@Thumbnail(person.RepresentativeLibraryId, person.RepresentativeAssetId)" alt="" loading="lazy" /><strong>@person.DisplayName</strong><span>@person.AssetCount media items</span>@if (person.HasReviewedEvidence) { <small>Reviewed identity</small> }</AppNativeButton> }</section>@if (_page.HasMore) { <AppButton ButtonStyle="AppButtonStyle.Outlined" OnClick="LoadMoreAsync">Load more</AppButton> } }
 </ViewContentPage></ViewSectionShell>
+@if (_active is not null)
+{
+    <ViewImmersiveViewer Item="@_active" ContentUrl="@Resource(_active, ViewMediaResourceKind.Preview)" OriginalUrl="@Resource(_active, ViewMediaResourceKind.Content)"
+        ThumbnailUrl="@Thumbnail(_active.LibraryId, _active.Id)" OnClose="@(() => _active = null)" MotionUrl="@MotionUrl(_active)"
+        HasPrevious="@(ActiveIndex > 0)" HasNext="@(ActiveIndex >= 0 && (ActiveIndex < (_media?.Items.Count ?? 0) - 1 || _media?.HasMore == true))"
+        OnPrevious="PreviousItem" OnNext="NextItemAsync" PositionLabel="@($"{ActiveIndex + 1} of {_media?.Items.Count ?? 0}{(_media?.HasMore == true ? "+" : "")}")"
+        CanEdit="@(Workspace.ScopeKind == ViewScopeKind.Mine)" OnItemUpdated="UpdateItem" />
+}
 @code {
+    private ViewPersonDto? _person;
+    private ViewAssetTimelinePageDto? _media;
+    private LocalAssetDto? _active;
+    private bool _mediaLoading;
+    private bool _mediaLoadingMore;
+    private int _mediaVersion;
+    private int ActiveIndex => _active is null ? -1 : _media?.Items.ToList().FindIndex(item => item.Id == _active.Id) ?? -1;
+    private void ClosePerson() { ++_mediaVersion; _person = null; _active = null; _selected.Clear(); }
+    private void PreviousItem() { if (ActiveIndex > 0) _active = _media!.Items[ActiveIndex - 1]; }
+    private async Task NextItemAsync()
+    {
+        var index = ActiveIndex; var version = _mediaVersion; var id = _active?.Id;
+        if (index < 0) return;
+        if (index == (_media?.Items.Count ?? 0) - 1 && _media?.HasMore == true) await LoadMoreMediaAsync();
+        if (version == _mediaVersion && _active?.Id == id && index + 1 < (_media?.Items.Count ?? 0)) _active = _media!.Items[index + 1];
+    }
+    private string? MotionUrl(LocalAssetDto item) => item.Files.Any(file => file.Role == "live_photo_video") && _profileId.HasValue
+        ? $"/view-media/{MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, ViewMediaResourceKind.Content, ViewMediaResourceRole.LivePhotoVideo, Workspace.ScopeKind, Workspace.ScopeProfileId).Value}" : null;
+    private readonly HashSet<Guid> _selected = [];
+    private async Task FavoriteSelectionAsync()
+    {
+        foreach (var id in _selected.ToArray()) if (await ApiClient.SetViewItemFavoriteAsync(id, true)) _selected.Remove(id);
+    }
+    private void ToggleSelection(Guid id) { if (!_selected.Add(id)) _selected.Remove(id); }
+    private void SelectGroup(IReadOnlyCollection<Guid> ids) { if (ids.All(_selected.Contains)) _selected.ExceptWith(ids); else _selected.UnionWith(ids); }
+    private void UpdateItem(LocalAssetDto item) { _active = item; if (_media is not null) _media = _media with { Items = _media.Items.Select(value => value.Id == item.Id ? item : value).ToList() }; }
+    private string Resource(LocalAssetDto item, ViewMediaResourceKind kind) => _profileId.HasValue ? $"/view-media/{MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, kind, scopeKind: Workspace.ScopeKind, scopeProfileId: Workspace.ScopeProfileId).Value}" : "";
+    private async Task OpenPersonAsync(ViewPersonDto person)
+    {
+        var version = ++_mediaVersion;
+        _person = person; _mediaLoading = true; _selected.Clear();
+        var page = await ApiClient.GetViewAssetsAsync(new(Workspace.ScopeKind, Workspace.ScopeProfileId, PersonKey: person.Key));
+        if (version != _mediaVersion) return;
+        _media = page; _mediaLoading = false;
+    }
+    private async Task LoadMoreMediaAsync()
+    {
+        if (_media?.NextCursor is null || _person is null || _mediaLoadingMore) return;
+        var version = _mediaVersion;
+        _mediaLoadingMore = true;
+        try
+        {
+            var page = await ApiClient.GetViewAssetsAsync(new(Workspace.ScopeKind, Workspace.ScopeProfileId, Cursor: _media.NextCursor, PersonKey: _person.Key));
+            if (version == _mediaVersion && page is not null) _media = page with { Items = [.. _media.Items, .. page.Items] };
+        }
+        finally { _mediaLoadingMore = false; }
+    }
     private ViewPeoplePageDto? _page; private string _search = ""; private bool _loading = true; private Guid? _profileId;
     protected override async Task OnInitializedAsync() { await Workspace.InitializeAsync(); _profileId = (await Orchestrator.GetActiveProfileAsync())?.Id; await LoadAsync(); }
     private ViewDiscoveryQueryOptions Query(string? cursor = null) => new(Workspace.ScopeKind, Workspace.ScopeProfileId, _search, cursor);
-    private async Task LoadAsync() { _loading = true; _page = await ApiClient.GetViewPeopleAsync(Query()); _loading = false; }
-    private async Task SearchChanged(object? value) { _search = value?.ToString() ?? ""; await LoadAsync(); }
-    private async Task LoadMoreAsync() { if (_page?.NextCursor is null) return; var next = await ApiClient.GetViewPeopleAsync(Query(_page.NextCursor)); if (next is not null) _page = next with { Items = [.. _page.Items, .. next.Items] }; }
+    private int _peopleVersion;
+    private bool _loadingMore;
+    private async Task LoadAsync() { var version = ++_peopleVersion; _loading = true; var page = await ApiClient.GetViewPeopleAsync(Query()); if (version != _peopleVersion) return; _page = page; _loading = false; }
+    private async Task SearchChanged(object? value) { _search = value?.ToString() ?? ""; ++_mediaVersion; _person = null; _active = null; await LoadAsync(); }
+    private async Task LoadMoreAsync() { if (_page?.NextCursor is null || _loadingMore) return; var version = _peopleVersion; _loadingMore = true; try { var next = await ApiClient.GetViewPeopleAsync(Query(_page.NextCursor)); if (version == _peopleVersion && next is not null) _page = next with { Items = [.. _page.Items, .. next.Items] }; } finally { _loadingMore = false; } }
     private string Thumbnail(Guid libraryId, Guid assetId) => _profileId.HasValue ? $"/view-media/{MediaGrants.Create(_profileId.Value, libraryId, assetId, ViewMediaResourceKind.Thumbnail, scopeKind: Workspace.ScopeKind, scopeProfileId: Workspace.ScopeProfileId).Value}" : "";
 }

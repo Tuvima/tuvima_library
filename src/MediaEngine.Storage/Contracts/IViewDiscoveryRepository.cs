@@ -80,7 +80,8 @@ public sealed record ViewAtlasTimelineBucketRow(
     DateTimeOffset Start,
     int AssetCount,
     int ImageCount,
-    int VideoCount);
+    int VideoCount,
+    DateTimeOffset? End = null);
 
 public sealed record ViewPersonDiscoveryRow(
     string Key,
@@ -106,7 +107,9 @@ public sealed record ViewAtlasDiscoveryPage(
     bool HasEligibleData,
     IReadOnlyList<ViewAtlasTimelineBucketRow>? Timeline = null,
     DateTimeOffset? EarliestAt = null,
-    DateTimeOffset? LatestAt = null);
+    DateTimeOffset? LatestAt = null,
+    int ImageCount = 0,
+    int VideoCount = 0);
 
 public sealed record ViewPlaceAssetDiscoveryPage(
     string PlaceName,

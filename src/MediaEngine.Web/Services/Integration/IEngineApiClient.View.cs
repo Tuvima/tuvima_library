@@ -67,7 +67,11 @@ public sealed record ViewAssetQueryOptions(
     string Lifecycle = "active",
     Guid? GalleryId = null,
     int Limit = 120,
-    DateTimeOffset? AnchorBefore = null);
+    DateTimeOffset? AnchorBefore = null,
+    bool WithoutLocation = false,
+    string? PersonKey = null,
+    DateTimeOffset? From = null,
+    DateTimeOffset? To = null);
 
 public sealed record ViewUploadResult(bool Success, ViewUploadResponseDto? Upload = null, string? ErrorMessage = null);
 
