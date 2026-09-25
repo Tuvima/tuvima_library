@@ -157,8 +157,17 @@ function renderHotspots(state) {
   }
 
   for (const group of groups.values()) {
-    const latitude = group.items.reduce((sum, item) => sum + item.latitude * Math.max(1, item.assetCount), 0) / Math.max(1, group.count);
-    const longitude = group.items.reduce((sum, item) => sum + item.longitude * Math.max(1, item.assetCount), 0) / Math.max(1, group.count);
+    // A cluster must remain attached to a real place. Averaging geographic
+    // coordinates can put a representative photo between cities (or offshore),
+    // especially at the world zoom and near the antimeridian.
+    const anchorHotspot = group.items.length === 1
+      ? group.items[0]
+      : group.representative ?? group.items.reduce((best, item) =>
+        item.assetCount > best.assetCount ? item : best, group.items[0]);
+    const latitude = anchorHotspot.latitude;
+    const longitude = anchorHotspot.longitude;
+    const anchor = document.createElement('div');
+    anchor.className = 'tuvima-map-hotspot-anchor';
     const element = document.createElement('button');
     element.type = 'button';
     element.className = `tuvima-map-hotspot${group.items.length === 1 && zoom >= 7 ? ' is-place' : ''}`;
@@ -180,6 +189,7 @@ function renderHotspots(state) {
       : `${group.count} media items in ${group.items.length} nearby places`;
     element.setAttribute('aria-label', label);
     element.title = label;
+    anchor.appendChild(element);
     element.addEventListener('click', event => {
       event.stopPropagation();
       if (group.items.length === 1) {
@@ -195,7 +205,7 @@ function renderHotspots(state) {
       else
         state.map.fitBounds(bounds, { padding: 92, maxZoom: state.detailedStyle ? 10 : 4.25, duration: reducedMotion() ? 0 : 700 });
     });
-    state.markers.push(new maplibregl.Marker({ element, anchor: 'center' }).setLngLat([longitude, latitude]).addTo(state.map));
+    state.markers.push(new maplibregl.Marker({ element: anchor, anchor: 'center' }).setLngLat([longitude, latitude]).addTo(state.map));
   }
 }
 

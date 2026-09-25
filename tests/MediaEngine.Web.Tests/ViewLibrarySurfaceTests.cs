@@ -212,12 +212,14 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("renderWorldCopies: false", mapScript, StringComparison.Ordinal);
         Assert.DoesNotContain("setProjection({ type: 'globe' })", mapScript, StringComparison.Ordinal);
         Assert.Contains("maplibregl-compact-show", mapStyles, StringComparison.Ordinal);
-        Assert.Contains("scale:1.12", mapStyles, StringComparison.Ordinal);
-        Assert.DoesNotContain("transform:scale(1.12)", mapStyles, StringComparison.Ordinal);
+        Assert.Contains("tuvima-map-hotspot-anchor", mapStyles, StringComparison.Ordinal);
+        Assert.Contains("new maplibregl.Marker({ element: anchor, anchor: 'center' })", mapScript, StringComparison.Ordinal);
+        Assert.Contains("const anchorHotspot", mapScript, StringComparison.Ordinal);
+        Assert.DoesNotContain("group.items.reduce((sum, item) => sum + item.latitude", mapScript, StringComparison.Ordinal);
         Assert.Contains("map.once('idle', () => { renderOverviewLabels(state); renderHotspots(state); })", mapScript, StringComparison.Ordinal);
         Assert.Contains("group.representative?.thumbnailUrl", mapScript, StringComparison.Ordinal);
         Assert.Contains("new ResizeObserver", mapScript, StringComparison.Ordinal);
-        Assert.Contains("view-map.js?v=20260924.8", mapComponent, StringComparison.Ordinal);
+        Assert.Contains("view-map.js?v=20260924.9", mapComponent, StringComparison.Ordinal);
         Assert.Contains("IsSingleYear", timeline, StringComparison.Ordinal);
         Assert.Contains("SelectedYear", timeline, StringComparison.Ordinal);
         Assert.Contains("SelectedYear=\"@_year\"", places, StringComparison.Ordinal);

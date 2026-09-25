@@ -1,9 +1,9 @@
 .view-timeline { display: grid; gap: 2rem; }
 .view-month > h2 { margin: 0 0 1rem; font-size: 1.3rem; }
 .view-date-group + .view-date-group { margin-top: 1.4rem; }
-.view-date-group__heading { display: flex; align-items: center; gap: .55rem; min-height: 2.75rem; margin-bottom: .45rem; }
+.view-date-group__heading { position:relative; display: flex; align-items: center; min-height: 2.35rem; margin-bottom: .45rem; }
 .view-date-group__heading h3 { margin: 0; font-size: 1rem; }
-::deep .view-date-group__select { display:grid; width:2.75rem; height:2.75rem; padding:0; place-items:center; opacity:0; border:0; background:transparent; cursor:pointer; transition:opacity .14s ease; }
+::deep .view-date-group__select { position:absolute; right:calc(100% + .3rem); display:grid; width:2.1rem; height:2.1rem; padding:0; place-items:center; opacity:0; border:0; background:transparent; cursor:pointer; transition:opacity .14s ease; }
 ::deep .view-date-group__select span { display:grid; width:1.28rem; height:1.28rem; place-items:center; border:2px solid rgba(226,232,240,.68); border-radius:50%; background:rgba(2,6,23,.42); }
 .view-date-group:hover ::deep .view-date-group__select,.view-date-group:focus-within ::deep .view-date-group__select,::deep .view-date-group__select.is-true,::deep .view-date-group__select.is-mixed { opacity:1; }
 ::deep .view-date-group__select.is-true span { border-color:#b79aff; background:#a78bfa; }
