@@ -184,6 +184,12 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         Assert.Contains("License", harness, StringComparison.Ordinal);
         Assert.Contains("Author", harness, StringComparison.Ordinal);
         Assert.Contains("manual test fixture; not face recognition", harness, StringComparison.Ordinal);
+        Assert.Contains("Sydney, Australia", harness, StringComparison.Ordinal);
+        Assert.Contains("Machu Picchu, Peru", harness, StringComparison.Ordinal);
+        Assert.Contains("Cape Town, South Africa", harness, StringComparison.Ordinal);
+        Assert.Contains("New York, United States", harness, StringComparison.Ordinal);
+        Assert.Contains("new DateTimeOffset(2004", harness, StringComparison.Ordinal);
+        Assert.Contains("new DateTimeOffset(2024", harness, StringComparison.Ordinal);
         Assert.Contains("LocalAssetLifecycleState.Trashed", harness, StringComparison.Ordinal);
         Assert.Contains("LocalAssetLifecycleState.Active", harness, StringComparison.Ordinal);
     }

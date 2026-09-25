@@ -30,10 +30,14 @@
     [Parameter] public string? Subtitle { get; set; }
     [Parameter] public string? Class { get; set; }
     [Parameter] public bool ShowHeader { get; set; } = true;
+    [Parameter] public bool FillAvailableHeight { get; set; }
     [Parameter] public RenderFragment? HeaderActions { get; set; }
     [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
 
-    private string CssClass => string.IsNullOrWhiteSpace(Class)
-        ? "view-content-page"
-        : $"view-content-page {Class}";
+    private string CssClass => string.Join(' ', new[]
+    {
+        "view-content-page",
+        FillAvailableHeight ? "view-content-page--fill-height" : null,
+        Class
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
 }

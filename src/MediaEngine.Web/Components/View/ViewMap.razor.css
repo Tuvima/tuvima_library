@@ -20,4 +20,7 @@
 ::deep .tuvima-map-hotspot.has-thumbnail img{position:absolute;z-index:1;inset:.28rem;width:calc(100% - .56rem);height:calc(100% - .56rem);border-radius:50%;object-fit:cover}
 ::deep .tuvima-map-hotspot.has-thumbnail>span{align-self:end;margin-bottom:-.42rem;padding:.17rem .28rem;border-radius:999px;background:#5b21b6;box-shadow:0 1px 4px #000}
 ::deep .tuvima-map-hotspot.is-cluster img{filter:saturate(.82) brightness(.86)}
+::deep .tuvima-map-overview-label{pointer-events:none;color:rgba(226,232,240,.72);font:650 clamp(.72rem,.68rem + .18vw,.9rem)/1.1 var(--font-ui,system-ui);letter-spacing:.08em;text-align:center;text-shadow:0 1px 8px #020617,0 0 16px #020617;white-space:nowrap}
+::deep .tuvima-map-overview-label.is-ocean{color:rgba(125,169,255,.72);font-size:clamp(.65rem,.62rem + .14vw,.78rem);font-style:italic;font-weight:520;letter-spacing:.16em}
+::deep .tuvima-map-overview-label[hidden]{display:none}
 @media (prefers-reduced-motion:reduce){::deep .tuvima-map-hotspot{transition:none}}

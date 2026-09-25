@@ -9,6 +9,14 @@
     font-family: var(--font-ui, inherit);
 }
 
+.view-content-page--fill-height {
+    align-content: stretch;
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
 .view-content-page__header {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;

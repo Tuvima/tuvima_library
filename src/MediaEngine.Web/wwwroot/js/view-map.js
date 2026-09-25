@@ -70,6 +70,11 @@ function clearMarkers(state) {
   state.markers = [];
 }
 
+function clearOverviewLabels(state) {
+  for (const marker of state.overviewLabels) marker.remove();
+  state.overviewLabels = [];
+}
+
 function collapseAttribution(container) {
   const attribution = container.querySelector('details.maplibregl-ctrl-attrib');
   if (!attribution) return;
@@ -79,29 +84,60 @@ function collapseAttribution(container) {
 
 function atlasLabelMinZoom(layer) {
   const identity = `${layer.id ?? ''} ${layer['source-layer'] ?? ''}`.toLowerCase();
-  if (/(continent|ocean|sea-label|marine-label)/.test(identity)) return 0;
-  if (/(country|admin-0|admin_0)/.test(identity)) return 2;
-  if (/(state|province|admin-1|admin_1)/.test(identity)) return 4;
-  if (/(capital|city)/.test(identity)) return 5;
-  if (/(town|village|locality|settlement|place)/.test(identity)) return 7;
-  if (/(motorway|trunk|primary|road-label|road_label|highway|route-shield)/.test(identity)) return 9;
-  if (/(road|street|rail|transit|airport)/.test(identity)) return 11;
+  if (/(country|admin-0|admin_0)/.test(identity)) return 2.75;
+  if (/(state|province|admin-1|admin_1)/.test(identity)) return 4.25;
+  if (/(capital|city)/.test(identity)) return 5.75;
+  if (/(town|village|locality|settlement|place)/.test(identity)) return 7.5;
+  if (/(motorway|trunk|primary|road-label|road_label|highway|route-shield)/.test(identity)) return 9.5;
+  if (/(road|street|rail|transit|airport|water_name|water-name)/.test(identity)) return 11;
   if (/(poi|point-of-interest|address|housenumber|building)/.test(identity)) return 13;
-  return 8;
+  return 11;
 }
 
 function applyAtlasLabelPolicy(map) {
   const layers = map.getStyle()?.layers ?? [];
   for (const layer of layers) {
     if (layer.type !== 'symbol') continue;
-    const minimum = Math.max(Number(layer.minzoom ?? 0), atlasLabelMinZoom(layer));
+    const minimum = atlasLabelMinZoom(layer);
     const maximum = Number(layer.maxzoom ?? 24);
     try { map.setLayerZoomRange(layer.id, minimum, maximum); } catch { }
   }
 }
 
+const atlasOverviewLabels = [
+  ['North America', -105, 45, 'continent'],
+  ['South America', -60, -18, 'continent'],
+  ['Europe', 18, 50, 'continent'],
+  ['Africa', 20, 6, 'continent'],
+  ['Asia', 90, 40, 'continent'],
+  ['Oceania', 137, -25, 'continent'],
+  ['Arctic Ocean', 0, 73, 'ocean'],
+  ['North Pacific', -150, 8, 'ocean'],
+  ['South Pacific', -135, -32, 'ocean'],
+  ['Atlantic Ocean', -32, 8, 'ocean'],
+  ['Indian Ocean', 78, -26, 'ocean'],
+  ['Southern Ocean', 18, -54, 'ocean']
+];
+
+function renderOverviewLabels(state) {
+  if (state.mode !== 'atlas' || !state.map) return;
+  const visible = state.map.getZoom() < 2.7;
+  if (!state.overviewLabels.length) {
+    for (const [name, longitude, latitude, kind] of atlasOverviewLabels) {
+      const label = document.createElement('span');
+      label.className = `tuvima-map-overview-label is-${kind}`;
+      label.textContent = name;
+      label.setAttribute('aria-hidden', 'true');
+      state.overviewLabels.push(new maplibregl.Marker({ element: label, anchor: 'center' })
+        .setLngLat([longitude, latitude]).addTo(state.map));
+    }
+  }
+  for (const marker of state.overviewLabels) marker.getElement().hidden = !visible;
+}
+
 function renderHotspots(state) {
   if (state.mode !== 'atlas' || !state.map || !state.map.isStyleLoaded()) return;
+  renderOverviewLabels(state);
   clearMarkers(state);
   const zoom = state.map.getZoom();
   const cell = zoom < 2 ? 92 : zoom < 4 ? 78 : zoom < 7 ? 66 : 52;
@@ -167,13 +203,25 @@ function reducedMotion() {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 }
 
-function atlasWorldCenter(hotspots) {
-  if (!hotspots?.length) return [0, 18];
-  const total = hotspots.reduce((sum, item) => sum + Math.max(1, item.assetCount), 0);
-  return [
-    hotspots.reduce((sum, item) => sum + item.longitude * Math.max(1, item.assetCount), 0) / total,
-    Math.max(-55, Math.min(65, hotspots.reduce((sum, item) => sum + item.latitude * Math.max(1, item.assetCount), 0) / total))
-  ];
+function atlasWorldPadding(map) {
+  const width = Math.max(1, map.getContainer().clientWidth);
+  const height = Math.max(1, map.getContainer().clientHeight);
+  return {
+    top: Math.min(76, height * .1),
+    right: Math.min(34, width * .025),
+    bottom: Math.min(174, height * .21),
+    left: Math.min(76, width * .055)
+  };
+}
+
+function fitAtlasWorld(state, animate = true) {
+  if (!state?.map) return;
+  state.map.fitBounds([[-179.5, -58], [179.5, 78]], {
+    padding: atlasWorldPadding(state.map),
+    pitch: 0,
+    bearing: 0,
+    duration: animate && !reducedMotion() ? 650 : 0
+  });
 }
 
 function journeyGeoJson(hotspots) {
@@ -205,7 +253,7 @@ export async function initialize(container, dotnet, options) {
   if (!container) return;
   await dispose(container);
   const mode = options.mode ?? 'location';
-  const state = { map: null, dotnet, mode, markers: [], hotspots: (options.hotspots ?? []).map(normalizedHotspot), locationMarker: null, resizeObserver: null, detailedStyle: false, fallbackApplied: false, journeyEnabled: options.journeyEnabled === true };
+  const state = { map: null, dotnet, mode, markers: [], overviewLabels: [], hotspots: (options.hotspots ?? []).map(normalizedHotspot), locationMarker: null, resizeObserver: null, detailedStyle: false, fallbackApplied: false, journeyEnabled: options.journeyEnabled === true };
   states.set(container, state);
   try {
     const styleSelection = await preferredStyle();
@@ -215,11 +263,11 @@ export async function initialize(container, dotnet, options) {
     const map = new maplibregl.Map({
       container,
       style: styleSelection.style,
-      center: mode === 'atlas' ? atlasWorldCenter(state.hotspots) : [Number(options.longitude ?? 0), Number(options.latitude ?? 0)],
+      center: mode === 'atlas' ? [0, 12] : [Number(options.longitude ?? 0), Number(options.latitude ?? 0)],
       // The bundled fallback has country geometry rather than street tiles. Keep
       // it at a regional zoom so it remains visibly geographic instead of
       // becoming a featureless dark square around a city coordinate.
-      zoom: mode === 'atlas' ? 0.8 : styleSelection.detailed ? requestedZoom : Math.min(requestedZoom, 4.25),
+      zoom: mode === 'atlas' ? 0 : styleSelection.detailed ? requestedZoom : Math.min(requestedZoom, 4.25),
       minZoom: mode === 'atlas' ? 0 : 1,
       maxZoom: 18,
       renderWorldCopies: false,
@@ -247,8 +295,10 @@ export async function initialize(container, dotnet, options) {
         map.addSource('atlas-journey', { type: 'geojson', data: journeyGeoJson(state.journeyEnabled ? state.hotspots : []) });
         map.addLayer({ id: 'atlas-journey-glow', type: 'line', source: 'atlas-journey', paint: { 'line-color': '#7c3aed', 'line-width': 8, 'line-opacity': .16, 'line-blur': 6 } });
         map.addLayer({ id: 'atlas-journey', type: 'line', source: 'atlas-journey', paint: { 'line-color': '#c4b5fd', 'line-width': 2, 'line-opacity': .72, 'line-dasharray': [2, 2] } });
+        map.resize();
+        fitAtlasWorld(state, false);
         renderHotspots(state);
-        map.once('idle', () => renderHotspots(state));
+        map.once('idle', () => { renderOverviewLabels(state); renderHotspots(state); });
       } else {
         const marker = new maplibregl.Marker({ color: '#9f67ff', draggable: options.editable === true })
           .setLngLat([Number(options.longitude ?? 0), Number(options.latitude ?? 0)])
@@ -311,7 +361,7 @@ export function updateLocation(container, latitude, longitude) {
 
 export function resetWorld(container) {
   const state = states.get(container);
-  state?.map?.easeTo({ center: [0, 18], zoom: 0.8, pitch: 0, bearing: 0, duration: reducedMotion() ? 0 : 700 });
+  fitAtlasWorld(state, true);
 }
 
 export function fitHotspots(container) {
@@ -336,6 +386,7 @@ export async function dispose(container) {
   const state = states.get(container);
   if (!state) return;
   clearMarkers(state);
+  clearOverviewLabels(state);
   state.resizeObserver?.disconnect();
   state.locationMarker?.remove();
   state.map?.remove();

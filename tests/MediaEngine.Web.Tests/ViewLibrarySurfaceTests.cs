@@ -180,6 +180,8 @@ public sealed class ViewLibrarySurfaceTests
         var mapComponent = Read("src/MediaEngine.Web/Components/View/ViewMap.razor");
         var mapStyles = Read("src/MediaEngine.Web/Components/View/ViewMap.razor.css");
         var mapScript = Read("src/MediaEngine.Web/wwwroot/js/view-map.js");
+        var placesStyles = Read("src/MediaEngine.Web/Components/Pages/ViewPlacesPage.razor.css");
+        var contentPageStyles = Read("src/MediaEngine.Web/Components/Pages/ViewContentPage.razor.css");
         var story = Read("src/MediaEngine.Web/Components/View/ViewPlaceStoryPanel.razor");
         var timeline = Read("src/MediaEngine.Web/Components/View/ViewPlacesTimeline.razor");
 
@@ -203,13 +205,21 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("collapseAttribution(container)", mapScript, StringComparison.Ordinal);
         Assert.Contains("setProjection({ type: 'mercator' })", mapScript, StringComparison.Ordinal);
         Assert.Contains("applyAtlasLabelPolicy(map)", mapScript, StringComparison.Ordinal);
+        Assert.Contains("fitAtlasWorld(state, false)", mapScript, StringComparison.Ordinal);
+        Assert.Contains("atlasOverviewLabels", mapScript, StringComparison.Ordinal);
+        Assert.Contains("['North America', -105, 45, 'continent']", mapScript, StringComparison.Ordinal);
+        Assert.Contains("if (/(country|admin-0|admin_0)/.test(identity)) return 2.75", mapScript, StringComparison.Ordinal);
         Assert.Contains("renderWorldCopies: false", mapScript, StringComparison.Ordinal);
         Assert.DoesNotContain("setProjection({ type: 'globe' })", mapScript, StringComparison.Ordinal);
         Assert.Contains("maplibregl-compact-show", mapStyles, StringComparison.Ordinal);
-        Assert.Contains("map.once('idle', () => renderHotspots(state))", mapScript, StringComparison.Ordinal);
+        Assert.Contains("map.once('idle', () => { renderOverviewLabels(state); renderHotspots(state); })", mapScript, StringComparison.Ordinal);
         Assert.Contains("group.representative?.thumbnailUrl", mapScript, StringComparison.Ordinal);
         Assert.Contains("new ResizeObserver", mapScript, StringComparison.Ordinal);
-        Assert.Contains("view-map.js?v=20260924.7", mapComponent, StringComparison.Ordinal);
+        Assert.Contains("view-map.js?v=20260924.8", mapComponent, StringComparison.Ordinal);
+        Assert.Contains("FillAvailableHeight=\"true\"", places, StringComparison.Ordinal);
+        Assert.Contains(".view-content-page--fill-height", contentPageStyles, StringComparison.Ordinal);
+        Assert.Contains("height: 100%;", contentPageStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain(".view-atlas-page{height:calc(100dvh", placesStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("fake", galleries, StringComparison.OrdinalIgnoreCase);
     }
 
