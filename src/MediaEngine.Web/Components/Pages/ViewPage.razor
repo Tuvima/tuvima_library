@@ -58,7 +58,18 @@ else
     @if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Photos" Message="Building your personal timeline." /> }
     else if (_page is null) { <AppErrorState Title="Photos could not be loaded" Message="The Engine did not return a timeline." Retry="@(() => LoadAsync())" /> }
     else if (_page.Items.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="@EmptyTitle" Message="@EmptyMessage" /> }
-    else { <ViewPhotoTimeline Items="@_page.Items" Selected="@_selected" Density="@Workspace.Density" ThumbnailUrl="@(item => AssetUrl(item, ViewMediaResourceKind.Thumbnail))" OnOpen="OpenItem" OnToggleSelection="ToggleSelection" OnToggleSelectionRequested="ToggleSelectionRequested" OnSelectDateGroup="SelectDateGroup" OnDragStarted="BeginDrag" OnDragEnded="EndDrag" /> <ViewTimelineScrubber Buckets="@(_timelineIndex?.Buckets ?? [])" ActiveYear="@_activeYear" ActiveMonth="@_activeMonth" OnJump="JumpToBucketAsync" /> @if (_page.HasMore) { <div class="view-load-more" @ref="_timelineSentinel" aria-live="polite"><span class="view-load-more__status">@(_loadingMore ? "Loading more photos…" : "More photos load as you scroll")</span><AppButton ButtonStyle="AppButtonStyle.Text" Disabled="@_loadingMore" OnClick="LoadMoreAsync">@(_loadingMore ? "Loading…" : "Load more")</AppButton></div> } }
+    else
+    {
+        <div class="view-timeline-layout">
+            <ViewPhotoTimeline Items="@_page.Items" Selected="@_selected" Density="@Workspace.Density" ThumbnailUrl="@(item => AssetUrl(item, ViewMediaResourceKind.Thumbnail))" OnOpen="OpenItem" OnToggleSelection="ToggleSelection" OnToggleSelectionRequested="ToggleSelectionRequested" OnSelectDateGroup="SelectDateGroup" OnDragStarted="BeginDrag" OnDragEnded="EndDrag" />
+            <ViewTimelineScrubber Buckets="@(_timelineIndex?.Buckets ?? [])" ActiveYear="@_activeYear" ActiveMonth="@_activeMonth" OnJump="JumpToBucketAsync" />
+        </div>
+        <span class="view-timeline-observer-anchor" @ref="_timelineSentinel" aria-hidden="true"></span>
+        @if (_page.HasMore)
+        {
+            <div class="view-load-more" aria-live="polite"><span class="view-load-more__status">@(_loadingMore ? "Loading more photos…" : "More photos load as you scroll")</span><AppButton ButtonStyle="AppButtonStyle.Text" Disabled="@_loadingMore" OnClick="LoadMoreAsync">@(_loadingMore ? "Loading…" : "Load more")</AppButton></div>
+        }
+    }
 }
 </ChildContent>
 </ViewContentPage>
@@ -200,7 +211,7 @@ else
     {
         if (!_observeTimeline && !_focusAnchoredPeriod) return;
         _timelineModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/view-timeline.js");
-        if (_observeTimeline && _page?.HasMore == true) { _timelineReference ??= DotNetObjectReference.Create(this); await _timelineModule.InvokeVoidAsync("observeTimeline", _timelineSentinel, _timelineReference); }
+        if (_observeTimeline) { _timelineReference ??= DotNetObjectReference.Create(this); await _timelineModule.InvokeVoidAsync("observeTimeline", _timelineSentinel, _timelineReference, _page?.HasMore == true); }
         _observeTimeline = false;
         if (_focusAnchoredPeriod) { _focusAnchoredPeriod = false; await _timelineModule.InvokeVoidAsync("focusFirstPeriod"); }
     }

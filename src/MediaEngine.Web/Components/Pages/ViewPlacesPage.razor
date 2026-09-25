@@ -101,7 +101,10 @@ else
     private IReadOnlyList<LocalAssetDto> _unmapped = [];
 
     protected override async Task OnInitializedAsync() { _profileId = (await Orchestrator.GetActiveProfileAsync())?.Id; await Workspace.InitializeAsync(); await Workspace.LoadGalleriesAsync(); _initializing = false; await LoadAtlasAsync(); }
-    private ViewAtlasQueryOptions AtlasQuery() => new(Workspace.ScopeKind, Workspace.ScopeProfileId, _search, _year, _mediaKind, _from, _to, _timelineResolution, _favoritesOnly);
+    // The atlas histogram remains monthly and contextual while the selector controls
+    // the calendar precision used by the range handles. This prevents Year mode from
+    // collapsing a multi-year library into a handful of oversized bars.
+    private ViewAtlasQueryOptions AtlasQuery() => new(Workspace.ScopeKind, Workspace.ScopeProfileId, _search, _year, _mediaKind, _from, _to, "month", _favoritesOnly);
     private async Task LoadAtlasAsync()
     {
         _loading = true; _atlas = await ApiClient.GetViewAtlasAsync(AtlasQuery()); _loading = false;
@@ -145,7 +148,7 @@ else
     private void ToggleJourney() => _journey = !_journey;
     private async Task FromChangedAsync(DateTimeOffset? value) { _year = null; _from = value; await LoadAtlasAsync(); }
     private async Task ToChangedAsync(DateTimeOffset? value) { _year = null; _to = value; await LoadAtlasAsync(); }
-    private async Task ResolutionChangedAsync(string value) { _timelineResolution = value; await LoadAtlasAsync(); }
+    private Task ResolutionChangedAsync(string value) { _timelineResolution = value; return InvokeAsync(StateHasChanged); }
     private async Task ResetTimelineAsync() { _year = null; _from = null; _to = null; await LoadAtlasAsync(); }
     private async Task FavoritesChangedAsync(bool value) { _favoritesOnly = value; await LoadAtlasAsync(); }
     private async Task ClearAdvancedFiltersAsync() { _favoritesOnly = false; await LoadAtlasAsync(); }

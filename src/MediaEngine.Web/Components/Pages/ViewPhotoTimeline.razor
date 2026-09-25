@@ -14,10 +14,10 @@
         <section class="view-date-group" aria-labelledby="@DayId(day.Key)"><div class="view-date-group__heading"><AppNativeButton Type="button" Class="@($"view-date-group__select is-{groupState}")" role="checkbox" aria-checked="@groupState" AriaLabel="@($"{(selectedCount == ids.Count ? "Clear" : "Select")} all {ids.Count} items from {day.Key:MMMM d}")" OnClick="@(_ => OnSelectDateGroup.InvokeAsync(ids))"><span aria-hidden="true"></span></AppNativeButton><h3 id="@DayId(day.Key)">@day.Key.ToString("dddd, MMM d", CultureInfo.CurrentCulture)</h3></div><div class="view-grid">
         @foreach (var item in day)
         {
-            <article class="@TileClass(item)" draggable="true" @ondragstart="@(_ => OnDragStarted.InvokeAsync(item.Id))" @ondragend="@(_ => OnDragEnded.InvokeAsync())">
+            <article @key="item.Id" class="@TileClass(item)" @attributes="@AspectAttributes(item)" draggable="true" @ondragstart="@(_ => OnDragStarted.InvokeAsync(item.Id))" @ondragend="@(_ => OnDragEnded.InvokeAsync())">
                 <AppNativeButton Type="button" Class="view-tile__select-control" role="checkbox" aria-checked="@(Selected.Contains(item.Id) ? "true" : "false")" AriaLabel="@($"Select {Title(item)}")" OnClick="@(args => ToggleAsync(item.Id, args))" StopPropagation="true"><span aria-hidden="true"></span></AppNativeButton>
                 <AppNativeButton Type="button" Class="view-tile__surface" AriaLabel="@($"Open {Title(item)}")" OnClick="@(_ => OnOpen.InvokeAsync(item))">
-                    @if (Visual(item)) { <img src="@ThumbnailUrl(item)" alt="" loading="lazy" decoding="async" /> } else { <span class="view-tile__file-icon"><MudIcon Icon="@Icons.Material.Outlined.Description" /><strong>@Title(item)</strong><small>@item.MimeType</small></span> }
+                    @if (Visual(item)) { <img src="@ThumbnailUrl(item)" alt="" width="@item.Width" height="@item.Height" loading="lazy" decoding="async" /> } else { <span class="view-tile__file-icon"><MudIcon Icon="@Icons.Material.Outlined.Description" /><strong>@Title(item)</strong><small>@item.MimeType</small></span> }
                     @if (IsLive(item)) { <span class="view-tile__motion"><MudIcon Icon="@Icons.Material.Outlined.MotionPhotosOn" /> Live</span> }
                     @if (IsVideo(item)) { <span class="view-tile__duration"><MudIcon Icon="@Icons.Material.Filled.Videocam" />@(item.DurationSeconds is > 0 ? Duration(item.DurationSeconds.Value) : "Video")</span> }
                 </AppNativeButton>
@@ -53,22 +53,12 @@
     private static string Kind(LocalAssetDto item) => item.MediaKind.ToLowerInvariant();
     private static string Orientation(LocalAssetDto item) => item.Width is > 0 && item.Height is > 0 ? item.Width > item.Height * 1.15 ? "landscape" : item.Height > item.Width * 1.15 ? "portrait" : "square" : "standard";
     private static string Duration(double seconds) => TimeSpan.FromSeconds(seconds).TotalHours >= 1 ? TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture) : TimeSpan.FromSeconds(seconds).ToString(@"m\:ss", CultureInfo.InvariantCulture);
-    private static string AspectClass(LocalAssetDto item)
-    {
-        var aspect = item.Width is > 0 && item.Height is > 0
-            ? Math.Clamp(item.Width.Value / (double)item.Height.Value, .35, 4.5)
-            : 16d / 11d;
-        return aspect switch
-        {
-            < .6 => "view-aspect--narrow",
-            < .88 => "view-aspect--portrait",
-            < 1.18 => "view-aspect--square",
-            < 1.85 => "view-aspect--landscape",
-            < 2.75 => "view-aspect--wide",
-            _ => "view-aspect--panorama"
-        };
-    }
-    private string TileClass(LocalAssetDto item) => $"view-tile view-tile--{Kind(item)} view-tile--{Orientation(item)} {AspectClass(item)}{(Selected.Contains(item.Id) ? " is-selected" : string.Empty)}";
+    private static double Aspect(LocalAssetDto item) => item.Width is > 0 && item.Height is > 0
+        ? Math.Clamp(item.Width.Value / (double)item.Height.Value, .35, 5)
+        : 16d / 11d;
+    private static string AspectStyle(LocalAssetDto item) => FormattableString.Invariant($"--view-aspect:{Aspect(item):0.####}");
+    private static IReadOnlyDictionary<string, object> AspectAttributes(LocalAssetDto item) => new Dictionary<string, object> { ["style"] = AspectStyle(item) };
+    private string TileClass(LocalAssetDto item) => $"view-tile view-tile--{Kind(item)} view-tile--{Orientation(item)}{(Aspect(item) > 3 ? " view-tile--panorama" : string.Empty)}{(Selected.Contains(item.Id) ? " is-selected" : string.Empty)}";
     private Task ToggleAsync(Guid id, MouseEventArgs args) => OnToggleSelectionRequested.HasDelegate
         ? OnToggleSelectionRequested.InvokeAsync(new SelectionRequest(id, args.ShiftKey))
         : OnToggleSelection.InvokeAsync(id);

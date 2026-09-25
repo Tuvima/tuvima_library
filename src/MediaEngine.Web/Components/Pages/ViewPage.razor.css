@@ -411,6 +411,15 @@
     padding: 28px 0 4px;
 }
 .view-load-more__status { color: rgba(203,213,225,.54); font-size:var(--tl-font-size-xs); }
+.view-timeline-observer-anchor { display: block; width: 1px; height: 1px; pointer-events: none; }
+
+.view-timeline-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 4.3rem;
+    align-items: start;
+    gap: .35rem;
+    min-width: 0;
+}
 
 .view-viewer {
     position: fixed;
@@ -483,6 +492,7 @@
 }
 
 @media (max-width: 900px) {
+    .view-timeline-layout { grid-template-columns: minmax(0, 1fr); }
     .view-toolbar { grid-template-columns: 1fr; }
     .view-search { width: 100%; }
     .view-filter-controls { justify-content: flex-end; }

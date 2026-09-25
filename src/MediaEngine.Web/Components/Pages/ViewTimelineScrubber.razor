@@ -5,21 +5,32 @@
 @if (Buckets.Count > 0)
 {
     <nav class="view-timeline-scrubber" aria-label="Jump to date">
+        <span class="view-timeline-scrubber__rail" aria-hidden="true"></span>
         @foreach (var year in Years)
         {
-            var yearBuckets = Buckets.Where(bucket => bucket.Year == year).OrderByDescending(bucket => bucket.Month).ToList();
-            <div class="view-timeline-scrubber__year@(year == ActiveYear ? " is-active" : string.Empty)">
-                <AppNativeButton Type="button" aria-current="@(year == ActiveYear ? "date" : null)" OnClick="@(_ => JumpAsync(yearBuckets[0]))">@year</AppNativeButton>
-                <div class="view-timeline-scrubber__months" aria-label="@($"Months in {year}")">
-                    @foreach (var bucket in yearBuckets)
-                    {
-                        <AppNativeButton Type="button"
-                                class="@(bucket.Year == ActiveYear && bucket.Month == ActiveMonth ? "is-active" : string.Empty)"
-                                AriaLabel="@($"Jump to {Month(bucket.Month)} {bucket.Year}, {bucket.AssetCount} items")"
-                                Title="@($"{Month(bucket.Month)} · {bucket.AssetCount:N0}")"
-                                OnClick="@(_ => JumpAsync(bucket))"><span></span><em>@Month(bucket.Month)</em></AppNativeButton>
-                    }
-                </div>
+            var yearBuckets = BucketsFor(year);
+            var occupied = yearBuckets.Count > 0;
+            <div class="@YearClass(year, occupied)">
+                <AppNativeButton Type="button"
+                                 Disabled="@(!occupied)"
+                                 aria-current="@(year == ActiveYear ? "date" : null)"
+                                 AriaLabel="@YearLabel(year, yearBuckets)"
+                                 OnClick="@(_ => JumpYearAsync(year))">
+                    <span>@year</span><i aria-hidden="true"></i>
+                </AppNativeButton>
+                @if (occupied)
+                {
+                    <div class="view-timeline-scrubber__months" aria-label="@($"Months in {year}")">
+                        @foreach (var bucket in yearBuckets)
+                        {
+                            <AppNativeButton Type="button"
+                                             Class="@(bucket.Year == ActiveYear && bucket.Month == ActiveMonth ? "is-active" : string.Empty)"
+                                             AriaLabel="@($"Jump to {Month(bucket.Month)} {bucket.Year}, {bucket.AssetCount} items")"
+                                             Title="@($"{Month(bucket.Month)} · {bucket.AssetCount:N0}")"
+                                             OnClick="@(_ => JumpAsync(bucket))"><span></span><em>@Month(bucket.Month)</em></AppNativeButton>
+                        }
+                    </div>
+                }
             </div>
         }
     </nav>
@@ -30,7 +41,31 @@
     [Parameter] public int? ActiveYear { get; set; }
     [Parameter] public int? ActiveMonth { get; set; }
     [Parameter] public EventCallback<ViewTimelineBucketDto> OnJump { get; set; }
-    private IEnumerable<int> Years => Buckets.Select(bucket => bucket.Year).Distinct().OrderByDescending(year => year);
+
+    private IEnumerable<int> Years
+    {
+        get
+        {
+            if (Buckets.Count == 0) return [];
+            var earliest = Buckets.Min(bucket => bucket.Year);
+            var latest = Buckets.Max(bucket => bucket.Year);
+            return Enumerable.Range(earliest, latest - earliest + 1).Reverse();
+        }
+    }
+
+    private IReadOnlyList<ViewTimelineBucketDto> BucketsFor(int year) => Buckets
+        .Where(bucket => bucket.Year == year)
+        .OrderByDescending(bucket => bucket.Month)
+        .ToList();
+    private string YearClass(int year, bool occupied) => $"view-timeline-scrubber__year{(year == ActiveYear ? " is-active" : string.Empty)}{(occupied ? " is-occupied" : " is-empty")}";
+    private static string YearLabel(int year, IReadOnlyList<ViewTimelineBucketDto> buckets) => buckets.Count == 0
+        ? $"{year}, no items"
+        : $"Jump to {year}, {buckets.Sum(bucket => bucket.AssetCount):N0} items";
+    private Task JumpYearAsync(int year)
+    {
+        var bucket = BucketsFor(year).FirstOrDefault();
+        return bucket is null ? Task.CompletedTask : JumpAsync(bucket);
+    }
     private Task JumpAsync(ViewTimelineBucketDto bucket) => OnJump.InvokeAsync(bucket);
     private static string Month(int month) => CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(month);
 }

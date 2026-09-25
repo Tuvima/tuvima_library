@@ -4,39 +4,48 @@
 
 @if (Minimum is { } minimum && Maximum is { } maximum)
 {
-    <section class="@RootClass" aria-label="Places date range">
-        <div class="places-timeline__summary">
-            <span><MudIcon Icon="@Icons.Material.Outlined.PhotoLibrary" /><strong>@MappedAssetCount.ToString("N0")</strong> mapped @(MappedAssetCount == 1 ? "memory" : "memories")</span>
-            <span><i></i>@ImageCount.ToString("N0") photos</span>
+    <section class="places-timeline" aria-label="Places date range">
+        <div class="places-timeline__summary" aria-label="Mapped media summary">
+            <span class="places-timeline__summary-total" title="Media items with a usable GPS location"><MudIcon Icon="@Icons.Material.Outlined.PhotoLibrary" /><strong>@MappedAssetCount.ToString("N0")</strong> mapped @(MappedAssetCount == 1 ? "item" : "items")</span>
+            <span><i class="is-photo"></i>@ImageCount.ToString("N0") photos</span>
             <span><i class="is-video"></i>@VideoCount.ToString("N0") videos</span>
         </div>
+
         <div class="places-timeline__plot">
             <div class="places-timeline__histogram" aria-hidden="true">
-                @if (IsSingleYear)
+                @{ var histogram = HistogramBuckets; var largestHistogramCount = Math.Max(1, histogram.Count == 0 ? 1 : histogram.Max(item => item.Count)); }
+                @foreach (var bucket in histogram)
                 {
-                    <span class="@BucketClass(MappedAssetCount)"></span>
-                }
-                else
-                {
-                    @foreach (var bucket in Buckets)
-                    {
-                        <span class="@BucketClass(bucket.AssetCount)"></span>
-                    }
+                    <span @attributes="@CssAttributes(HistogramBarStyle(bucket, largestHistogramCount))"></span>
                 }
             </div>
-            @if (IsSingleYear)
+
+            @if (IsSinglePeriod)
             {
-                <div class="places-timeline__single-period"><i></i><strong>@SingleYearLabel</strong></div>
+                <div class="places-timeline__single-period"><i></i><strong>@DisplayDate(minimum)</strong></div>
             }
             else
             {
-                <div class="places-timeline__range">
+                <div class="places-timeline__range" @attributes="@CssAttributes(RangeStyle)">
+                    <div class="places-timeline__range-track" aria-hidden="true"><span></span></div>
                     <AppNativeInput Type="range" Min="0" Max="@MaximumIndex" Value="@FromIndex" AriaLabel="Start date" OnChange="FromChangedAsync" />
                     <AppNativeInput Type="range" Min="0" Max="@MaximumIndex" Value="@ToIndex" AriaLabel="End date" OnChange="ToChangedAsync" />
+                    <output class="places-timeline__callout is-start" @attributes="@CssAttributes(CalloutStyle(FromPercent))" aria-live="polite">@DisplayDate(DateAt(FromIndex))</output>
+                    <output class="places-timeline__callout is-end" @attributes="@CssAttributes(CalloutStyle(ToPercent))" aria-live="polite">@DisplayDate(DateAt(ToIndex))</output>
                 </div>
-                <div class="places-timeline__labels"><span>@DisplayDate(SelectedFrom ?? minimum)</span><span>@DisplayDate(SelectedTo ?? maximum)</span></div>
             }
+
+            <div class="places-timeline__axis" aria-hidden="true">
+                <MudIcon Icon="@Icons.Material.Outlined.CalendarMonth" />
+                <div class="places-timeline__ticks">
+                    @foreach (var tick in AxisTicks)
+                    {
+                        <span @attributes="@CssAttributes(TickStyle(tick.Position))">@tick.Label</span>
+                    }
+                </div>
+            </div>
         </div>
+
         <div class="places-timeline__actions">
             <div class="places-timeline__controls" role="group" aria-label="Timeline resolution">
                 @foreach (var option in Resolutions)
@@ -50,7 +59,9 @@
 }
 
 @code {
+    private const int MaximumHistogramBars = 96;
     private static readonly (string Label, string Value)[] Resolutions = [("Year", "year"), ("Month", "month"), ("Day", "day")];
+
     [Parameter] public IReadOnlyList<ViewAtlasTimelineBucketDto> Buckets { get; set; } = [];
     [Parameter] public DateTimeOffset? EarliestAt { get; set; }
     [Parameter] public DateTimeOffset? LatestAt { get; set; }
@@ -65,36 +76,155 @@
     [Parameter] public EventCallback<DateTimeOffset?> OnToChanged { get; set; }
     [Parameter] public EventCallback<string> OnResolutionChanged { get; set; }
     [Parameter] public EventCallback OnReset { get; set; }
+
     private DateTimeOffset? Minimum => EarliestAt ?? Buckets.FirstOrDefault()?.Start;
     private DateTimeOffset? Maximum => LatestAt ?? Buckets.LastOrDefault()?.Start;
-    private bool IsSingleYear => string.Equals(Resolution, "year", StringComparison.OrdinalIgnoreCase)
-                                 && (SelectedYear.HasValue
-                                     || (Minimum is { } minimum && Maximum is { } maximum
-                                         && minimum.Year == maximum.Year));
-    private int SingleYearLabel => SelectedYear ?? Minimum?.Year ?? DateTimeOffset.Now.Year;
-    private string RootClass => $"places-timeline{(IsSingleYear ? " is-single-year" : string.Empty)}";
-    private int MaximumIndex => Minimum is { } min && Maximum is { } max ? Math.Max(1, (int)Math.Ceiling((max - min).TotalDays)) : 1;
-    private int FromIndex => Index(SelectedFrom ?? Minimum);
-    private int ToIndex => Index(SelectedTo ?? Maximum);
-    private int LargestBucket => Math.Max(1, Buckets.Count == 0 ? 1 : Buckets.Max(bucket => bucket.AssetCount));
-    private int BucketHeight(int count) => Math.Clamp((int)Math.Round(count / (double)LargestBucket * 100), 8, 100);
-    private string BucketClass(int count) => $"is-height-{Math.Clamp((int)Math.Ceiling(BucketHeight(count) / 10d), 1, 10)}";
-    private int Index(DateTimeOffset? value) => Minimum is { } minimum && value is { } date ? Math.Clamp((int)Math.Round((date - minimum).TotalDays), 0, MaximumIndex) : 0;
-    private DateTimeOffset DateAt(int index) => Minimum!.Value.AddDays(Math.Clamp(index, 0, MaximumIndex));
+    private string EffectiveResolution => Resolution == "year" && Minimum?.Year == Maximum?.Year ? "month" : Resolution;
+    private IReadOnlyList<DateTimeOffset> RangePoints => BuildRangePoints();
+    private bool IsSinglePeriod => RangePoints.Count <= 1;
+    private int MaximumIndex => Math.Max(0, RangePoints.Count - 1);
+    private int FromIndex => PointIndex(SelectedFrom ?? Minimum);
+    private int ToIndex => PointIndex(SelectedTo ?? Maximum);
+    private double FromPercent => MaximumIndex == 0 ? 50 : FromIndex * 100d / MaximumIndex;
+    private double ToPercent => MaximumIndex == 0 ? 50 : ToIndex * 100d / MaximumIndex;
+    private string RangeStyle => FormattableString.Invariant($"--range-from:{FromPercent:0.###}%;--range-to:{ToPercent:0.###}%");
+    private IReadOnlyList<HistogramBucket> HistogramBuckets => BuildHistogramBuckets();
+    private IReadOnlyList<AxisTick> AxisTicks => BuildAxisTicks();
+
+    private IReadOnlyList<DateTimeOffset> BuildRangePoints()
+    {
+        if (Minimum is not { } min || Maximum is not { } max) return [];
+        var offset = min.Offset;
+        var current = EffectiveResolution switch
+        {
+            "day" => new DateTimeOffset(min.Year, min.Month, min.Day, 0, 0, 0, offset),
+            "month" => new DateTimeOffset(min.Year, min.Month, 1, 0, 0, 0, offset),
+            _ => new DateTimeOffset(min.Year, 1, 1, 0, 0, 0, offset)
+        };
+        var end = EffectiveResolution switch
+        {
+            "day" => new DateTimeOffset(max.Year, max.Month, max.Day, 0, 0, 0, offset),
+            "month" => new DateTimeOffset(max.Year, max.Month, 1, 0, 0, 0, offset),
+            _ => new DateTimeOffset(max.Year, 1, 1, 0, 0, 0, offset)
+        };
+        var points = new List<DateTimeOffset>();
+        while (current <= end && points.Count < 15000)
+        {
+            points.Add(current);
+            current = EffectiveResolution switch
+            {
+                "day" => current.AddDays(1),
+                "month" => current.AddMonths(1),
+                _ => current.AddYears(1)
+            };
+        }
+        return points;
+    }
+
+    private IReadOnlyList<HistogramBucket> BuildHistogramBuckets()
+    {
+        if (Minimum is not { } min || Maximum is not { } max) return [];
+        var counts = Buckets
+            .GroupBy(bucket => (bucket.Start.Year, bucket.Start.Month))
+            .ToDictionary(group => group.Key, group => group.Sum(bucket => bucket.AssetCount));
+        var month = new DateTimeOffset(min.Year, min.Month, 1, 0, 0, 0, min.Offset);
+        var last = new DateTimeOffset(max.Year, max.Month, 1, 0, 0, 0, min.Offset);
+        var raw = new List<HistogramBucket>();
+        while (month <= last && raw.Count < 12000)
+        {
+            raw.Add(new HistogramBucket(month, counts.GetValueOrDefault((month.Year, month.Month))));
+            month = month.AddMonths(1);
+        }
+        if (raw.Count <= MaximumHistogramBars) return raw;
+        var stride = (int)Math.Ceiling(raw.Count / (double)MaximumHistogramBars);
+        return raw.Chunk(stride).Select(group => new HistogramBucket(group[0].Start, group.Sum(item => item.Count))).ToList();
+    }
+
+    private IReadOnlyList<AxisTick> BuildAxisTicks()
+    {
+        if (Minimum is not { } min || Maximum is not { } max) return [];
+        var totalMonths = Math.Max(0, (max.Year - min.Year) * 12 + max.Month - min.Month);
+        var target = totalMonths switch { <= 12 => Math.Max(2, totalMonths + 1), <= 36 => 7, _ => 9 };
+        var ticks = new List<AxisTick>();
+        for (var index = 0; index < target; index++)
+        {
+            var ratio = target == 1 ? 0 : index / (double)(target - 1);
+            var monthOffset = (int)Math.Round(totalMonths * ratio);
+            var date = new DateTimeOffset(min.Year, min.Month, 1, 0, 0, 0, min.Offset).AddMonths(monthOffset);
+            var label = totalMonths > 48
+                ? date.ToString("yyyy", CultureInfo.CurrentCulture)
+                : totalMonths <= 18
+                ? date.ToString(index == 0 || date.Month == 1 ? "MMM yyyy" : "MMM", CultureInfo.CurrentCulture)
+                : date.Month == 1 || index is 0 || index == target - 1
+                    ? date.ToString("yyyy", CultureInfo.CurrentCulture)
+                    : date.ToString("MMM", CultureInfo.CurrentCulture);
+            var position = totalMonths == 0 ? 50 : monthOffset * 100d / totalMonths;
+            if (ticks.Count == 0 || ticks[^1].Label != label || Math.Abs(ticks[^1].Position - position) > 4)
+                ticks.Add(new AxisTick(label, position));
+        }
+        return ticks;
+    }
+
+    private int PointIndex(DateTimeOffset? value)
+    {
+        var points = RangePoints;
+        if (value is null || points.Count == 0) return 0;
+        var normalized = EffectiveResolution switch
+        {
+            "day" => new DateTimeOffset(value.Value.Year, value.Value.Month, value.Value.Day, 0, 0, 0, points[0].Offset),
+            "month" => new DateTimeOffset(value.Value.Year, value.Value.Month, 1, 0, 0, 0, points[0].Offset),
+            _ => new DateTimeOffset(value.Value.Year, 1, 1, 0, 0, 0, points[0].Offset)
+        };
+        for (var index = 0; index < points.Count; index++)
+        {
+            if (points[index] == normalized) return index;
+        }
+        return normalized < points[0] ? 0 : points.Count - 1;
+    }
+
+    private DateTimeOffset DateAt(int index)
+    {
+        var points = RangePoints;
+        return points.Count == 0
+            ? Minimum ?? DateTimeOffset.Now
+            : points[Math.Clamp(index, 0, points.Count - 1)];
+    }
+
+    private DateTimeOffset EndOfPeriod(DateTimeOffset value) => EffectiveResolution switch
+    {
+        "day" => value.AddDays(1).AddTicks(-1),
+        "month" => value.AddMonths(1).AddTicks(-1),
+        _ => value.AddYears(1).AddTicks(-1)
+    };
+
     private async Task FromChangedAsync(ChangeEventArgs args)
     {
         var index = int.TryParse(args.Value?.ToString(), out var parsed) ? parsed : 0;
         await OnFromChanged.InvokeAsync(DateAt(Math.Min(index, ToIndex)));
     }
+
     private async Task ToChangedAsync(ChangeEventArgs args)
     {
         var index = int.TryParse(args.Value?.ToString(), out var parsed) ? parsed : MaximumIndex;
-        await OnToChanged.InvokeAsync(DateAt(Math.Max(index, FromIndex)).AddDays(1).AddTicks(-1));
+        await OnToChanged.InvokeAsync(EndOfPeriod(DateAt(Math.Max(index, FromIndex))));
     }
-    private string DisplayDate(DateTimeOffset value) => Resolution switch
+
+    private string DisplayDate(DateTimeOffset value) => EffectiveResolution switch
     {
         "day" => value.ToString("MMM d, yyyy", CultureInfo.CurrentCulture),
         "month" => value.ToString("MMM yyyy", CultureInfo.CurrentCulture),
         _ => value.ToString("yyyy", CultureInfo.CurrentCulture),
     };
+
+    private static string HistogramBarStyle(HistogramBucket bucket, int largest)
+    {
+        var height = bucket.Count == 0 ? 6 : Math.Clamp((int)Math.Round(bucket.Count / (double)largest * 100), 12, 100);
+        return FormattableString.Invariant($"--bar-height:{height}%");
+    }
+
+    private static string CalloutStyle(double position) => FormattableString.Invariant($"--callout-position:{position:0.###}%");
+    private static string TickStyle(double position) => FormattableString.Invariant($"--tick-position:{position:0.###}%");
+    private static IReadOnlyDictionary<string, object> CssAttributes(string css) => new Dictionary<string, object> { ["style"] = css };
+    private sealed record HistogramBucket(DateTimeOffset Start, int Count);
+    private sealed record AxisTick(string Label, double Position);
 }
