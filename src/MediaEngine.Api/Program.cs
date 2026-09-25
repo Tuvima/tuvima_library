@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using MediaEngine.Api;
 using MediaEngine.Api.DependencyInjection;
 #if DEBUG
 using MediaEngine.Api.DevSupport;
@@ -249,6 +250,16 @@ builder.Services.AddSingleton<ProviderCredentialService>();
                     PermitLimit = rateLimits.Streaming.PermitLimit,
                     Window = TimeSpan.FromMinutes(rateLimits.Streaming.WindowMinutes),
                 }));
+        // Thumbnails are a bounded image-grid workload, not long-lived media streams.
+        options.AddPolicy("view_images", context =>
+            RateLimitPartition.GetConcurrencyLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new ConcurrencyLimiterOptions
+                {
+                    PermitLimit = 8,
+                    QueueLimit = 128,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                }));
         options.AddPolicy("general", context =>
             RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -272,7 +283,7 @@ builder.Services.AddSingleton<ProviderCredentialService>();
             }
 
             return RateLimitPartition.GetFixedWindowLimiter(
-                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                ViewImageRateLimitPartition.Key(context),
                 _ => new FixedWindowRateLimiterOptions
                 {
                     PermitLimit = rateLimits.General.PermitLimit,

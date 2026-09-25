@@ -224,6 +224,12 @@ public sealed class DashboardIdentityClient(
         return $"/access/self-service?originalClientIsLocal={original.IsLocal.ToString().ToLowerInvariant()}&originalClientIsHttps={original.IsHttps.ToString().ToLowerInvariant()}";
     }
 
+    public async Task<(SessionValidationResponse? Response, bool Invalid)> ValidateCookieAsync(string token, CancellationToken ct = default)
+    {
+        var result = await ValidateDetailedAsync(token, ct).ConfigureAwait(false);
+        return (result.Response, result.Invalid);
+    }
+
     public Task<List<AccountAccessResponse>> GetManagedAccountsAsync(CancellationToken ct = default) =>
         GetAsync<List<AccountAccessResponse>>("/access/accounts", ct).ContinueWith(task => task.Result ?? [], ct);
 

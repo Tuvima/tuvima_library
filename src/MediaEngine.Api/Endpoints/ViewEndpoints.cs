@@ -429,7 +429,7 @@ public static class ViewEndpoints
 
             var thumbnail = await thumbnails.GetOrCreateAsync(id, file, ct);
             return thumbnail is null ? Results.NoContent() : Results.File(thumbnail, "image/jpeg");
-        }).WithName("GetViewItemThumbnail").Produces(StatusCodes.Status200OK).RequireRateLimiting("streaming");
+        }).WithName("GetViewItemThumbnail").Produces(StatusCodes.Status200OK).RequireRateLimiting("view_images");
 
         group.MapGet("/items/{id:guid}/preview", async (Guid id, string? scope, Guid? scopeProfileId,
             IViewRequestProfileContext identity, IViewProfileRepository preferences,
@@ -444,7 +444,7 @@ public static class ViewEndpoints
             if (file is null || !File.Exists(file.FilePath)) return Missing();
             var preview = await thumbnails.GetOrCreatePreviewAsync(id, file, ct);
             return preview is null ? Results.NoContent() : Results.File(preview, "image/jpeg");
-        }).WithName("GetViewItemPreview").Produces(StatusCodes.Status200OK).RequireRateLimiting("streaming");
+        }).WithName("GetViewItemPreview").Produces(StatusCodes.Status200OK).RequireRateLimiting("view_images");
 
         MapFlag(group, "favorite", (repo, id, value, ct) => repo.SetFlagsAsync(id, value, null, ct));
         MapFlag(group, "hidden", (repo, id, value, ct) => repo.SetFlagsAsync(id, null, value, ct));

@@ -276,7 +276,12 @@ else
         _activeYear = date.Year; _activeMonth = date.Month;
     }
     [JSInvokable] public Task SetActiveTimelinePeriod(int year, int month) { _activeYear = year; _activeMonth = month; return InvokeAsync(StateHasChanged); }
-    [JSInvokable] public Task LoadMoreFromObserverAsync() => _page?.Items.Count >= MaximumWindowItems ? Task.CompletedTask : InvokeAsync(LoadMoreAsync);
+    [JSInvokable] public Task LoadMoreFromObserverAsync() => InvokeAsync(async () =>
+    {
+        if (_page?.Items.Count >= MaximumWindowItems) return;
+        await LoadMoreAsync();
+        StateHasChanged(); // JS callbacks do not get Blazor's automatic event-handler render.
+    });
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (_loading || _page?.Items.Count is not > 0 || (!_observeTimeline && !_focusAnchoredPeriod)) return;

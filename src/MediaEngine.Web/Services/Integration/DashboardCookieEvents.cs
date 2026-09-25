@@ -18,11 +18,15 @@ public sealed class DashboardCookieEvents(
             return;
         }
 
-        var validated = await identity.ValidateAsync(token, context.HttpContext.RequestAborted).ConfigureAwait(false);
+        var validation = await identity.ValidateCookieAsync(token, context.HttpContext.RequestAborted).ConfigureAwait(false);
+        var validated = validation.Response;
         if (validated is null)
         {
             context.RejectPrincipal();
-            await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
+            // Fail this request closed, but only erase the cookie for a proven invalid session.
+            // Throttling, timeouts and Engine restarts must not permanently log the user out.
+            if (validation.Invalid)
+                await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
             return;
         }
 
