@@ -78,6 +78,18 @@
                    OnClick="RescanLibrariesAsync" />
     </section>
 
+    <section class="dev-harness-secondary-section">
+        <div>
+            <h3>View Sample Memories</h3>
+            <p>Adds ten attributed photos spanning 2004–2024 and six continents so Places, map clusters, and date-range behavior can be tested with realistic variety.</p>
+        </div>
+        <AppButton Label="@(_runningAction == "view-photos" ? "Seeding View Photos" : "Seed View Photos")"
+                   StartIcon="@Icons.Material.Outlined.AddPhotoAlternate"
+                   ButtonStyle="AppButtonStyle.Outlined"
+                   Disabled="@IsBusy"
+                   OnClick="SeedViewPhotosAsync" />
+    </section>
+
     @if (!string.IsNullOrWhiteSpace(_error))
     {
         <AppAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="dev-harness-message">
@@ -234,6 +246,13 @@
             _runningAction = null;
         }
     }
+
+    private Task SeedViewPhotosAsync() =>
+        RunHarnessActionAsync(
+            "view-photos",
+            "/dev/view-photo-harness",
+            null,
+            "Ten View photo fixtures seeded across 2004–2024.");
 
     private async Task ResetLibraryDataAsync()
     {

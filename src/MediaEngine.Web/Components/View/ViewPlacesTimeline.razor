@@ -4,7 +4,7 @@
 
 @if (Minimum is { } minimum && Maximum is { } maximum)
 {
-    <section class="places-timeline" aria-label="Places date range">
+    <section class="@RootClass" aria-label="Places date range">
         <div class="places-timeline__summary">
             <span><MudIcon Icon="@Icons.Material.Outlined.PhotoLibrary" /><strong>@MappedAssetCount.ToString("N0")</strong> mapped @(MappedAssetCount == 1 ? "memory" : "memories")</span>
             <span><i></i>@ImageCount.ToString("N0") photos</span>
@@ -12,24 +12,40 @@
         </div>
         <div class="places-timeline__plot">
             <div class="places-timeline__histogram" aria-hidden="true">
-                @foreach (var bucket in Buckets)
+                @if (IsSingleYear)
                 {
-                    <span class="@BucketClass(bucket.AssetCount)"></span>
+                    <span class="@BucketClass(MappedAssetCount)"></span>
+                }
+                else
+                {
+                    @foreach (var bucket in Buckets)
+                    {
+                        <span class="@BucketClass(bucket.AssetCount)"></span>
+                    }
                 }
             </div>
-            <div class="places-timeline__range">
-                <AppNativeInput Type="range" Min="0" Max="@MaximumIndex" Value="@FromIndex" AriaLabel="Start date" OnChange="FromChangedAsync" />
-                <AppNativeInput Type="range" Min="0" Max="@MaximumIndex" Value="@ToIndex" AriaLabel="End date" OnChange="ToChangedAsync" />
-            </div>
-            <div class="places-timeline__labels"><span>@DisplayDate(SelectedFrom ?? minimum)</span><span>@DisplayDate(SelectedTo ?? maximum)</span></div>
-        </div>
-        <div class="places-timeline__controls" role="group" aria-label="Timeline resolution">
-            @foreach (var option in Resolutions)
+            @if (IsSingleYear)
             {
-                <AppNativeButton Type="button" Class="@(Resolution == option.Value ? "is-active" : null)" aria-pressed="@(Resolution == option.Value)" OnClick="@(_ => OnResolutionChanged.InvokeAsync(option.Value))">@option.Label</AppNativeButton>
+                <div class="places-timeline__single-period"><i></i><strong>@SingleYearLabel</strong></div>
+            }
+            else
+            {
+                <div class="places-timeline__range">
+                    <AppNativeInput Type="range" Min="0" Max="@MaximumIndex" Value="@FromIndex" AriaLabel="Start date" OnChange="FromChangedAsync" />
+                    <AppNativeInput Type="range" Min="0" Max="@MaximumIndex" Value="@ToIndex" AriaLabel="End date" OnChange="ToChangedAsync" />
+                </div>
+                <div class="places-timeline__labels"><span>@DisplayDate(SelectedFrom ?? minimum)</span><span>@DisplayDate(SelectedTo ?? maximum)</span></div>
             }
         </div>
-        <AppNativeButton Type="button" Class="places-timeline__reset" OnClick="@(_ => OnReset.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.RestartAlt" />Reset</AppNativeButton>
+        <div class="places-timeline__actions">
+            <div class="places-timeline__controls" role="group" aria-label="Timeline resolution">
+                @foreach (var option in Resolutions)
+                {
+                    <AppNativeButton Type="button" Class="@(Resolution == option.Value ? "is-active" : null)" aria-pressed="@(Resolution == option.Value)" OnClick="@(_ => OnResolutionChanged.InvokeAsync(option.Value))">@option.Label</AppNativeButton>
+                }
+            </div>
+            <AppNativeButton Type="button" Class="places-timeline__reset" OnClick="@(_ => OnReset.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.RestartAlt" />Reset</AppNativeButton>
+        </div>
     </section>
 }
 
@@ -38,6 +54,7 @@
     [Parameter] public IReadOnlyList<ViewAtlasTimelineBucketDto> Buckets { get; set; } = [];
     [Parameter] public DateTimeOffset? EarliestAt { get; set; }
     [Parameter] public DateTimeOffset? LatestAt { get; set; }
+    [Parameter] public int? SelectedYear { get; set; }
     [Parameter] public DateTimeOffset? SelectedFrom { get; set; }
     [Parameter] public DateTimeOffset? SelectedTo { get; set; }
     [Parameter] public string Resolution { get; set; } = "year";
@@ -50,6 +67,12 @@
     [Parameter] public EventCallback OnReset { get; set; }
     private DateTimeOffset? Minimum => EarliestAt ?? Buckets.FirstOrDefault()?.Start;
     private DateTimeOffset? Maximum => LatestAt ?? Buckets.LastOrDefault()?.Start;
+    private bool IsSingleYear => string.Equals(Resolution, "year", StringComparison.OrdinalIgnoreCase)
+                                 && (SelectedYear.HasValue
+                                     || (Minimum is { } minimum && Maximum is { } maximum
+                                         && minimum.Year == maximum.Year));
+    private int SingleYearLabel => SelectedYear ?? Minimum?.Year ?? DateTimeOffset.Now.Year;
+    private string RootClass => $"places-timeline{(IsSingleYear ? " is-single-year" : string.Empty)}";
     private int MaximumIndex => Minimum is { } min && Maximum is { } max ? Math.Max(1, (int)Math.Ceiling((max - min).TotalDays)) : 1;
     private int FromIndex => Index(SelectedFrom ?? Minimum);
     private int ToIndex => Index(SelectedTo ?? Maximum);

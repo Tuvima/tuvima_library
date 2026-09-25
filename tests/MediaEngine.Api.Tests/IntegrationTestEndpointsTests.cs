@@ -183,6 +183,8 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         Assert.Contains("SourcePage", harness, StringComparison.Ordinal);
         Assert.Contains("License", harness, StringComparison.Ordinal);
         Assert.Contains("Author", harness, StringComparison.Ordinal);
+        Assert.Contains("UpdateCapturedAtAsync", harness, StringComparison.Ordinal);
+        Assert.Contains("resetToEmbedded: false", harness, StringComparison.Ordinal);
         Assert.Contains("manual test fixture; not face recognition", harness, StringComparison.Ordinal);
         Assert.Contains("Sydney, Australia", harness, StringComparison.Ordinal);
         Assert.Contains("Machu Picchu, Peru", harness, StringComparison.Ordinal);

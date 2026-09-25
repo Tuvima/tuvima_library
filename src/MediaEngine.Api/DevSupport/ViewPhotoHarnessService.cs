@@ -73,6 +73,11 @@ public sealed class ViewPhotoHarnessService(
                         sha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),
                         metadata_mode = "deterministic-harness"
                     }), ExistingItemId: upload.ItemId), ct);
+                // The managed upload folder is watched and can be re-indexed from the file's
+                // current timestamp. Preserve the fixture's intentional historical capture date
+                // as an override so the sample Places timeline stays deterministic.
+                await assets.UpdateCapturedAtAsync(
+                    upload.ItemId, fixture.CapturedAt, resetToEmbedded: false, ct);
                 foreach (var person in fixture.People)
                 {
                     await assets.AddAnnotationAsync(upload.ItemId,

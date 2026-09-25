@@ -26,9 +26,12 @@ public sealed class DevHarnessSettingsTests
         Assert.Contains("/dev/reset-and-seed", source, StringComparison.Ordinal);
         Assert.Contains("/dev/reset-library-data", source, StringComparison.Ordinal);
         Assert.Contains("/dev/factory-reset", source, StringComparison.Ordinal);
+        Assert.Contains("/dev/view-photo-harness", source, StringComparison.Ordinal);
         Assert.Contains("TriggerRescanAsync", source, StringComparison.Ordinal);
         Assert.Contains("Reset & Seed Test Library", source, StringComparison.Ordinal);
         Assert.Contains("Rescan All Libraries", source, StringComparison.Ordinal);
+        Assert.Contains("Seed View Photos", source, StringComparison.Ordinal);
+        Assert.Contains("2004–2024", source, StringComparison.Ordinal);
         Assert.Contains("Standard", source, StringComparison.Ordinal);
         Assert.Contains("Stress", source, StringComparison.Ordinal);
         Assert.Contains("types", source, StringComparison.Ordinal);

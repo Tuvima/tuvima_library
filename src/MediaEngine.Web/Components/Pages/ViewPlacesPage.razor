@@ -49,10 +49,13 @@ else
                 <AppIconButton Icon="@Icons.Material.Outlined.Public" Tooltip="World" AriaLabel="Show the world" OnClick="ResetWorldAsync" />
                 <AppIconButton Icon="@Icons.Material.Outlined.CenterFocusStrong" Tooltip="Fit memories" AriaLabel="Fit all visible memories" OnClick="FitMemoriesAsync" />
                 <AppIconButton Icon="@Icons.Material.Outlined.Layers" Tooltip="Journey layer" AriaLabel="Toggle chronological Journey layer" Class="@(_journey ? "is-active" : null)" OnClick="ToggleJourney" />
-                <AppNativeButton Type="button" Class="view-atlas__unmapped" OnClick="@(_ => ShowUnmappedAsync())"><MudIcon Icon="@Icons.Material.Outlined.LocationOff" /><span>Unmapped</span><strong>@_atlas.UnmappedAssetCount</strong></AppNativeButton>
+                @if (_atlas.UnmappedAssetCount > 0)
+                {
+                    <span class="view-atlas__unmapped"><AppIconButton Icon="@Icons.Material.Outlined.LocationOff" Tooltip="@UnmappedTooltip" AriaLabel="@UnmappedTooltip" OnClick="ShowUnmappedAsync" /><strong>@_atlas.UnmappedAssetCount</strong></span>
+                }
             </div>
             <ViewPlacesTimeline Buckets="@(_atlas.Timeline ?? [])" EarliestAt="@_atlas.EarliestAt" LatestAt="@_atlas.LatestAt"
-                                SelectedFrom="@_from" SelectedTo="@_to" Resolution="@_timelineResolution"
+                                SelectedYear="@_year" SelectedFrom="@_from" SelectedTo="@_to" Resolution="@_timelineResolution"
                                 MappedAssetCount="@_atlas.MappedAssetCount" ImageCount="@_atlas.Hotspots.Sum(item => item.ImageCount)" VideoCount="@_atlas.Hotspots.Sum(item => item.VideoCount)"
                                 OnFromChanged="FromChangedAsync" OnToChanged="ToChangedAsync" OnResolutionChanged="ResolutionChangedAsync" OnReset="ResetTimelineAsync" />
         </div>
@@ -134,6 +137,7 @@ else
     private IReadOnlyList<LocalAssetDto> StoryItems => _showUnmapped ? _unmapped : _placeMedia?.Items ?? [];
     private string StoryTitle => _showUnmapped ? "Memories without a place" : _selectedHotspot?.Name ?? "Place Story";
     private string StorySummary => _showUnmapped ? $"{StoryItems.Count:N0} loaded · open an item to add a precise location" : _selectedHotspot is null ? string.Empty : $"{_selectedHotspot.AssetCount:N0} {(_selectedHotspot.AssetCount == 1 ? "memory" : "memories")} · {_selectedHotspot.EarliestAt:yyyy}–{_selectedHotspot.LatestAt:yyyy}";
+    private string UnmappedTooltip => $"{(_atlas?.UnmappedAssetCount ?? 0):N0} media items have no usable GPS coordinates. Open them to add a location.";
     private Task ResetWorldAsync() => _map?.ResetWorldAsync() ?? Task.CompletedTask;
     private Task FitMemoriesAsync() => _map?.FitHotspotsAsync() ?? Task.CompletedTask;
     private Task ZoomInAsync() => _map?.ZoomInAsync() ?? Task.CompletedTask;

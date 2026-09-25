@@ -212,10 +212,18 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("renderWorldCopies: false", mapScript, StringComparison.Ordinal);
         Assert.DoesNotContain("setProjection({ type: 'globe' })", mapScript, StringComparison.Ordinal);
         Assert.Contains("maplibregl-compact-show", mapStyles, StringComparison.Ordinal);
+        Assert.Contains("scale:1.12", mapStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("transform:scale(1.12)", mapStyles, StringComparison.Ordinal);
         Assert.Contains("map.once('idle', () => { renderOverviewLabels(state); renderHotspots(state); })", mapScript, StringComparison.Ordinal);
         Assert.Contains("group.representative?.thumbnailUrl", mapScript, StringComparison.Ordinal);
         Assert.Contains("new ResizeObserver", mapScript, StringComparison.Ordinal);
         Assert.Contains("view-map.js?v=20260924.8", mapComponent, StringComparison.Ordinal);
+        Assert.Contains("IsSingleYear", timeline, StringComparison.Ordinal);
+        Assert.Contains("SelectedYear", timeline, StringComparison.Ordinal);
+        Assert.Contains("SelectedYear=\"@_year\"", places, StringComparison.Ordinal);
+        Assert.Contains("places-timeline__actions", timeline, StringComparison.Ordinal);
+        Assert.Contains("_atlas.UnmappedAssetCount > 0", places, StringComparison.Ordinal);
+        Assert.Contains("no usable GPS coordinates", places, StringComparison.Ordinal);
         Assert.Contains("FillAvailableHeight=\"true\"", places, StringComparison.Ordinal);
         Assert.Contains(".view-content-page--fill-height", contentPageStyles, StringComparison.Ordinal);
         Assert.Contains("height: 100%;", contentPageStyles, StringComparison.Ordinal);
