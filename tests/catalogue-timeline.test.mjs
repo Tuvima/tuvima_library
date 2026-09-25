@@ -1,6 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { observe, jump, disconnect } from '../src/MediaEngine.Web/wwwroot/js/catalogue-timeline.js';
+import { observe, jump, disconnect, isAtEnd } from '../src/MediaEngine.Web/wwwroot/js/catalogue-timeline.js';
+
+test('end detection handles desktop, tablet, mobile and fractional scrolling', () => {
+  for (const height of [820, 700, 520]) {
+    assert.equal(isAtEnd(2000 - height, 2000, height), true);
+    assert.equal(isAtEnd(2000 - height - .5, 2000, height), true);
+    assert.equal(isAtEnd(2000 - height - 100, 2000, height), false);
+  }
+  assert.equal(isAtEnd(0, 520, 520), false, 'a short unscrolled list keeps its initial period');
+});
 
 test('catalogue timeline restores a period, tracks scrolling, scopes jumps and disposes', async () => {
   globalThis.location = { href: 'http://localhost/read/books?browse=timeline&period=decade' };
@@ -37,6 +46,9 @@ test('catalogue timeline restores a period, tracks scrolling, scopes jumps and d
   listeners.get('scroll')(); flush();
   assert.deepEqual(calls.at(-1), ['SetActivePeriod', 2024]);
   assert.equal(saved.get('tuvima.timeline:/read/books?browse=timeline'), '2024');
+  Object.assign(scroller, {scrollTop:1180, scrollHeight:2000, clientHeight:820});
+  listeners.get('scroll')(); flush();
+  assert.deepEqual(calls.at(-1), ['SetActivePeriod', 1995], 'the last visible group wins at the bottom even below the activation line');
   assert.equal(jump(root, 1900), false, 'missing page keeps the pending jump');
   assert.equal(jump({ querySelector: () => null }, 1995), false, 'never jump to another instance');
   rootListeners.get('click')({ button: 0, target: { closest: () => ({ closest: () => older }) } });

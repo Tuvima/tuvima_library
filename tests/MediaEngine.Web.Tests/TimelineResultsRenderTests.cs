@@ -95,6 +95,7 @@ public sealed class TimelineResultsRenderTests : AsyncBunitContext
         Assert.Contains("OnJump=\"JumpPeriodAsync\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Group by", source, StringComparison.Ordinal);
         Assert.Contains("grid-template-columns: minmax(0, 1fr) 4.3rem", styles, StringComparison.Ordinal);
+        Assert.Contains("padding-bottom: calc(6rem + env(safe-area-inset-bottom))", styles, StringComparison.Ordinal);
         Assert.Contains("grid-template-columns: minmax(132px, 170px) minmax(0, 1fr)", styles, StringComparison.Ordinal);
         Assert.DoesNotContain("grid-auto-flow: column", styles, StringComparison.Ordinal);
         Assert.DoesNotContain("scroll-snap-type: x", styles, StringComparison.Ordinal);

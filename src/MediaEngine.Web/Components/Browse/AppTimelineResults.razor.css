@@ -191,6 +191,8 @@
 @media (max-width: 900px) {
     .app-timeline ::deep .view-timeline-scrubber { grid-column: 1; }
     .app-timeline {
+        /* Clear the floating date picker and safe-area inset at the end. */
+        padding-bottom: calc(6rem + env(safe-area-inset-bottom));
         grid-template-columns: minmax(0, 1fr);
         gap: 16px;
     }

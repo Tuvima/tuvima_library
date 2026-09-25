@@ -1,4 +1,8 @@
 const observers = new WeakMap();
+// Fractional scroll positions occur at browser zoom levels other than 100%.
+export function isAtEnd(scrollTop, scrollHeight, clientHeight) {
+  return scrollHeight > clientHeight && scrollHeight - clientHeight - scrollTop <= 2;
+}
 export function observe(root, dotnet) {
   if (!root?.isConnected) return;
   const url = new URL(location.href);
@@ -17,6 +21,9 @@ export function observe(root, dotnet) {
     const sections = [...root.querySelectorAll('[data-timeline-key]')];
     let active = sections[0];
     for (const section of sections) { if (section.getBoundingClientRect().top <= line + 1) active = section; else break; }
+    // A short final group cannot reach the top activation line. At the end
+    // of the pane select it explicitly, without adding a blank viewport.
+    if (isAtEnd(scroller.scrollTop, scroller.scrollHeight, scroller.clientHeight)) active = sections.at(-1);
     const rail = root.querySelector('.view-timeline-scrubber');
     if (rail) rail.style.setProperty('--timeline-rail-height', Math.max(160, Math.min(innerHeight, bounds.bottom) - Math.max(bounds.top + 20, rail.getBoundingClientRect().top) - 20) + 'px');
     const key = active?.dataset.timelineKey;
