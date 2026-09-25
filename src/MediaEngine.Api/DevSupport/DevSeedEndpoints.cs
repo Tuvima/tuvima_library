@@ -1077,7 +1077,7 @@ public static class DevSeedEndpoints
                 var report = await harness.RunAsync(ct);
                 return report.Passed ? Results.Ok(report) : Results.Json(report, statusCode: 422);
             })
-            .WithSummary("Seed ten attributed photos plus 288 synthetic density images in Seattle, Tokyo, and Paris; verify View metadata and discovery");
+            .WithSummary("Seed ten attributed photos plus 360 synthetic images with neighborhood and regional locations; update existing fixture coordinates and verify discovery");
 
         group.MapPost("/generate-ingestion-edge-fixtures", async (CancellationToken ct) =>
             {

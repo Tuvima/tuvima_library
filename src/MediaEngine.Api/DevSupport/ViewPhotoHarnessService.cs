@@ -46,7 +46,7 @@ public sealed class ViewPhotoHarnessService(
         var density = ViewDensityFixtures.Create();
         var densityByName = density.ToDictionary(sample => sample.FileName);
         var allFixtures = Fixtures.Concat(density.Select(sample => new Fixture(
-            sample.FileName, $"[Test] {sample.City} {sample.Number:D3}", "",
+            sample.FileName, $"[Test] {sample.LocationName} {sample.Number:D3}", "",
             "tuvima:synthetic-places-density-v1", "Synthetic test fixture", "Tuvima Library",
             sample.CapturedAt, sample.Latitude, sample.Longitude, sample.LocationName, []))).ToArray();
 
@@ -126,7 +126,7 @@ public sealed class ViewPhotoHarnessService(
                      && results.Select(result => result.ItemId).Distinct().Count() == allFixtures.Length
                      && lifecyclePassed && places.Items.Count >= Fixtures.Select(fixture => fixture.LocationName).Distinct().Count()
                      && density.GroupBy(sample => sample.LocationName).All(group =>
-                         places.Items.Any(place => place.Name == group.Key && place.AssetCount >= group.Count()))
+                         places.Items.Where(place => place.Name == group.Key).Sum(place => place.AssetCount) >= group.Count())
                      && people.Items.Count >= Fixtures.Sum(fixture => fixture.People.Length);
         return new ViewPhotoHarnessReport(passed, ProfileId, space.LibraryId, results,
             places.Items.Count, people.Items.Count, lifecyclePassed,
