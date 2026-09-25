@@ -250,7 +250,30 @@ public sealed class DisplayComposerService
         }
 
         var filteredWorks = SortBrowseWorks(filtered, sort).ToList();
+        var isTimeline = string.Equals(grouping, "timeline", StringComparison.OrdinalIgnoreCase);
+        if (isTimeline)
+        {
+            int CanonicalYear(DisplayWorkRow work) => int.TryParse(work.Year, out var value) && value > 0 ? value : 0;
+            filteredWorks = filteredWorks.OrderBy(work => CanonicalYear(work) == 0)
+                .ThenBy(work => string.Equals(sort, "oldest", StringComparison.OrdinalIgnoreCase) ? CanonicalYear(work) : -CanonicalYear(work))
+                .ThenBy(work => work.WorkId).ToList();
+        }
         var totalCount = filteredWorks.Count;
+
+        if (isTimeline && DisplayMediaRules.NormalizeMediaType(mediaType ?? string.Empty) is "Music" or "TV")
+        {
+            var aggregated = DisplayMediaRules.NormalizeMediaType(mediaType!) == "Music"
+                ? BuildMusicAlbumCards(filteredWorks) : _cards.BuildTvShowCards(filteredWorks, progressByWork);
+            var ordered = aggregated.OrderBy(card => card.SortYear <= 0)
+                .ThenBy(card => sort == "oldest" ? card.SortYear : -card.SortYear).ThenBy(card => card.Id).ToList();
+            var page = ordered.Skip(Math.Max(0, offset)).Take(Math.Clamp(limit <= 0 ? 48 : limit, 1, 200)).ToList();
+            return new DisplayPageDto("browse-timeline", "Timeline", null, null, [], includeCatalog ? page : [])
+            {
+                TotalCount = ordered.Count, Facets = facets,
+                Timeline = ordered.Select((card, index) => new { Year = Math.Max(0, card.SortYear), Index = index })
+                    .GroupBy(item => item.Year).Select(group => new DisplayTimelinePeriodDto(group.Key, group.Count(), group.Min(item => item.Index))).ToList()
+            };
+        }
 
         if (ShouldReturnTvShowGroups(normalizedLane, mediaType, grouping))
         {
@@ -303,6 +326,8 @@ public sealed class DisplayComposerService
         {
             TotalCount = totalCount,
             Facets = facets,
+            Timeline = isTimeline ? filteredWorks.Select((work, index) => new { Year = int.TryParse(work.Year, out var parsed) && parsed > 0 ? parsed : 0, Index = index })
+                .GroupBy(item => item.Year).Select(group => new DisplayTimelinePeriodDto(group.Key, group.Count(), group.Min(item => item.Index))).ToList() : null,
         };
     }
 
@@ -812,6 +837,7 @@ public sealed class DisplayComposerService
             Flags: new DisplayCardFlagsDto(true, false, true, false),
             SortTimestamp: works.Max(work => work.CreatedAt))
         {
+            SortYear = int.TryParse(representative.Year, out var albumYear) && albumYear > 0 ? albumYear : 0,
             Tagline = representative.Tagline,
             Description = representative.Description,
             Genres = works

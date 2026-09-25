@@ -1,0 +1,41 @@
+@namespace MediaEngine.Web.Components.Shared
+<nav class="view-timeline-scrubber" aria-label="Jump to date">
+    <div class="view-timeline-scrubber__mobile-picker">
+        <AppNativeSelect Value="@ActiveKey" OnChange="MobileJump" aria-label="Jump to period">
+            @foreach (var period in Periods.Where(p => p.Count > 0))
+            {
+                <option value="@period.Key">@period.Label</option>
+            }
+        </AppNativeSelect>
+    </div>
+    <span class="view-timeline-scrubber__rail" aria-hidden="true"></span>
+    @foreach (var period in Periods)
+    {
+        <div class="view-timeline-scrubber__year @(period.Key == ActiveKey ? "is-active" : "") @(period.Count > 0 ? "is-occupied" : "is-empty")">
+            <AppNativeButton Type="button" Disabled="@(period.Count == 0)" aria-current="@(period.Key == ActiveKey ? "date" : null)"
+                AriaLabel="@($"Jump to {period.Label}, {period.Count:N0} items")" OnClick="@(_ => OnJump.InvokeAsync(period))">
+                <span>@period.Label</span><i aria-hidden="true"></i>
+            </AppNativeButton>
+            @if (period.Key == ActiveKey && period.Children is { Count: > 0 })
+            {
+                <div class="view-timeline-scrubber__months" aria-label="@($"{ChildLabel} in {period.Label}")">
+                    @foreach (var child in period.Children.Where(child => child.Count > 0))
+                    {
+                        <AppNativeButton Type="button" Class="@(child.Key == ActiveChildKey ? "is-active" : "")"
+                            aria-current="@(child.Key == ActiveChildKey ? "date" : null)" AriaLabel="@($"Jump to {child.Label} {period.Label}, {child.Count:N0} items")"
+                            OnClick="@(_ => OnJump.InvokeAsync(child))"><span></span><em>@child.Label</em></AppNativeButton>
+                    }
+                </div>
+            }
+        </div>
+    }
+</nav>
+@code {
+    [Parameter] public IReadOnlyList<TimelinePeriod> Periods { get; set; } = [];
+    [Parameter] public int? ActiveKey { get; set; }
+    [Parameter] public int? ActiveChildKey { get; set; }
+    [Parameter] public string ChildLabel { get; set; } = "Years";
+    [Parameter] public EventCallback<TimelinePeriod> OnJump { get; set; }
+    private Task MobileJump(ChangeEventArgs args) => int.TryParse(args.Value?.ToString(), out var key)
+        && Periods.FirstOrDefault(p => p.Key == key) is { } period ? OnJump.InvokeAsync(period) : Task.CompletedTask;
+}

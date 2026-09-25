@@ -2141,7 +2141,10 @@ window.detailOrigin = (() => {
                         const element = scrollContainers.find(candidate =>
                             candidate.getAttribute('data-detail-origin-scroll') === position.key)
                             || scrollContainers[index];
-                        if (element) {
+                        // Catalogue timelines restore an indexed year, which may
+                        // require a different page window. A stale pixel offset
+                        // would override that jump and land in the wrong period.
+                        if (element && !element.querySelector('.app-timeline')) {
                             element.scrollTop = Number(position.top) || 0;
                         }
                     });

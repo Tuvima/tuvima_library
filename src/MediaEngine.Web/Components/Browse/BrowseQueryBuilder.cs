@@ -29,7 +29,8 @@ public static class BrowseQueryBuilder
             ParseList(query.GetValues("person")),
             query["status"] ?? string.Empty,
             ParseList(query.GetValues("year")),
-            int.TryParse(query["tile"], out var tileSize) ? tileSize : null);
+            int.TryParse(query["tile"], out var tileSize) ? tileSize : null,
+            query["period"] == "decade" ? MediaEngine.Web.Components.Shared.TimelineGrouping.Decade : MediaEngine.Web.Components.Shared.TimelineGrouping.Year);
     }
 
     public static string ResolveGrouping(string? requestedGrouping, BrowseTabPreset tab)
@@ -46,6 +47,7 @@ public static class BrowseQueryBuilder
 
     public static LibraryLayoutMode ResolveLayout(string? requestedLayout, BrowseTabPreset tab, string grouping)
     {
+        if (grouping == "timeline") return LibraryLayoutMode.Card;
         if (grouping is "tracks" or "songs")
         {
             return LibraryLayoutMode.List;
@@ -66,7 +68,7 @@ public static class BrowseQueryBuilder
 
         if (grouping == "timeline")
         {
-            return "oldest";
+            return "newest";
         }
 
         if (string.Equals(activeTabId, "music", StringComparison.OrdinalIgnoreCase))
@@ -94,7 +96,7 @@ public static class BrowseQueryBuilder
           && grouping == "playlists"
             ? [("newest", "Recently updated"), ("title", "Title A-Z"), ("oldest", "Oldest")]
         : grouping == "timeline"
-            ? [("oldest", "Oldest first"), ("newest", "Newest first"), ("title", "Title A-Z")]
+            ? [("oldest", "Oldest first"), ("newest", "Newest first")]
             : IsContainerGrouping(grouping)
             ? [("featured", "Top"), ("title", "A-Z"), ("newest", "Newest")]
             : [("newest", "Newest"), ("title", "A-Z"), ("oldest", "Oldest"), ("creator", "Creator"), ("year", "Year")];

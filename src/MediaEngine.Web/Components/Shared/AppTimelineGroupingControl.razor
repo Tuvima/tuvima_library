@@ -1,0 +1,7 @@
+@namespace MediaEngine.Web.Components.Shared
+<label class="app-timeline-grouping"><span>Group by</span><AppNativeSelect Value="@Value.ToString()" OnChange="Changed" aria-label="Timeline grouping"><option value="Year">Year</option><option value="Decade">Decade</option></AppNativeSelect></label>
+@code {
+    [Parameter] public TimelineGrouping Value { get; set; }
+    [Parameter] public EventCallback<TimelineGrouping> ValueChanged { get; set; }
+    private Task Changed(ChangeEventArgs args) => ValueChanged.InvokeAsync(args.Value?.ToString() == "Decade" ? TimelineGrouping.Decade : TimelineGrouping.Year);
+}

@@ -7,6 +7,18 @@ namespace MediaEngine.Web.Tests;
 public sealed class BrowseQueryBuilderTests
 {
     [Fact]
+    public void TimelinePeriod_ParsesOnlySupportedGroupingWithoutChangingFilters()
+    {
+        var state = BrowseQueryBuilder.Read(CreatePreset(), "books", "http://localhost/read/books?period=decade&genre=History&q=travel");
+        Assert.Equal(MediaEngine.Web.Components.Shared.TimelineGrouping.Decade, state.Period);
+        Assert.Equal("travel", state.SearchText);
+        Assert.Contains("History", state.Genres);
+        Assert.Equal(MediaEngine.Web.Components.Shared.TimelineGrouping.Year,
+            BrowseQueryBuilder.Read(CreatePreset(), "books", "http://localhost/read/books?period=month").Period);
+        Assert.Equal("newest", BrowseQueryBuilder.ResolveSort(null, "books", "timeline"));
+        Assert.DoesNotContain(BrowseQueryBuilder.GetSortOptions("books", "timeline"), option => option.Value == "title");
+    }
+    [Fact]
     public void Read_NormalizesTabGroupingLayoutSortAndIgnoresLegacyGroupState()
     {
         var preset = CreatePreset();

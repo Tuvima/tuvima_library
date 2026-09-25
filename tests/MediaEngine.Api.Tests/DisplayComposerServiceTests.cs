@@ -5,6 +5,40 @@ namespace MediaEngine.Api.Tests;
 public sealed class DisplayComposerServiceTests
 {
     [Fact]
+    public async Task Timeline_IndexCoversFilteredResultsBeyondPageAndSupportsPeriodOffsets()
+    {
+        var works = Enumerable.Range(0, 180).Select(i => Work(Guid.NewGuid(), "Book", $"Book {i}", year: i < 90 ? "2024" : "1995", genre: "History")).ToList();
+        works.Add(Work(Guid.NewGuid(), "Book", "Unknown", genre: "History"));
+        works.Add(Work(Guid.NewGuid(), "Book", "Excluded", year: "1800", genre: "Fantasy"));
+        var service = CreateComposer(new StubDisplayProjectionRepository(works, []));
+        var page = await service.BuildBrowseAsync("read", "Books", "timeline", null, 0, 72, genres: "History", sort: "newest");
+        Assert.Equal(181, page.TotalCount);
+        Assert.Equal(72, page.Catalog.Count);
+        Assert.Equal(new[] { 2024, 1995, 0 }, page.Timeline!.Select(p => p.Year));
+        Assert.Equal(new[] { 0, 90, 180 }, page.Timeline!.Select(p => p.Offset));
+        var older = await service.BuildBrowseAsync("read", "Books", "timeline", null, page.Timeline![1].Offset, 72, genres: "History", sort: "newest");
+        Assert.All(older.Catalog, card => Assert.Equal(1995, card.SortYear));
+        var ascending = await service.BuildBrowseAsync("read", "Books", "timeline", null, 0, 72, genres: "History", sort: "oldest");
+        Assert.Equal(new[] { 1995, 2024, 0 }, ascending.Timeline!.Select(p => p.Year));
+    }
+
+    [Fact]
+    public async Task Timeline_CountsAlbumsAndShowsRatherThanTracksAndEpisodes()
+    {
+        var album = Guid.NewGuid(); var show = Guid.NewGuid();
+        var service = CreateComposer(new StubDisplayProjectionRepository([
+            Work(Guid.NewGuid(), "Music", "Track one", artist: "Artist", album: "Album", year: "1998", rootWorkId: album),
+            Work(Guid.NewGuid(), "Music", "Track two", artist: "Artist", album: "Album", year: "1998", rootWorkId: album),
+            Work(Guid.NewGuid(), "TV", "Pilot", showName: "Show", year: "2001", rootWorkId: show, season: "1", episode: "1"),
+            Work(Guid.NewGuid(), "TV", "Episode two", showName: "Show", year: "2001", rootWorkId: show, season: "1", episode: "2")], []));
+        var music = await service.BuildBrowseAsync("listen", "Music", "timeline", null, 0, 72);
+        Assert.Equal(1, music.TotalCount);
+        Assert.Equal(1998, Assert.Single(music.Timeline!).Year);
+        var tv = await service.BuildBrowseAsync("watch", "TV", "timeline", null, 0, 72);
+        Assert.Equal(1, tv.TotalCount);
+        Assert.Equal(2001, Assert.Single(tv.Timeline!).Year);
+    }
+    [Fact]
     public async Task MusicBrowse_ReturnsStructuredSongMetadataArtworkAndServerSort()
     {
         var second = Work(

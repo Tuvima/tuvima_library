@@ -12,4 +12,5 @@ public sealed record BrowseState(
     IReadOnlyList<string> Creators,
     string Status,
     IReadOnlyList<string> Years,
-    int? TileSize);
+    int? TileSize,
+    MediaEngine.Web.Components.Shared.TimelineGrouping Period = MediaEngine.Web.Components.Shared.TimelineGrouping.Year);

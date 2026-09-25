@@ -52,7 +52,15 @@ export function observeTimeline(anchor, dotnet, canLoadMore = false) {
     dotnet.invokeMethodAsync(
       'SetActiveTimelinePeriod',
       Number(current.dataset.year),
-      Number(current.dataset.month));
+      Number(current.dataset.month)).then(() => requestAnimationFrame(() => {
+        if (!anchor.isConnected || !rail || !matchMedia('(min-width:901px)').matches) return;
+        const active = rail.querySelector('.view-timeline-scrubber__year.is-active');
+        if (!active) return;
+        const bounds = rail.getBoundingClientRect();
+        const item = active.getBoundingClientRect();
+        if (item.bottom > bounds.bottom) rail.scrollTop += item.bottom - bounds.bottom;
+        else if (item.top < bounds.top) rail.scrollTop -= bounds.top - item.top;
+      })).catch(() => { /* The owning Blazor circuit may have disconnected. */ });
   };
 
   const scheduleUpdate = () => {

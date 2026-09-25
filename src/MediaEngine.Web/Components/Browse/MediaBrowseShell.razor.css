@@ -632,6 +632,14 @@
     justify-content: end;
 }
 
+.browse-shell__timeline-grouping {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    min-width: 0;
+    align-self: stretch;
+}
+.browse-shell__display-controls.is-timeline .browse-shell__display-label { grid-column: 2; }
+
 .browse-shell__sort-label,
 .browse-shell__display-label {
     color: rgba(215, 224, 240, 0.78);
@@ -1126,6 +1134,12 @@
         grid-column: 1;
         grid-row: 5;
     }
+
+    .browse-shell__timeline-grouping {
+        grid-column: 1;
+        grid-row: 5 / 7;
+    }
+    .browse-shell__display-controls.is-timeline .browse-shell__display-label { grid-column: 1; }
 
     .browse-shell__layout-toggle ::deep .browse-shell__layout-button {
         flex: 1;

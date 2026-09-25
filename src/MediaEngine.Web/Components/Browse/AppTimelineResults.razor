@@ -1,71 +1,33 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @namespace MediaEngine.Web.Components.Browse
 @inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+@using MediaEngine.Contracts.Display
 
-<section class="@RootClass" aria-label="Timeline results">
-    <aside class="app-timeline__navigator" aria-label="Timeline quick navigation">
-        @foreach (var decade in Decades)
-        {
-            <details class="app-timeline__decade" open @key="decade.StartYear">
-                <summary>
-                    <span>@DecadeLabel(decade.StartYear)</span>
-                    <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" />
-                </summary>
-
-                <div class="app-timeline__year-links">
-                    @foreach (var year in decade.Years)
-                    {
-                        var hasItems = AvailableYears.Contains(year);
-                        if (hasItems)
-                        {
-                            <a class="@YearLinkClass(year)"
-                               href="@YearNavigationUrl(year)"
-                               aria-current="@(year == _selectedYear ? "location" : null)"
-                               @onclick="() => SelectYear(year)">
-                                <span class="app-timeline__year-dot" aria-hidden="true"></span>
-                                <span>@year</span>
-                            </a>
-                        }
-                        else
-                        {
-                            <span class="app-timeline__year-link is-disabled" aria-disabled="true">
-                                <span class="app-timeline__year-dot" aria-hidden="true"></span>
-                                <span>@year</span>
-                            </span>
-                        }
-                    }
-                </div>
-            </details>
-        }
-
-        @if (HasUnknownYear)
-        {
-            <a class="@YearLinkClass(0)"
-               href="@YearNavigationUrl(0)"
-               aria-current="@(_selectedYear == 0 ? "location" : null)"
-               @onclick="() => SelectYear(0)">
-                <span class="app-timeline__year-dot" aria-hidden="true"></span>
-                <span>Unknown year</span>
-            </a>
-        }
-    </aside>
+<section class="@RootClass" aria-label="Timeline results" @ref="_root">
+    <AppTimelineNavigator Periods="@Periods" ActiveKey="@ActiveKey" ActiveChildKey="@_selectedYear" OnJump="JumpPeriodAsync" />
 
     <div class="app-timeline__content">
         <header class="app-timeline__header">
-            <span>Timeline view</span>
+            @if (ShowGroupingControl) { <AppTimelineGroupingControl Value="@Grouping" ValueChanged="ChangeGroupingAsync" /> }
             <small>@YearSemantic</small>
         </header>
 
         <div class="app-timeline__groups">
             @foreach (var group in Groups)
             {
-                <section id="@YearAnchor(group.Key)"
+                @if (Grouping == TimelineGrouping.Decade && (group == Groups.First() || (Groups.TakeWhile(value => value != group).Last().Key / 10 != group.Key / 10)))
+                {
+                    <h2 class="app-timeline__decade-heading">@(group.Key == 0 ? "Unknown year" : $"{group.Key / 10 * 10}s")</h2>
+                }
+                <section data-timeline-key="@group.Key" id="@YearAnchor(group.Key)"
                          class="@YearGroupClass(group.Key)"
-                         aria-labelledby="@($"timeline-heading-{group.Key}")"
+                         aria-labelledby="@($"{_instanceId}-heading-{group.Key}")"
                          @key="group.Key">
                     <header class="app-timeline__year-heading">
-                        <h3 id="@($"timeline-heading-{group.Key}")">@DisplayYear(group.Key)</h3>
-                        <span>@CountLabel(group.Count())</span>
+                        <h3 id="@($"{_instanceId}-heading-{group.Key}")">@DisplayYear(group.Key)</h3>
+                        <span>@CountLabel(Index?.FirstOrDefault(p => p.Year == group.Key)?.Count ?? group.Count())</span>
                     </header>
 
                     <div class="app-timeline__items">
@@ -80,7 +42,7 @@
                                     {
                                         <img src="@ItemArtworkUrl(item)"
                                              srcset="@item.TileImageSrcSet"
-                                             sizes="96px"
+                                             sizes="@($"{ArtworkWidth(item.Shape)}px")"
                                              alt=""
                                              loading="lazy"
                                              decoding="async" />
@@ -106,58 +68,72 @@
     [Parameter] public string YearSemantic { get; set; } = "Release / publication year";
     [Parameter] public string ItemNoun { get; set; } = "item";
 
+    [Parameter] public TimelineGrouping Grouping { get; set; }
+    [Parameter] public EventCallback<TimelineGrouping> GroupingChanged { get; set; }
+    [Parameter] public bool ShowGroupingControl { get; set; } = true;
+    [Parameter] public bool Descending { get; set; } = true;
+    [Parameter] public IReadOnlyList<DisplayTimelinePeriodDto>? Index { get; set; }
+    [Parameter] public EventCallback<int> OnJumpYear { get; set; }
+    private ElementReference _root;
+    private readonly string _instanceId = $"timeline-{Guid.NewGuid():N}";
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<AppTimelineResults>? _reference;
     private int? _selectedYear;
-    private int TimelineArtworkSizePx => Math.Clamp(
-        (int)Math.Round(TileSizePx * 0.55 / 4, MidpointRounding.AwayFromZero) * 4,
-        72,
-        104);
-
+    private int? _pendingJump;
+    private int _jumpVersion;
+    private int TimelineArtworkSizePx => Math.Clamp((int)Math.Round(TileSizePx * 0.55 / 4, MidpointRounding.AwayFromZero) * 4, 72, 104);
     private string RootClass => $"app-timeline app-timeline--art-{TimelineArtworkSizePx}";
-
-    private IReadOnlyList<IGrouping<int, MediaTileViewModel>> _groups = [];
-    private HashSet<int> _availableYears = [];
-    private IReadOnlyList<TimelineDecade> _decades = [];
-    private bool _hasUnknownYear;
-
-    private IReadOnlyList<IGrouping<int, MediaTileViewModel>> Groups => _groups;
-    private HashSet<int> AvailableYears => _availableYears;
-    private IReadOnlyList<TimelineDecade> Decades => _decades;
-    private bool HasUnknownYear => _hasUnknownYear;
-
+    private IReadOnlyList<IGrouping<int, MediaTileViewModel>> Groups = [];
+    private IReadOnlyList<TimelinePeriod> Years => (Index?.Select(p => new TimelinePeriod(p.Year, DisplayYear(p.Year), p.Count))
+        ?? Groups.Select(g => new TimelinePeriod(g.Key, DisplayYear(g.Key), g.Count())))
+        .OrderBy(p => p.Key == 0).ThenBy(p => Descending ? -p.Key : p.Key).ToList();
+    private IReadOnlyList<TimelinePeriod> Periods => Grouping == TimelineGrouping.Year ? Years
+        : Years.GroupBy(p => p.Key / 10 * 10).Select(g => new TimelinePeriod(g.Key, g.Key == 0 ? "Unknown year" : $"{g.Key}s", g.Sum(p => p.Count), g.Key == 0 ? null : g.ToList())).ToList();
+    private int? ActiveKey => Grouping == TimelineGrouping.Decade ? _selectedYear / 10 * 10 : _selectedYear;
     protected override void OnParametersSet()
     {
-        _groups = Items
-            .GroupBy(item => item.SortYear)
-            .OrderBy(group => group.Key == 0 ? int.MaxValue : group.Key)
-            .ToList();
-        var years = _groups.Select(group => group.Key).ToHashSet();
-        _availableYears = years.Where(year => year > 0).ToHashSet();
-        _decades = _availableYears
-            .GroupBy(year => year / 10 * 10)
-            .OrderBy(group => group.Key)
-            .Select(group => new TimelineDecade(group.Key, Enumerable.Range(group.Key, 10).ToList()))
-            .ToList();
-        _hasUnknownYear = years.Contains(0);
-        if (!_selectedYear.HasValue || !years.Contains(_selectedYear.Value))
-        {
-            _selectedYear = _groups.FirstOrDefault()?.Key;
-        }
+        Groups = Items.GroupBy(item => Math.Max(0, item.SortYear))
+            .OrderBy(group => group.Key == 0).ThenBy(group => Descending ? -group.Key : group.Key).ToList();
+        if (ShowGroupingControl) Grouping = System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query)["period"] == "decade" ? TimelineGrouping.Decade : TimelineGrouping.Year;
+        if (!_selectedYear.HasValue || !Years.Any(p => p.Key == _selectedYear)) _selectedYear = Groups.FirstOrDefault()?.Key;
     }
-
-    private void SelectYear(int year) => _selectedYear = year;
-
-    private string YearLinkClass(int year) =>
-        $"app-timeline__year-link {(year == _selectedYear ? "is-selected" : string.Empty)}";
-
-    private string YearGroupClass(int year) =>
-        $"app-timeline__year {(year == _selectedYear ? "is-selected" : string.Empty)}";
-
-    private string YearNavigationUrl(int year) =>
-        $"{new Uri(Nav.Uri).PathAndQuery}#{YearAnchor(year)}";
-
-    private static string YearAnchor(int year) => year > 0 ? $"timeline-year-{year}" : "timeline-year-unknown";
+    private async Task ChangeGroupingAsync(TimelineGrouping value)
+    {
+        Grouping = value;
+        await GroupingChanged.InvokeAsync(value);
+        Nav.NavigateTo(Nav.GetUriWithQueryParameter("period", value == TimelineGrouping.Decade ? "decade" : null));
+    }
+    private async Task JumpPeriodAsync(TimelinePeriod period)
+    {
+        var version = ++_jumpVersion;
+        var year = period.Children?.FirstOrDefault()?.Key ?? period.Key;
+        if (!Groups.Any(g => g.Key == year) && OnJumpYear.HasDelegate) await OnJumpYear.InvokeAsync(year);
+        if (version != _jumpVersion) return;
+        _selectedYear = year;
+        _pendingJump = year;
+    }
+    [JSInvokable] public Task SetActivePeriod(int year) { _selectedYear = year; return InvokeAsync(StateHasChanged); }
+    [JSInvokable] public async Task RestorePeriod(int year)
+    {
+        if (Years.FirstOrDefault(p => p.Key == year) is not { } period) return;
+        await JumpPeriodAsync(period);
+        await InvokeAsync(StateHasChanged);
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/catalogue-timeline.js");
+        _reference ??= DotNetObjectReference.Create(this);
+        await _module.InvokeVoidAsync("observe", _root, _reference);
+        if (_pendingJump is { } year && await _module.InvokeAsync<bool>("jump", _root, year)) _pendingJump = null;
+    }
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is not null) { try { await _module.InvokeVoidAsync("disconnect", _root); await _module.DisposeAsync(); } catch (JSDisconnectedException) { } }
+        _reference?.Dispose();
+    }
+    private string YearGroupClass(int year) => $"app-timeline__year {(year == _selectedYear ? "is-selected" : "")}";
+    private string YearAnchor(int year) => $"{_instanceId}-year-{year}";
     private static string DisplayYear(int year) => year > 0 ? year.ToString() : "Unknown year";
-    private static string DecadeLabel(int startYear) => $"{startYear}s";
     private string CountLabel(int count) => count == 1
         ? $"1 {ItemNoun}"
         : $"{count} {ItemNoun}s";
@@ -174,6 +150,7 @@
         MediaTileShape.Square => "is-square",
         _ => "is-portrait",
     };
+    private int ArtworkWidth(MediaTileShape shape) => (int)Math.Ceiling(TimelineArtworkSizePx * (shape == MediaTileShape.Landscape ? 1.18 : shape == MediaTileShape.Portrait ? .73 : 1));
 
-    private sealed record TimelineDecade(int StartYear, IReadOnlyList<int> Years);
+
 }

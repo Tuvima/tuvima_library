@@ -3,9 +3,9 @@
     display: grid;
     width: 100%;
     min-width: 0;
-    grid-template-columns: clamp(142px, 12vw, 184px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) 4.3rem;
     align-items: start;
-    gap: clamp(22px, 2.2vw, 34px);
+    gap: 1rem;
     padding: 18px 0 30px;
 }
 
@@ -19,137 +19,20 @@
 .app-timeline--art-100 { --timeline-artwork-size: 100px; }
 .app-timeline--art-104 { --timeline-artwork-size: 104px; }
 
-.app-timeline__navigator {
-    position: sticky;
-    top: 12px;
-    display: grid;
-    min-width: 0;
-    align-content: start;
-    gap: 17px;
-    max-height: calc(100dvh - 120px);
-    padding: 8px 20px 20px 2px;
-    overflow-y: auto;
-    border-right: 1px solid rgba(128, 146, 180, 0.2);
-    scrollbar-color: color-mix(in srgb, var(--tl-accent-primary) 40%, rgba(89, 105, 134, 0.56)) transparent;
-    scrollbar-width: thin;
-}
-
-.app-timeline__navigator::-webkit-scrollbar {
-    width: 6px;
-}
-
-.app-timeline__navigator::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.app-timeline__navigator::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--tl-accent-primary) 40%, rgba(89, 105, 134, 0.56));
-}
-
-.app-timeline__decade {
-    min-width: 0;
-}
-
-.app-timeline__decade summary {
-    display: flex;
-    min-height: 30px;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    color: color-mix(in srgb, var(--tl-accent-primary) 72%, white);
-    font-size: 0.9rem;
-    font-weight: 800;
-    list-style: none;
-    cursor: pointer;
-}
-
-.app-timeline__decade summary::-webkit-details-marker {
-    display: none;
-}
-
-.app-timeline__decade summary ::deep .mud-icon-root {
-    font-size: 1rem;
-    transition: transform 160ms ease;
-}
-
-.app-timeline__decade:not([open]) summary ::deep .mud-icon-root {
-    transform: rotate(-90deg);
-}
-
-.app-timeline__year-links {
-    position: relative;
-    display: grid;
-    gap: 0;
-    margin-top: 2px;
-    padding-left: 2px;
-}
-
-.app-timeline__year-links::before {
-    position: absolute;
-    top: 15px;
-    bottom: 15px;
-    left: 6px;
-    width: 1px;
-    background: rgba(94, 113, 146, 0.42);
-    content: "";
-}
-
-.app-timeline__year-link {
-    position: relative;
-    display: grid;
-    min-height: 29px;
-    grid-template-columns: 14px minmax(0, 1fr);
-    align-items: center;
-    gap: 8px;
-    padding: 2px 6px 2px 0;
-    color: rgba(167, 182, 207, 0.78);
-    border-radius: 7px;
-    font-size: 0.86rem;
-    font-weight: 600;
-    line-height: 1;
-    text-decoration: none;
-}
-
-a.app-timeline__year-link:hover,
-a.app-timeline__year-link:focus-visible {
-    color: rgba(231, 226, 255, 0.98);
-    outline: none;
-}
-
-.app-timeline__year-link.is-selected {
-    color: color-mix(in srgb, var(--tl-accent-primary) 70%, white);
-    font-weight: 800;
-}
-
-.app-timeline__year-link.is-disabled {
-    color: rgba(134, 151, 180, 0.48);
-    cursor: default;
-}
-
-.app-timeline__year-dot {
-    position: relative;
-    z-index: 1;
-    width: 6px;
-    height: 6px;
-    justify-self: center;
-    border-radius: 50%;
-    background: #3d4d69;
-}
-
-.app-timeline__year-link.is-selected .app-timeline__year-dot {
-    width: 15px;
-    height: 15px;
-    border: 3px solid color-mix(in srgb, var(--tl-accent-primary) 82%, white);
-    background: rgba(29, 22, 62, 0.98);
-    box-shadow: 0 0 14px color-mix(in srgb, var(--tl-accent-primary) 52%, transparent);
-}
-
 .app-timeline__content {
+    grid-column: 1;
+    grid-row: 1;
     display: grid;
     min-width: 0;
     gap: 12px;
 }
+
+.app-timeline ::deep .view-timeline-scrubber {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.app-timeline__decade-heading { margin: 1rem 0 .5rem; font-size: 1.15rem; }
 
 .app-timeline__header {
     display: grid;
@@ -188,7 +71,7 @@ a.app-timeline__year-link:focus-visible {
     border: 1px solid rgba(128, 146, 180, 0.19);
     border-radius: 12px;
     background: linear-gradient(145deg, rgba(15, 25, 42, 0.74), rgba(8, 15, 28, 0.46));
-    scroll-margin-top: 20px;
+    scroll-margin-top: 120px;
     transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
@@ -306,27 +189,12 @@ a.app-timeline__year-link:focus-visible {
 }
 
 @media (max-width: 900px) {
+    .app-timeline ::deep .view-timeline-scrubber { grid-column: 1; }
     .app-timeline {
         grid-template-columns: minmax(0, 1fr);
         gap: 16px;
     }
 
-    .app-timeline__navigator {
-        position: static;
-        display: flex;
-        max-height: none;
-        align-items: flex-start;
-        gap: 18px;
-        padding: 0 0 13px;
-        overflow-x: auto;
-        overflow-y: hidden;
-        border-right: 0;
-        border-bottom: 1px solid rgba(128, 146, 180, 0.2);
-    }
-
-    .app-timeline__decade {
-        min-width: 108px;
-    }
 }
 
 @media (max-width: 620px) {
@@ -346,7 +214,6 @@ a.app-timeline__year-link:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .app-timeline__decade summary ::deep .mud-icon-root,
     .app-timeline__year,
     .app-timeline__artwork {
         transition: none;

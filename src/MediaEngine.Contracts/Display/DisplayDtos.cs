@@ -10,7 +10,10 @@ public sealed record DisplayPageDto(
 {
     public int TotalCount { get; init; }
     public DisplayBrowseFacetsDto? Facets { get; init; }
+    public IReadOnlyList<DisplayTimelinePeriodDto>? Timeline { get; init; }
 }
+
+public sealed record DisplayTimelinePeriodDto(int Year, int Count, int Offset);
 
 public sealed record DisplayBrowseFacetsDto(
     IReadOnlyList<string> Genres,

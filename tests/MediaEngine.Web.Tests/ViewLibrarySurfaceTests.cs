@@ -329,7 +329,7 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("object-fit: cover", styles, StringComparison.Ordinal);
         Assert.Contains("--target-row-height:10rem", styles, StringComparison.Ordinal);
         Assert.Contains("flex:var(--view-aspect)", styles, StringComparison.Ordinal);
-        Assert.Contains("Enumerable.Range(earliest, latest - earliest + 1).Reverse()", scrubber, StringComparison.Ordinal);
+        Assert.Contains("<AppTimelineNavigator", scrubber, StringComparison.Ordinal);
         Assert.Contains("closest('.media-section-shell__content')", timelineScript, StringComparison.Ordinal);
         Assert.Contains("new ResizeObserver", timelineScript, StringComparison.Ordinal);
         Assert.Contains(":focus-visible", styles, StringComparison.Ordinal);

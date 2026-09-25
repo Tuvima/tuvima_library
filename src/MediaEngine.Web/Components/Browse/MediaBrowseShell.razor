@@ -170,7 +170,8 @@
                         </div>
                     </div>
 
-                    <div class="browse-shell__display-controls">
+                    <div class="browse-shell__display-controls @(IsTimelineGrouping ? "is-timeline" : "")">
+                        @if (IsTimelineGrouping) { <div class="browse-shell__timeline-grouping"><AppTimelineGroupingControl Value="@_timelineGrouping" ValueChanged="TimelineGroupingChanged" /></div> }
                         <span class="browse-shell__sort-label">Sort</span>
                         <span class="browse-shell__display-label">Display</span>
                         <AppSelect T="string"
@@ -201,7 +202,7 @@
                             </label>
                         }
 
-                        @if (SupportsLayoutToggle)
+                        @if (SupportsLayoutToggle && !IsTimelineGrouping)
                         {
                             <div class="browse-shell__layout-toggle" role="group" aria-label="View mode">
                                 <AppNativeButton Type="button"
@@ -325,6 +326,8 @@
     else if (IsTimelineGrouping)
     {
         <AppTimelineResults Items="@_cards"
+                            Grouping="@_timelineGrouping" ShowGroupingControl="false" Descending="@(_sortBy != "oldest")"
+                            Index="@_timelineIndex" OnJumpYear="JumpTimelineYearAsync"
                             TileSizePx="@TileSizePx"
                             YearSemantic="@CurrentTab.YearSemantic"
                             ItemNoun="@CurrentTab.TimelineItemNoun" />
@@ -362,6 +365,33 @@
     [Parameter] public bool ShowTabNavigation { get; set; } = true;
 
     private const int PageSize = 72;
+    private TimelineGrouping _timelineGrouping;
+    private IReadOnlyList<MediaEngine.Contracts.Display.DisplayTimelinePeriodDto>? _timelineIndex;
+    private int _timelineOffset;
+    private int _displayRequestVersion;
+    private async Task TimelineGroupingChanged(TimelineGrouping value)
+    {
+        _timelineGrouping = value;
+        Nav.NavigateTo(Nav.GetUriWithQueryParameter("period", value == TimelineGrouping.Decade ? "decade" : null));
+        await Task.CompletedTask;
+    }
+    private async Task JumpTimelineYearAsync(int year)
+    {
+        var period = _timelineIndex?.FirstOrDefault(p => p.Year == year);
+        if (period is null) return;
+        _loading = true;
+        try
+        {
+            if (!await LoadDisplayCardsAsync(false, period.Offset))
+                Snackbar.Add("Could not load that year. Please try again.", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not jump to timeline year {Year}", year);
+            Snackbar.Add("Could not load that year. Please try again.", Severity.Error);
+        }
+        finally { _loading = false; }
+    }
 
     private readonly HashSet<Guid> _selectedItems = [];
     private readonly List<MediaTileViewModel> _cards = [];
@@ -631,6 +661,7 @@
             ReadUrlState();
             await InvokeAsync(async () =>
             {
+                if (_lastParameterQueryKey == BuildCurrentQueryKey()) { StateHasChanged(); return; }
                 _lastParameterQueryKey = BuildCurrentQueryKey();
                 await LoadBrowseContentAsync();
                 StateHasChanged();
@@ -654,6 +685,7 @@
         }
         _searchText = state.SearchText;
         _sortBy = state.SortBy;
+        _timelineGrouping = state.Period;
         _selectedGenres.Clear();
         _selectedGenres.UnionWith(state.Genres);
         _selectedCreators.Clear();
@@ -690,7 +722,11 @@
 
         try
         {
-            if (IsPlaylistGrouping)
+            if (IsTimelineGrouping)
+            {
+                if (!await LoadDisplayCardsAsync(append)) throw new InvalidOperationException("The timeline could not be loaded.");
+            }
+            else if (IsPlaylistGrouping)
             {
                 await LoadPlaylistsAsync();
             }
@@ -706,6 +742,8 @@
                 else
                 {
                     await LoadGroupsAsync();
+                    _timelineIndex = null;
+                    _timelineOffset = 0;
                     _cards.Clear();
                     _cards.AddRange(_groups.Select(ToGroupCard));
                 }
@@ -783,9 +821,11 @@
         _layout,
         _activeProfileId?.ToString("N") ?? string.Empty);
 
-    private async Task<bool> LoadDisplayCardsAsync(bool append)
+    private async Task<bool> LoadDisplayCardsAsync(bool append, int? timelineOffset = null)
     {
-        var requestedOffset = append ? _cards.Count : 0;
+        var requestVersion = ++_displayRequestVersion;
+        var queryKey = BuildCurrentQueryKey();
+        var requestedOffset = timelineOffset ?? (append ? _timelineOffset + _cards.Count : 0);
         var page = await ApiClient.GetDisplayBrowseAsync(
             mediaType: CurrentTab.MediaType,
             grouping: _grouping,
@@ -799,6 +839,7 @@
             profileId: _activeProfileId,
             sort: _sortBy);
 
+        if (requestVersion != _displayRequestVersion || queryKey != BuildCurrentQueryKey()) return true;
         if (page is null)
         {
             return false;
@@ -814,16 +855,18 @@
         }
         else
         {
+            _timelineOffset = requestedOffset;
+            _timelineIndex = page.Timeline;
             _cards.Clear();
             _cards.AddRange(incoming);
             _facets = page.Facets;
             _totalCount = page.TotalCount > 0 ? page.TotalCount : page.Catalog.Count;
-            await LoadContinueAsync();
+            if (timelineOffset is null) await LoadContinueAsync();
         }
 
         _items = [];
         _groups = [];
-        _hasMore = page.Catalog.Count >= PageSize;
+        _hasMore = requestedOffset + page.Catalog.Count < page.TotalCount;
         return true;
     }
 
@@ -1820,6 +1863,7 @@
             : $"{Preset.RouteBase}/{_activeTabId}";
 
         var queryParts = new List<string>();
+        if (_timelineGrouping == TimelineGrouping.Decade) queryParts.Add("period=decade");
 
         if (!string.Equals(_grouping, CurrentTab.DefaultGrouping, StringComparison.OrdinalIgnoreCase))
         {
